@@ -136,6 +136,21 @@ Designed first in Figma ([Capital Street — PC UI](https://www.figma.com/design
 | Smooth | ✅ "Keep 60 fps automatically" lowers the resolution 10% after 2 slow seconds and raises it again after 5 smooth ones (tested: on this slow cloud machine it stepped down by itself) |
 | Phones still work | ✅ the same menu as a stack with a big green Play, a pause button in the clock bar, no key hints on touch screens |
 
+## Goal 12: bright, smooth, with levels ✅
+
+Designed first in Figma ([Capital Street — Bright UI](https://www.figma.com/design/IVnAL3NQiLgUSkZrrZrFLk)): Traffic Rush's vivid palette (22 colour tokens) and the layout city simulators use (level star and XP bar top left, money pills top right, a dock of round coloured buttons, ribbon pop-ups), as components plus an in-game HUD and a level-up screen. Our own art and layout; nothing copied from any game.
+
+| Check | Result |
+|---|---|
+| Vibrant colours like Traffic Rush | ✅ royal-blue panels with a thick dark outline, a coloured header ribbon per panel (exchange blue, bank gold, property orange, online pink, staff purple), chunky gradient buttons on a solid lip, gold and green accents, blue-to-purple menu and loading screens |
+| Like a city simulator | ✅ level star with an XP bar top left, money pills top right, round coloured dock buttons (bank gold, exchange blue, property orange, office purple, world green) |
+| Levels | ✅ XP for trades, rent paid, property bought, rent coming in, loans repaid, staff reports, new cities and every trading day; XP to the next level is 40 × level^1.8; 13 titles from Student to Wall Street Legend; "+XP" floats up from the star |
+| Level-up screen | ✅ turning rays, the star spins in, three rewards pop in one by one, COLLECT pays a level bonus that grows slowly (+$75 at level 2, about +$1,000 at level 10) so the economy doesn't inflate. Saved with the game and the cloud save |
+| Smoother UI | ✅ panels spring in from the side, cards pop, rows fade up one after another, the dock and top bar slide in, buttons press down onto their lip, the money pills bump and glow green or red when cash changes. Respects "reduce motion" |
+| Smoother map | ✅ the mouse wheel eases the camera to the new height (in log space, so it feels the same at street level and over the globe) instead of jumping a step per click; the camera glides a little longer after a drag |
+| Brighter graphics | ✅ a bluer sky, more fill light and a touch more exposure in the city |
+| Phones and PCs | ✅ checked at 375 × 812, 1024 × 768 and 1280 × 800 with no overlaps |
+
 ## Roadmap
 
 1. ✅ The New York map
@@ -154,14 +169,15 @@ From the 5 new reference videos (a player-run economy game on the real world map
 9. ✅ **Buildings that look like where they're built:** house, terrace, apartments, shop, office, tower, factory, church; each city's own style; 12 facade materials; attics, chimneys, solar panels, domes, battlements, sawtooth factory roofs, shopfronts
 10. ✅ **PC-first and smooth:** a perfect main menu and HUD designed in Figma from trending simulator UIs, mouse and keyboard controls, graphics settings, 60 fps
 11. ✅ **Multiplayer:** accounts and one shared world; everyone sees who owns what; chat; cloud saves (your cash, shares, loans, buildings and office follow your account to every device)
-12. **Real land and buildings for everyone:** land plots on the map; a Zillow-style property market with photos, filters and auctions with max bids; everything for sale lights up
-13. **Businesses:** farms, mines, oil rigs and shops on your land; NPC income that rewards setup cost and effort without inflating the economy
-14. **Player-set markets:** an item exchange where players set every price; production chains from raw resources to finished goods; a factory planner
-15. **Inside buildings:** rooms, furniture, renting rooms to players and NPCs, extensions and basements, temperature (heat from machines, cooling, happy tenants and workers)
-16. **Companies and the stock market:** start a company, take it public, players trade its shares
-17. **Logistics:** ports, ships and trucks moving goods between cities
-18. **Wiki, changelog and community**
-19. **Launch on PC:** hosting for a game of any size, then a desktop download (Steam / itch.io)
+12. ✅ **Bright, smooth, with levels:** a vivid simulator-style UI designed in Figma, spring animations everywhere, smooth zoom, brighter daylight, XP and levels with a level-up screen
+13. **Real land and buildings for everyone:** land plots on the map; a Zillow-style property market with photos, filters and auctions with max bids; everything for sale lights up
+14. **Businesses:** farms, mines, oil rigs and shops on your land; NPC income that rewards setup cost and effort without inflating the economy
+15. **Player-set markets:** an item exchange where players set every price; production chains from raw resources to finished goods; a factory planner
+16. **Inside buildings:** rooms, furniture, renting rooms to players and NPCs, extensions and basements, temperature (heat from machines, cooling, happy tenants and workers)
+17. **Companies and the stock market:** start a company, take it public, players trade its shares
+18. **Logistics:** ports, ships and trucks moving goods between cities
+19. **Wiki, changelog and community**
+20. **Launch on PC:** hosting for a game of any size, then a desktop download (Steam / itch.io)
 
 ## Legal
 

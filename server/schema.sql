@@ -3,7 +3,7 @@
 -- Everyone can read everything; every write is checked here, on the server:
 --   a player row is yours alone, a building can only be claimed if nobody else owns it, chat is posted as yourself.
 -- Not yet checked here: what you paid. Cash still lives in each player's own save until the economy moves to the
--- server (Goals 13 and 14), so a player who edits their save could afford more than they should.
+-- server (Goals 14 and 15), so a player who edits their save could afford more than they should.
 
 -- ---------- players ----------
 create table if not exists public.cs_players (
