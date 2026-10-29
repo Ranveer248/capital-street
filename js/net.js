@@ -30,7 +30,7 @@ window.Net = (function () {
     const { data, error } = await sb.from('cs_players').select('*').eq('id', user.id).maybeSingle();
     if (error) { status = 'error'; emit('me'); return; }
     me = data; status = me ? 'online' : 'no-player';
-    if (me) { players.set(me.id, { name: me.name, color: me.color }); await syncSave(); track(); report(); }
+    if (me) { players.set(me.id, { name: me.name, color: me.color }); if (await loadCloud()) return; await syncSave(); track(); report(); }
     emit('me');
   }
   const guest = async () => { const { error } = await sb.auth.signInAnonymously(); return error ? { ok: false, why: /anonymous/i.test(err(error)) ? 'Guest play is switched off on this server. Sign in with an email instead.' : err(error) } : { ok: true }; };
@@ -48,6 +48,7 @@ window.Net = (function () {
     const { data, error } = await sb.from('cs_players').insert({ id: user.id, name, color, city: CITY.id }).select().single();
     if (error) return { ok: false, why: /cs_players_name|duplicate/.test(error.message) ? `${name} is taken. Try another name.` : err(error) };
     me = data; status = 'online'; players.set(me.id, { name: me.name, color: me.color });
+    if (await loadCloud()) return { ok: true };
     await syncSave(); track(); report(); emit('me');
     return { ok: true };
   }
@@ -106,6 +107,51 @@ window.Net = (function () {
       } else if (!o || o.floors !== p.floors) await claim(k, p.floors, p.name);
     }
   }
+
+  // ---------- cloud saves: your cash, shares, loans, buildings and office follow your account (table cs_saves) ----------
+  // This device remembers which cloud copy it last matched. If the cloud copy changed since (you played on another
+  // device), the cloud copy wins and this device's save is kept as a backup; otherwise this device's save goes up.
+  const SAVE_KEY = 'capital-street-market-v1', SYNC_KEY = 'cs-cloud-sync';
+  const ls = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* storage blocked */ } } };
+  const hash = s => { let h = 0; for (let i = 0; i < s.length; i++) h = Math.imul(h, 31) + s.charCodeAt(i) | 0; return h; };
+  const marker = () => { try { return JSON.parse(ls.get(SYNC_KEY)) || {}; } catch (e) { return {}; } };
+  let cloudAt = null, cloudBusy = false;
+  function mark(at, h) { cloudAt = at; ls.set(SYNC_KEY, JSON.stringify({ uid: me.id, at, hash: h })); }
+  function packSave() { // the charts keep one point per 15 game minutes, so a save is about 150 KB instead of 2.5 MB
+    const S = M.state, stocks = {};
+    for (const [t, st] of Object.entries(S.stocks)) stocks[t] = Object.assign({}, st, { hist: st.hist.filter((h, i, a) => i === a.length - 1 || Math.floor(h.t / 15) !== Math.floor(a[i + 1].t / 15)) });
+    return { v: 1, city: CITY.id, market: Object.assign({}, S, { stocks }) };
+  }
+  async function pushCloud(force) {
+    if (status !== 'online' || cloudBusy) return;
+    const body = packSave(), h = hash(JSON.stringify(body));
+    if (force !== true && h === marker().hash) return; // nothing new since the last upload
+    cloudBusy = true;
+    const { data, error } = await sb.from('cs_saves').upsert({ player: me.id, data: body }).select('updated_at').single();
+    cloudBusy = false;
+    if (!error) { mark(data.updated_at, h); emit('cloud'); }
+  }
+  async function loadCloud() { // true when the page reloads with the cloud save
+    const { data, error } = await sb.from('cs_saves').select('data, updated_at').eq('player', me.id).maybeSingle();
+    if (error) return false;
+    const mk = marker();
+    if (!data || (mk.uid === me.id && mk.at === data.updated_at)) { cloudAt = data && data.updated_at; await pushCloud(!data); return false; }
+    const d = data.data;
+    if (!d || !d.market || !d.market.stocks) return false;
+    ls.set(SAVE_KEY + '-backup', ls.get(SAVE_KEY) || '');
+    mark(data.updated_at, null);
+    const S = M.state; // swapped in place, so the game's own saving can only ever write the cloud copy from here on
+    for (const k of Object.keys(S)) delete S[k];
+    Object.assign(S, d.market); M.save();
+    if (CITIES[d.city] && d.market.cities && d.market.cities[d.city]) ls.set('cs-city', d.city);
+    toast('Cloud save loaded', 'Your game from your account. This device\'s old save is kept as a backup.');
+    setTimeout(() => location.reload(), 1200);
+    return true;
+  }
+  setInterval(pushCloud, 60000);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) pushCloud(); });
+  M.on(type => { if (type === 'property' || type === 'loan' || type === 'city' || type === 'reset') setTimeout(pushCloud, 2000); });
+
   M.on((type, d) => { // sales of any kind (yours, or forced by the bank) give the building back to the world
     if (type !== 'property' || d.kind !== 'sold' || status !== 'online') return;
     const p = M.state.props[d.id];
@@ -205,7 +251,7 @@ window.Net = (function () {
     } else {
       const anon = user && user.is_anonymous, mineHere = [...owners.values()].filter(o => o.owner === me.id).length;
       body.innerHTML = `<div class="netp"><div class="prow big"><i style="background:${col(me.color)}"></i><b>${esc(me.name)}</b><span>${anon ? 'Guest' : esc(user.email || '')}</span></div>
-        <p class="note">${mineHere} building${mineHere === 1 ? '' : 's'} in ${esc(CITY.name)} registered to you.</p>
+        <p class="note">${mineHere} building${mineHere === 1 ? '' : 's'} in ${esc(CITY.name)} registered to you. ${cloudAt ? `Your game is saved to your account (last at ${new Date(cloudAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}), so it follows you to any device you sign in on.` : 'Saving your game to your account…'}</p>
         ${anon ? `<form id="netSave" class="cols"><small>KEEP THIS ACCOUNT: ADD AN EMAIL AND PASSWORD</small><input id="netEm" type="email" autocomplete="email" placeholder="Email" aria-label="Email" required><input id="netPw" type="password" autocomplete="new-password" placeholder="Password (8+ characters)" aria-label="Password" minlength="8" required><button class="btn">SAVE MY ACCOUNT</button></form>` : ''}
         <div class="row2"><button class="btn" id="netOut">SIGN OUT</button><button class="btn danger" id="netDel">DELETE MY ACCOUNT</button></div></div>`;
       if ($('netSave')) $('netSave').onsubmit = async e => { e.preventDefault(); const r = await saveEmail($('netEm').value, $('netPw').value); toast(r.ok ? 'Check your email' : 'Can\'t save', r.ok ? 'Confirm the address to finish saving your account.' : r.why); };

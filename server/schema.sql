@@ -1,4 +1,4 @@
--- Capital Street multiplayer (Goal 11): players, who owns which building, and chat.
+-- Capital Street multiplayer (Goal 11): players, who owns which building, chat and cloud saves.
 -- Run once in a Supabase project (SQL editor, or as a migration). Everything is prefixed cs_ so it can share a project.
 -- Everyone can read everything; every write is checked here, on the server:
 --   a player row is yours alone, a building can only be claimed if nobody else owns it, chat is posted as yourself.
@@ -94,8 +94,33 @@ end $$;
 drop trigger if exists cs_chat_before_insert on public.cs_chat;
 create trigger cs_chat_before_insert before insert on public.cs_chat for each row execute function public.cs_chat_before_insert();
 
+-- ---------- cloud saves: your game follows your account to every device ----------
+-- one row per player, holding the game's own save (cash, shares, loans, buildings, office, staff). Only you can read
+-- or write yours. It goes when your player does (delete my account).
+create table if not exists public.cs_saves (
+  player uuid primary key default auth.uid() references public.cs_players (id) on delete cascade,
+  data jsonb not null check (jsonb_typeof(data) = 'object' and octet_length(data::text) <= 1000000),
+  updated_at timestamptz not null default now()
+);
+alter table public.cs_saves enable row level security;
+drop policy if exists "read own save" on public.cs_saves;
+create policy "read own save" on public.cs_saves for select to authenticated using ((select auth.uid()) = player);
+drop policy if exists "add own save" on public.cs_saves;
+create policy "add own save" on public.cs_saves for insert to authenticated with check ((select auth.uid()) = player);
+drop policy if exists "update own save" on public.cs_saves;
+create policy "update own save" on public.cs_saves for update to authenticated using ((select auth.uid()) = player) with check ((select auth.uid()) = player);
+revoke all on public.cs_saves from anon;
+
+-- the server stamps the time, so "which save is newer" can't be faked by a device's clock
+create or replace function public.cs_saves_stamp()
+returns trigger language plpgsql set search_path = '' as $$
+begin new.updated_at := now(); return new; end $$;
+drop trigger if exists cs_saves_stamp on public.cs_saves;
+create trigger cs_saves_stamp before insert or update on public.cs_saves for each row execute function public.cs_saves_stamp();
+revoke all on function public.cs_saves_stamp() from public, anon, authenticated;
+
 -- ---------- your account ----------
--- deletes your login, player, buildings and messages
+-- deletes your login, player, buildings, messages and cloud save
 create or replace function public.cs_delete_me()
 returns void language sql security definer set search_path = '' as $$
   delete from auth.users where id = auth.uid();

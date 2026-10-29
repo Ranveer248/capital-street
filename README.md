@@ -153,7 +153,7 @@ From the 5 new reference videos (a player-run economy game on the real world map
 
 9. ✅ **Buildings that look like where they're built:** house, terrace, apartments, shop, office, tower, factory, church; each city's own style; 12 facade materials; attics, chimneys, solar panels, domes, battlements, sawtooth factory roofs, shopfronts
 10. ✅ **PC-first and smooth:** a perfect main menu and HUD designed in Figma from trending simulator UIs, mouse and keyboard controls, graphics settings, 60 fps
-11. ✅ **Multiplayer:** accounts and one shared world; everyone sees who owns what; chat
+11. ✅ **Multiplayer:** accounts and one shared world; everyone sees who owns what; chat; cloud saves (your cash, shares, loans, buildings and office follow your account to every device)
 12. **Real land and buildings for everyone:** land plots on the map; a Zillow-style property market with photos, filters and auctions with max bids; everything for sale lights up
 13. **Businesses:** farms, mines, oil rigs and shops on your land; NPC income that rewards setup cost and effort without inflating the economy
 14. **Player-set markets:** an item exchange where players set every price; production chains from raw resources to finished goods; a factory planner
@@ -181,6 +181,8 @@ Online play needs a free [Supabase](https://supabase.com) project. Until one is 
 2. **Authentication → Sign In / Providers:** turn on **Allow anonymous sign-ins** (for "Play online as a guest") and keep **Email** on. Optional: turn off "Confirm email" while testing.
 3. **Project Settings → API Keys:** copy the project URL and the **publishable** key (`sb_publishable_...`, or the legacy `anon` key) into [`js/net-config.js`](js/net-config.js). Never put the `service_role` / secret key in the game: everything in it is public.
 4. Reload the game. The chip next to your cash turns into "Sign in"; press **O** in the menu or **T** in the game.
+
+Cloud saves: once you have a player, your game is saved to your account (table `cs_saves`, one row per player, only you can read or write it) every minute, when you buy or sell, and when you leave the page. On a device that last saw an older copy, the newer cloud copy loads and the old local save is kept as a backup (`capital-street-market-v1-backup`).
 
 Who may change what is enforced by the database itself (row-level security plus two checked functions), not by the game, so a modified game can't take someone else's building, post as someone else or rename them.
 
