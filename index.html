@@ -1,0 +1,1366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Capital Street</title>
+<meta name="theme-color" content="#0b1220">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Capital St">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link href="fonts/fonts.css" rel="stylesheet">
+<style>
+/* Capital Street, goal 1: the map. Zoomed out it's the world (only New York unlocked), zoomed in it's real Manhattan.
+   UI tokens and components follow the Figma file "Capital Street — Game UI". */
+:root {
+  --bg: #0b1220; --panel: rgba(15, 26, 46, 0.86); --edge: rgba(255, 255, 255, 0.14); --ink: #fff; --dim: #a9b4cc;
+  --green: #2fd47a; --green-deep: #138a4a; --gold: #ffcc4d; --gold-ink: #1a1300; --locked: #ff5a5f; --blue: #3b82f6;
+  --r-sm: 10px; --r-md: 14px; --r-lg: 18px; --shadow: 0 6px 18px rgba(0, 0, 0, .28);
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #2f87c8; color: var(--ink); font: 600 15px/1.3 Inter, system-ui, sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; }
+#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+svg.i { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.glass { background: var(--panel); border: 1px solid var(--edge); box-shadow: var(--shadow); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+button { font: inherit; color: inherit; cursor: pointer; }
+/* map labels */
+#labels { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+.lab { position: absolute; left: 0; top: 0; white-space: nowrap; display: none; will-change: transform; }
+.lab.country { font: 600 12px/1 Inter, sans-serif; color: #2a2e2a; text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px rgba(255, 255, 255, .8); }
+.lab.continent { font: 600 14px/1 Inter, sans-serif; color: #44513f; text-shadow: 0 0 2px #fff, 0 0 3px rgba(255, 255, 255, .8); }
+.lab.district { font: 400 13px/1 'Archivo Black', sans-serif; letter-spacing: .12em; text-shadow: 0 1px 3px rgba(0, 0, 0, .8); }
+.lab.water { font: italic 600 12px/1 Inter, sans-serif; letter-spacing: .25em; color: #e2f1ff; text-shadow: 0 1px 2px rgba(0, 40, 80, .7); }
+.lab.place { font: 800 12px/1 Inter, sans-serif; padding: 5px 9px; border-radius: 999px; background: var(--panel); border: 1px solid var(--edge); }
+.lab.street { font: 800 11px/1 Inter, sans-serif; color: #f4f4f4; text-shadow: 0 1px 2px #000, 0 0 4px #000; }
+.lab.home { display: none; align-items: center; gap: 6px; font: 800 12px/1 Inter, sans-serif; background: var(--gold); color: var(--gold-ink); padding: 6px 12px 6px 8px; border-radius: 999px; box-shadow: 0 2px 8px rgba(0, 0, 0, .4); }
+.lab.home svg.i { width: 16px; height: 16px; stroke-width: 2.4; }
+.lab.city { pointer-events: auto; cursor: pointer; text-align: center; }
+.lab.city .iso { width: 42px; height: 42px; display: block; filter: drop-shadow(0 3px 3px rgba(0, 0, 0, .35)); }
+.lab.city .cname { display: block; margin-top: 2px; font: 800 11px/1 Inter, sans-serif; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, .9); white-space: nowrap; transform: translateX(-25%); }
+.lab.city.locked .iso { filter: grayscale(1) brightness(.85) drop-shadow(0 3px 3px rgba(0, 0, 0, .35)); }
+.lab.city.locked .badge { background: #6b7280; }
+.lab.city.here .badge { background: #22c55e; }
+.lab.city .badge { position: absolute; left: 28px; top: -6px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--blue); border: 2px solid #fff; color: #fff; font: 800 11px/16px Inter, sans-serif; text-align: center; }
+/* HUD */
+#hud { position: fixed; inset: 0; pointer-events: none; }
+#hud[hidden] { display: none; }
+/* bottom dock, like the reference: the player in the middle, two round buttons each side, a price ticker underneath */
+#dock { position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 30px); z-index: 1; transform: translateX(-50%); display: flex; align-items: flex-end; gap: 10px; pointer-events: auto; }
+.dk { width: 40px; height: 40px; margin-bottom: 8px; border-radius: 50%; display: grid; place-content: center; padding: 0; background: rgba(38, 42, 50, .72); border: 1px solid rgba(255, 255, 255, .2); color: #fff; box-shadow: 0 3px 8px rgba(0, 0, 0, .3); }
+.dk svg.i { width: 20px; height: 20px; }
+.dk.locked { opacity: .6; }
+.dk:active, .avatar:active { transform: translateY(1px); }
+.avatar { width: 46px; height: 74px; padding: 0; border: 0; background: none; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, .45)); }
+.avatar svg { width: 100%; height: 100%; display: block; }
+#ticker { position: absolute; left: 0; right: 0; bottom: 0; height: calc(22px + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom); background: rgba(10, 14, 22, .55); overflow: hidden; }
+#tape { display: inline-flex; white-space: nowrap; font: 700 11px/22px Inter, sans-serif; letter-spacing: .06em; color: rgba(255, 255, 255, .75); animation: tape 70s linear infinite; }
+#tape span { padding-right: 26px; }
+#tape i { font-style: normal; } #tape .up { color: #39d98a; } #tape .dn { color: #ff6b6b; }
+@keyframes tape { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+#hint { position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 126px); transform: translateX(-50%); border-radius: 999px; padding: 8px 14px; font-size: 13px; white-space: nowrap; transition: opacity .6s; }
+#toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 122px); transform: translate(-50%, 12px); width: min(342px, calc(100vw - 32px)); display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: var(--r-lg); opacity: 0; transition: opacity .3s, transform .3s; pointer-events: none; }
+#toast.on { opacity: 1; transform: translate(-50%, 0); }
+#toast .badge { width: 36px; height: 36px; flex: none; display: grid; place-content: center; border-radius: var(--r-sm); background: rgba(255, 90, 95, .18); color: var(--locked); }
+#toast .badge svg.i { width: 20px; height: 20px; }
+#toast b { display: block; font: 800 14px/1.2 Inter, sans-serif; }
+#toast span { display: block; font-size: 12px; color: var(--dim); }
+
+/* ---------- trading UI, styled after the reference videos: thin dark banner, small round dock buttons, dark exchange panel ---------- */
+:root { --x-bg: rgba(20, 22, 27, .97); --x-panel: #1b1e24; --x-line: #2b2f37; --x-ink: #e6e8ec; --x-dim: #8b93a1; --x-up: #22c55e; --x-dn: #ef4444; --x-acc: #f5c518; }
+#bar { position: absolute; left: 50%; top: max(8px, env(safe-area-inset-top)); transform: translateX(-50%); display: flex; align-items: center; gap: 8px; max-width: calc(100vw - 16px); padding: 6px 12px; border-radius: 8px; background: rgba(16, 18, 22, .82); border: 1px solid rgba(255, 255, 255, .08); font: 700 11px/1.2 Inter, sans-serif; letter-spacing: .04em; color: #cfd4dc; white-space: nowrap; pointer-events: auto; }
+#bar .dot { width: 8px; height: 8px; border-radius: 4px; background: var(--x-acc); box-shadow: 0 0 6px var(--x-acc); flex: none; }
+#bar .dot.open { background: var(--x-up); box-shadow: 0 0 6px var(--x-up); } #bar .dot.closed { background: #6b7280; box-shadow: none; } #bar .dot.halted, #bar .dot.evicted { background: var(--x-dn); box-shadow: 0 0 6px var(--x-dn); }
+#bar b { color: #fff; }
+#bar button { border: 1px solid rgba(255, 255, 255, .15); background: rgba(255, 255, 255, .06); color: #fff; border-radius: 5px; padding: 2px 6px; font: 800 10px/1.2 Inter, sans-serif; }
+#money { position: absolute; left: 50%; top: calc(max(8px, env(safe-area-inset-top)) + 34px); transform: translateX(-50%); display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; width: max-content; max-width: calc(100vw - 16px); pointer-events: auto; }
+#money div { padding: 5px 10px; border-radius: 8px; background: rgba(16, 18, 22, .82); border: 1px solid rgba(255, 255, 255, .08); font: 700 11px/1.2 Inter, sans-serif; color: var(--x-dim); white-space: nowrap; }
+#money b { color: #fff; font-size: 12px; } #money .rent b { color: var(--x-acc); } #money .rent.late b { color: var(--x-dn); }
+#money .debt { cursor: pointer; } #money .debt b { color: #fca5a5; } #money .debt.late { border-color: var(--x-dn); }
+#breaking { position: fixed; left: 50%; top: calc(max(8px, env(safe-area-inset-top)) + 70px); transform: translate(-50%, -8px); width: min(420px, calc(100vw - 24px)); padding: 10px 12px; border-radius: 10px; background: #b91c1c; border: 1px solid #f87171; box-shadow: 0 8px 24px rgba(0, 0, 0, .45); color: #fff; opacity: 0; transition: opacity .3s, transform .3s; pointer-events: none; z-index: 4; }
+#breaking.on { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+#breaking.good { background: #15803d; border-color: #4ade80; }
+#breaking small { display: block; font: 800 10px/1.2 Inter, sans-serif; letter-spacing: .14em; opacity: .85; }
+#breaking b { display: block; font: 400 16px/1.15 'Archivo Black', sans-serif; margin: 3px 0; }
+#breaking span { display: block; font: 600 12px/1.3 Inter, sans-serif; }
+#breaking button { margin-top: 6px; border: 1px solid rgba(255, 255, 255, .5); background: rgba(0, 0, 0, .2); color: #fff; border-radius: 6px; padding: 4px 10px; font: 800 11px/1 Inter, sans-serif; }
+#dock .dk { width: 30px; height: 30px; margin-bottom: 10px; background: rgba(28, 30, 36, .85); border-color: rgba(255, 255, 255, .14); }
+#dock .dk svg.i { width: 16px; height: 16px; }
+#dock .avatar { width: 34px; height: 56px; }
+#tape .co { color: #7dd3fc; }
+/* exchange panel */
+#ex, #bank { position: fixed; inset: max(8px, env(safe-area-inset-top)) 8px calc(env(safe-area-inset-bottom) + 30px); display: flex; flex-direction: column; background: var(--x-bg); border: 1px solid var(--x-line); border-radius: 10px; color: var(--x-ink); font: 600 12px/1.35 Inter, sans-serif; z-index: 3; box-shadow: 0 12px 40px rgba(0, 0, 0, .5); overflow: hidden; }
+#ex[hidden], #bank[hidden] { display: none; }
+.exh { display: flex; align-items: center; gap: 10px; padding: 10px 12px 6px; }
+.exh > b { font: 800 11px/1 Inter, sans-serif; letter-spacing: .12em; }
+.exh .st { font: 800 10px/1 Inter, sans-serif; letter-spacing: .08em; color: var(--x-dim); margin-left: auto; }
+.exh button, .back { border: 0; background: none; color: var(--x-dim); font: 700 16px/1 Inter, sans-serif; padding: 2px 4px; }
+.tabs { display: flex; gap: 14px; padding: 0 12px; border-bottom: 1px solid var(--x-line); }
+.tabs button { border: 0; background: none; color: var(--x-dim); font: 700 12px/1 Inter, sans-serif; padding: 8px 0; border-bottom: 2px solid transparent; }
+.tabs button.on { color: #fff; border-bottom-color: var(--x-acc); }
+.tabs i { font-style: normal; color: var(--x-acc); }
+#exBody { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr; overflow: hidden; }
+#exBody[hidden] { display: none !important; }
+#exBody > div { overflow-y: auto; min-height: 0; }
+#list .row { display: grid; grid-template-columns: 52px 1fr auto; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--x-line); cursor: pointer; }
+#list .row.on { background: #252a33; }
+#list .row canvas { width: 52px; height: 22px; }
+#list .row b { display: block; font: 800 12px/1.2 Inter, sans-serif; } #list .row span { color: var(--x-dim); font-size: 11px; }
+#list .row .px { text-align: right; } #list .row .px b { font-size: 12px; }
+.up { color: var(--x-up); } .dn { color: var(--x-dn); }
+#detail, #ticket { padding: 12px; }
+.dh { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.dh .sym { font: 800 16px/1 Inter, sans-serif; } .dh .nm { color: var(--x-dim); }
+.dh .big { margin-left: auto; font: 800 22px/1 Inter, sans-serif; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px 10px; margin: 12px 0; }
+.stats div { font-size: 10px; color: var(--x-dim); letter-spacing: .04em; text-transform: uppercase; }
+.stats b { display: block; color: var(--x-ink); font: 700 12px/1.3 Inter, sans-serif; text-transform: none; letter-spacing: 0; }
+.chartbox { background: var(--x-panel); border: 1px solid var(--x-line); border-radius: 8px; padding: 6px; }
+.chartctl { display: flex; gap: 4px; justify-content: flex-end; margin-bottom: 4px; flex-wrap: wrap; }
+.chartctl button { border: 1px solid var(--x-line); background: none; color: var(--x-dim); font: 700 10px/1 Inter, sans-serif; padding: 4px 6px; border-radius: 4px; }
+.chartctl button.on { background: #2b313c; color: #fff; }
+#chart { width: 100%; height: 200px; display: block; }
+.tbl { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }
+.tbl th { text-align: left; color: var(--x-dim); font-weight: 700; padding: 6px 4px; border-bottom: 1px solid var(--x-line); }
+.tbl td { padding: 6px 4px; border-bottom: 1px solid var(--x-line); }
+.tbl td:last-child, .tbl th:last-child { text-align: right; }
+.sec { margin: 14px 0 4px; font: 800 10px/1 Inter, sans-serif; letter-spacing: .12em; color: var(--x-dim); }
+.book { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; font: 700 11px/1.5 Inter, sans-serif; background: var(--x-panel); border: 1px solid var(--x-line); border-radius: 8px; padding: 8px; }
+.book .a { color: var(--x-dn); } .book .b { color: var(--x-up); } .book .q { color: var(--x-dim); text-align: right; }
+.tk { margin-top: 10px; background: var(--x-panel); border: 1px solid var(--x-line); border-radius: 8px; padding: 10px; display: grid; gap: 8px; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; background: #111318; border-radius: 6px; padding: 3px; gap: 3px; }
+.seg button { border: 0; border-radius: 5px; background: none; color: var(--x-dim); font: 800 11px/1 Inter, sans-serif; padding: 8px; }
+.seg button.on.buy { background: #14532d; color: #4ade80; } .seg button.on.sell { background: #7f1d1d; color: #fca5a5; } .seg button.on.plain { background: #2b313c; color: #fff; }
+.fld { display: grid; gap: 4px; } .fld label { font-size: 10px; color: var(--x-dim); letter-spacing: .06em; text-transform: uppercase; }
+.step { display: grid; grid-template-columns: 36px 1fr 36px; background: #111318; border: 1px solid var(--x-line); border-radius: 6px; }
+.step button { border: 0; background: none; color: #fff; font: 700 16px/1 Inter, sans-serif; }
+.step input { min-width: 0; border: 0; background: none; color: #fff; text-align: center; font: 800 14px/1 Inter, sans-serif; padding: 9px 0; user-select: text; -webkit-user-select: text; }
+.pct { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.pct button { border: 1px solid var(--x-line); background: none; color: var(--x-dim); border-radius: 5px; padding: 6px 0; font: 700 11px/1 Inter, sans-serif; }
+.est { display: flex; justify-content: space-between; color: var(--x-dim); font-size: 11px; } .est b { color: #fff; }
+#go { border: 0; border-radius: 8px; padding: 13px; font: 800 14px/1 Inter, sans-serif; color: #052e16; background: var(--x-up); }
+#go.sell { background: var(--x-dn); color: #fff; }
+#go:disabled { opacity: .45; }
+.note { font-size: 10px; color: var(--x-dim); }
+#pf, #nf { flex: 1; overflow-y: auto; padding: 12px; }
+#pf[hidden], #nf[hidden] { display: none; }
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.cards div { background: var(--x-panel); border: 1px solid var(--x-line); border-radius: 8px; padding: 8px; font-size: 10px; color: var(--x-dim); text-transform: uppercase; letter-spacing: .05em; }
+.cards b { display: block; color: #fff; font: 800 14px/1.3 Inter, sans-serif; text-transform: none; letter-spacing: 0; }
+.news { padding: 10px 0; border-bottom: 1px solid var(--x-line); }
+.news small { color: var(--x-dim); font-weight: 700; } .news b { display: block; margin: 2px 0; } .news span { color: var(--x-dim); }
+.mini { border: 1px solid var(--x-line); background: none; color: var(--x-dim); border-radius: 5px; padding: 3px 7px; font: 700 10px/1 Inter, sans-serif; }
+/* phones: list first, a company opens full width */
+@media (max-width: 899px) {
+  #exBody.pick #detail, #exBody.pick #ticket { display: none; }
+  #exBody:not(.pick) #list { display: none; }
+  #exBody:not(.pick) { display: block; overflow-y: auto; }
+  #exBody:not(.pick) > div { overflow: visible; }
+}
+@media (min-width: 900px) {
+  #ex { left: 50%; transform: translateX(-50%); width: min(1180px, calc(100vw - 32px)); }
+  #bank { left: 50%; transform: translateX(-50%); width: min(560px, calc(100vw - 32px)); }
+  #exBody { grid-template-columns: 270px 1fr 290px; }
+  #list { border-right: 1px solid var(--x-line); } #ticket { border-left: 1px solid var(--x-line); }
+  .back { display: none; }
+}
+
+/* Big Apple Bank: same dark panel as the exchange */
+#bankBody { flex: 1; overflow-y: auto; padding: 12px; display: grid; gap: 12px; align-content: start; }
+.score { background: var(--x-panel); border: 1px solid var(--x-line); border-radius: 8px; padding: 12px; }
+.score .top { display: flex; align-items: baseline; justify-content: space-between; }
+.score .top b { font: 800 26px/1 Inter, sans-serif; } .score .top span { font: 800 12px/1 Inter, sans-serif; }
+.gauge { position: relative; height: 8px; border-radius: 4px; margin: 10px 0 4px; background: linear-gradient(90deg, #ef4444, #f59e0b 40%, #eab308 60%, #22c55e); }
+.gauge i { position: absolute; top: -4px; width: 4px; height: 16px; margin-left: -2px; border-radius: 2px; background: #fff; box-shadow: 0 0 0 2px #111; }
+.gauge + div { display: flex; justify-content: space-between; font-size: 10px; color: var(--x-dim); }
+.lcard { background: var(--x-panel); border: 1px solid var(--x-line); border-radius: 8px; padding: 12px; display: grid; gap: 8px; }
+.lcard.active { border-color: var(--x-acc); }
+.lcard.locked { opacity: .55; }
+.lcard .row1 { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.lcard .row1 b { font: 800 14px/1.2 Inter, sans-serif; } .lcard .row1 strong { font: 800 20px/1 Inter, sans-serif; }
+.lcard .terms { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.lcard .terms div { font-size: 10px; color: var(--x-dim); text-transform: uppercase; letter-spacing: .05em; }
+.lcard .terms b { display: block; font: 700 12px/1.3 Inter, sans-serif; color: #fff; text-transform: none; letter-spacing: 0; }
+.lcard .why { font-size: 11px; color: var(--x-dim); }
+.lcard button.main { border: 0; border-radius: 8px; padding: 12px; font: 800 13px/1 Inter, sans-serif; background: var(--x-up); color: #052e16; }
+.lcard button.main.pay { background: var(--x-acc); color: #1a1300; }
+.lcard button.main:disabled { background: #2b313c; color: var(--x-dim); }
+.bar2 { height: 6px; border-radius: 3px; background: #111318; overflow: hidden; } .bar2 i { display: block; height: 100%; background: var(--x-acc); }
+.lab.place.bank { pointer-events: auto; cursor: pointer; background: #1d4ed8; border-color: #93c5fd; }
+
+/* property: the listings screen and the listing card, like the reference videos' property auctions */
+#props { position: fixed; inset: max(8px, env(safe-area-inset-top)) 8px calc(env(safe-area-inset-bottom) + 30px); display: flex; flex-direction: column; background: var(--x-bg); border: 1px solid var(--x-line); border-radius: 10px; color: var(--x-ink); font: 600 12px/1.35 Inter, sans-serif; z-index: 3; box-shadow: 0 12px 40px rgba(0, 0, 0, .5); overflow: hidden; }
+#props[hidden], #listing[hidden] { display: none; }
+#propsBody { flex: 1; overflow-y: auto; padding: 12px; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.chips button { border: 1px solid var(--x-line); background: none; color: var(--x-dim); border-radius: 999px; padding: 6px 10px; font: 700 11px/1 Inter, sans-serif; }
+.chips button.on { background: var(--x-acc); border-color: var(--x-acc); color: #1a1300; }
+.pgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.pcard { text-align: left; border: 1px solid var(--x-line); background: var(--x-panel); border-radius: 8px; padding: 0 0 8px; color: var(--x-ink); overflow: hidden; display: grid; gap: 2px; }
+.pcard .pp { position: relative; height: 96px; background: #2b313c; margin-bottom: 4px; }
+.pcard .pp img, .pcard .pp svg { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pcard b { padding: 0 8px; font: 800 13px/1.2 Inter, sans-serif; } .pcard span { padding: 0 8px; font-size: 10px; color: var(--x-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tag { position: absolute; left: 8px; top: 8px; padding: 3px 7px; border-radius: 5px; background: var(--x-acc); color: #1a1300; font: 800 9px/1.2 Inter, sans-serif; letter-spacing: .06em; }
+.tag.own { background: #2fd47a; color: #052e16; }
+.tag.theirs { background: #4c8dff; color: #fff; }
+.goal { border: 1px solid var(--x-acc); background: rgba(245, 197, 24, .1); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; cursor: pointer; display: grid; gap: 2px; }
+.goal small { font: 800 10px/1 Inter, sans-serif; letter-spacing: .12em; color: var(--x-acc); } .goal b { font: 800 14px/1.2 Inter, sans-serif; } .goal span { color: var(--x-dim); font-size: 11px; }
+#listing { position: fixed; left: 8px; right: 8px; bottom: calc(env(safe-area-inset-bottom) + 30px); max-height: calc(100% - 120px); overflow-y: auto; background: var(--x-bg); border: 1px solid var(--x-line); border-radius: 10px; color: var(--x-ink); font: 600 12px/1.35 Inter, sans-serif; z-index: 3; box-shadow: 0 12px 40px rgba(0, 0, 0, .5); }
+.lsh { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px 6px; } .lsh b { font: 800 11px/1 Inter, sans-serif; letter-spacing: .12em; }
+.lsh button { border: 0; background: none; color: var(--x-dim); font: 700 16px/1 Inter, sans-serif; }
+.lpic { position: relative; margin: 0 12px; height: 150px; border-radius: 8px; overflow: hidden; background: #2b313c; }
+.lpic img, .lpic svg { width: 100%; height: 100%; object-fit: cover; display: block; }
+.lbody { padding: 10px 12px 12px; }
+.lt { display: flex; justify-content: space-between; gap: 10px; } .lt b { display: block; font: 800 16px/1.2 Inter, sans-serif; } .lt span { color: var(--x-dim); font-size: 11px; }
+.lp { text-align: right; } .lp strong { display: block; font: 800 20px/1.1 Inter, sans-serif; color: var(--x-acc); }
+.lbtns { display: grid; gap: 6px; } .lbtns button { border: 0; border-radius: 8px; padding: 12px; font: 800 13px/1 Inter, sans-serif; }
+.lbtns .buy { background: var(--x-acc); color: #1a1300; } .lbtns .sell { background: #7f1d1d; color: #fecaca; } .lbtns .plain { background: #2b313c; color: #fff; }
+.lab.place.mine { pointer-events: auto; cursor: pointer; background: #15803d; border-color: #4ade80; }
+.lab.place.theirs { pointer-events: auto; cursor: pointer; background: #1d4ed8; border-color: #93b4ff; }
+@media (min-width: 900px) { #props { left: 50%; transform: translateX(-50%); width: min(900px, calc(100vw - 32px)); } #listing { left: auto; right: 16px; width: 380px; } }
+
+/* office mode: the dock gives way to the office toolbar */
+#hud.in-office #dock, #hud.in-office #hint { display: none; }
+body.in-office .lab.mine { display: none !important; } /* inside, the office's own marker would sit on the floor plan */
+#obar { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 32px); transform: translateX(-50%); display: flex; gap: 6px; align-items: center; padding: 6px; border-radius: 12px; background: var(--x-bg); border: 1px solid var(--x-line); box-shadow: 0 8px 24px rgba(0, 0, 0, .45); z-index: 3; color: var(--x-ink); font: 700 11px/1.2 Inter, sans-serif; white-space: nowrap; }
+#obar[hidden], #otray[hidden], #ostaff[hidden] { display: none; }
+#obar button { border: 0; border-radius: 8px; padding: 10px 12px; font: 800 12px/1 Inter, sans-serif; background: #2b313c; color: #fff; }
+#obar button.pri { background: var(--x-acc); color: #1a1300; }
+#obar .st { padding: 0 6px; color: var(--x-dim); } #obar .st b { color: #fff; }
+#otray { position: fixed; left: 8px; right: 8px; bottom: calc(env(safe-area-inset-bottom) + 86px); padding: 10px; border-radius: 10px; background: var(--x-bg); border: 1px solid var(--x-line); z-index: 3; color: var(--x-ink); box-shadow: 0 8px 24px rgba(0, 0, 0, .45); }
+.ocats { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 8px; scrollbar-width: none; }
+.ocats button { flex: none; border: 1px solid var(--x-line); background: none; color: var(--x-dim); border-radius: 999px; padding: 6px 10px; font: 700 11px/1 Inter, sans-serif; }
+.ocats button.on { background: var(--x-acc); border-color: var(--x-acc); color: #1a1300; } .ocats .rm.on { background: var(--x-dn); border-color: var(--x-dn); color: #fff; }
+.oitems { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; touch-action: pan-x; }
+.oitems button { flex: 0 0 104px; border: 1px solid var(--x-line); background: var(--x-panel); color: var(--x-ink); border-radius: 8px; padding: 8px 6px; display: grid; gap: 2px; justify-items: center; text-align: center; }
+.oitems button.on { border-color: var(--x-acc); box-shadow: 0 0 0 1px var(--x-acc) inset; }
+.oitems i { font-style: normal; font-size: 24px; } .oitems b { font: 800 11px/1.2 Inter, sans-serif; } .oitems span { font: 800 11px/1 Inter, sans-serif; color: var(--x-acc); } .oitems em { font-style: normal; font-size: 9px; color: var(--x-dim); }
+#otray .note { margin: 6px 0 0; }
+#ostaff { position: fixed; left: 8px; right: 8px; top: max(8px, env(safe-area-inset-top)); bottom: calc(env(safe-area-inset-bottom) + 86px); display: flex; flex-direction: column; background: var(--x-bg); border: 1px solid var(--x-line); border-radius: 10px; color: var(--x-ink); font: 600 12px/1.35 Inter, sans-serif; z-index: 3; box-shadow: 0 12px 40px rgba(0, 0, 0, .5); overflow: hidden; }
+#ostaffBody { flex: 1; overflow-y: auto; padding: 12px; }
+.srow { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--x-line); }
+.srow .av { width: 34px; height: 34px; border-radius: 17px; border: 2px solid #fff; }
+.srow b { display: block; font: 800 13px/1.2 Inter, sans-serif; } .srow span { display: block; font-size: 11px; color: var(--x-dim); } .srow i { font-style: normal; }
+.sb { display: flex; gap: 6px; } .sb button { border: 0; border-radius: 7px; padding: 8px 10px; font: 800 11px/1 Inter, sans-serif; background: var(--x-up); color: #052e16; }
+.sb button.ghost { background: #2b313c; color: var(--x-dim); }
+@media (min-width: 900px) { #otray { left: 50%; right: auto; transform: translateX(-50%); width: 720px; } #ostaff { left: auto; right: 16px; width: 420px; } }
+/* a city's card, opened from its marker on the map */
+#cityCard { position: fixed; left: 8px; right: 8px; bottom: calc(env(safe-area-inset-bottom) + 30px); max-height: calc(100% - 120px); overflow-y: auto; background: var(--x-bg); border: 1px solid var(--x-line); border-radius: 10px; color: var(--x-ink); font: 600 12px/1.35 Inter, sans-serif; z-index: 3; box-shadow: 0 12px 40px rgba(0, 0, 0, .5); }
+#cityCard[hidden] { display: none; }
+.cblurb { margin: 0 0 10px; color: #c3c9d3; font-size: 13px; }
+.need { display: flex; justify-content: space-between; margin: 8px 0 4px; } .need span { color: var(--x-dim); }
+.tag2 { display: inline-block; padding: 4px 8px; border-radius: 6px; background: #14532d; color: #4ade80; font: 800 11px/1 Inter, sans-serif; } .tag2.here { background: #1e3a8a; color: #bfdbfe; }
+.cos { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; margin-bottom: 10px; font-size: 11px; color: var(--x-dim); } .cos b { color: #fff; }
+.lbtns button:disabled { background: #2b313c; color: var(--x-dim); }
+@media (min-width: 900px) { #cityCard { left: auto; right: 16px; width: 380px; } }
+/* story cards */
+#story { position: fixed; inset: 0; display: grid; place-items: end center; padding: 16px; padding-bottom: calc(env(safe-area-inset-bottom) + 40px); background: linear-gradient(to top, rgba(8, 10, 16, .85), rgba(8, 10, 16, 0) 60%); z-index: 4; }
+#story[hidden] { display: none; }
+#story .box { width: min(420px, 100%); background: var(--x-bg); border: 1px solid var(--x-line); border-radius: 12px; padding: 16px; color: var(--x-ink); display: grid; gap: 10px; box-shadow: 0 12px 40px rgba(0, 0, 0, .5); }
+#story small { font: 800 10px/1 Inter, sans-serif; letter-spacing: .14em; color: var(--x-acc); }
+#story b { font: 400 22px/1.15 'Archivo Black', sans-serif; }
+#story p { margin: 0; color: #c3c9d3; font: 600 14px/1.45 Inter, sans-serif; }
+#story .facts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+#story .facts div { background: var(--x-panel); border: 1px solid var(--x-line); border-radius: 8px; padding: 8px; font: 700 10px/1.3 Inter, sans-serif; color: var(--x-dim); text-transform: uppercase; letter-spacing: .05em; }
+#story .facts b { display: block; font: 800 16px/1.3 Inter, sans-serif; color: #fff; text-transform: none; letter-spacing: 0; }
+#story .facts .warn b { color: var(--x-acc); }
+#story button { border: 0; border-radius: 8px; padding: 13px; font: 800 14px/1 Inter, sans-serif; background: var(--x-up); color: #052e16; }
+/* big centre text, like "WHERE YOU START" */
+#big { position: fixed; left: 50%; top: 19%; transform: translate(-50%, 10px); font: 400 clamp(34px, 11vw, 64px)/.95 'Archivo Black', sans-serif; text-align: center; color: #fff; -webkit-text-stroke: 2px rgba(0, 0, 0, .55); paint-order: stroke fill; text-shadow: 0 3px 0 rgba(0, 0, 0, .55), 0 0 18px rgba(0, 0, 0, .55); opacity: 0; transition: opacity .5s, transform .5s; pointer-events: none; width: 92vw; }
+#big.on { opacity: 1; transform: translate(-50%, 0); }
+/* title card */
+.ov { position: fixed; inset: 0; display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: max(24px, env(safe-area-inset-bottom)); background: linear-gradient(to top, rgba(11, 18, 32, .94), rgba(11, 18, 32, 0) 62%); }
+.ov[hidden] { display: none; }
+.over { font: 800 12px/1 Inter, sans-serif; letter-spacing: .24em; color: var(--green); }
+h1 { margin: 0; font: 400 clamp(44px, 15vw, 58px)/.92 'Archivo Black', sans-serif; text-shadow: 0 4px 0 rgba(0, 0, 0, .35); }
+h1 em { font-style: normal; color: var(--green); }
+/* ---------- PC UI (Goal 10), from the Figma file "Capital Street — PC UI": dark glass panels, a green accent, key hints ---------- */
+:root { --glass: rgba(14, 21, 36, .8); --raised: rgba(26, 35, 54, .92); --line: rgba(255, 255, 255, .1); --line2: rgba(255, 255, 255, .22); --tdim: #9aa6b8; --acc: #2fd06a; --acc-ink: #06210f; }
+.glass2 { background: var(--glass); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 12px 40px rgba(0, 0, 0, .4); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+kbd { display: inline-block; min-width: 20px; padding: 3px 6px; border-radius: 6px; background: var(--raised); border: 1px solid var(--line2); font: 700 11px/1.1 Inter, sans-serif; color: #eef2f7; text-align: center; white-space: nowrap; }
+@media (hover: none) { kbd, #keys, #sys { display: none !important; } }
+/* main menu: phones get a centred stack with a big green Play; PCs a left column over the slowly turning city */
+.menu-col { width: min(400px, 100%); display: grid; gap: 18px; }
+.brand { display: grid; gap: 10px; justify-items: center; text-align: center; }
+.tagline { margin: 0; color: var(--dim); font-size: 15px; line-height: 1.45; }
+.menu { display: grid; gap: 6px; }
+.mi { display: flex; align-items: center; gap: 14px; width: 100%; padding: 10px 16px; border-radius: 10px; border: 1px solid transparent; background: none; color: var(--ink); text-align: left; text-decoration: none; }
+.mi[hidden] { display: none; }
+.mi .mk { width: 4px; height: 26px; border-radius: 2px; flex: none; }
+.mi .mt { flex: 1; display: grid; gap: 2px; min-width: 0; }
+.mi b { font: 800 18px/1.15 Inter, sans-serif; }
+.mi small { font: 500 12px/1.3 Inter, sans-serif; color: var(--tdim); }
+.mi kbd { color: var(--tdim); background: none; }
+.mi:hover, .mi.sel, .mi:focus-visible { background: var(--raised); border-color: rgba(47, 208, 106, .55); outline: none; }
+.mi:hover .mk, .mi.sel .mk, .mi:focus-visible .mk { background: var(--acc); }
+.mi.warn small { color: #f87171; }
+.menu-foot { display: grid; gap: 8px; justify-items: center; }
+.menu-foot small { font-size: 12px; color: var(--dim); }
+.menu-foot .legal { margin: 0; }
+#mstatus { display: none; }
+#empire { display: none; }
+@media (max-width: 899px) {
+  #play { justify-content: center; padding: 18px; background: var(--green); color: var(--bg); border: 0; border-radius: var(--r-lg); box-shadow: 0 5px 0 var(--green-deep); }
+  #play .mt { justify-items: center; } #play b { font: 400 24px/1 'Archivo Black', sans-serif; letter-spacing: .04em; } #play .mk, #play kbd { display: none; } #play small { color: rgba(11, 18, 32, .75); text-align: center; }
+  #play:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--green-deep); }
+  .mi:not(#play) { padding: 8px 12px; } .mi:not(#play) b { font-size: 15px; }
+}
+@media (min-width: 900px) {
+  #title.ov { align-items: stretch; justify-content: flex-start; padding: 0; background: linear-gradient(90deg, rgba(11, 18, 32, .95) 0, rgba(11, 18, 32, .78) 34%, rgba(11, 18, 32, 0) 60%); }
+  .menu-col { width: min(600px, 46vw); align-content: center; padding: 48px 0 48px clamp(40px, 6vw, 120px); gap: 32px; }
+  .brand { justify-items: start; text-align: left; } h1 { font-size: clamp(72px, 6.4vw, 104px); } .tagline { max-width: 470px; font-size: 17px; }
+  .mi { padding: 12px 20px; } .mi b { font-size: 22px; } .mi small { font-size: 13px; }
+  .menu-foot { justify-items: start; }
+  #mstatus { display: flex; align-items: center; gap: 8px; position: absolute; top: 56px; right: clamp(24px, 5vw, 96px); padding: 8px 16px; border-radius: 999px; background: var(--glass); border: 1px solid var(--line); font: 800 12px/1 Inter, sans-serif; letter-spacing: .06em; }
+  #mstatus .dot { width: 8px; height: 8px; border-radius: 4px; background: var(--acc); box-shadow: 0 0 8px var(--acc); }
+  #empire:not([hidden]) { display: grid; gap: 10px; position: absolute; right: clamp(24px, 5vw, 96px); bottom: clamp(24px, 9vh, 96px); width: 400px; padding: 24px; background: var(--glass); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 12px 40px rgba(0, 0, 0, .4); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+  #empire small { font: 800 12px/1 Inter, sans-serif; letter-spacing: .16em; color: var(--tdim); }
+  #empire > b { font: 800 44px/1 Inter, sans-serif; } #empire > span { font: 700 14px/1 Inter, sans-serif; } #empire .up { color: #34d399; } #empire .dn { color: #f87171; }
+  #empire .chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 6px; }
+  #empire .chips div { padding: 8px 14px; border-radius: 10px; background: var(--raised); border: 1px solid var(--line); font: 700 11px/1.2 Inter, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--tdim); }
+  #empire .chips b { display: block; margin-top: 2px; font: 800 17px/1.2 Inter, sans-serif; letter-spacing: 0; text-transform: none; color: #fff; }
+}
+/* pause menu and settings */
+.ov2 { position: fixed; inset: 0; z-index: 6; display: grid; place-items: center; padding: 16px; background: rgba(5, 9, 18, .62); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.ov2[hidden] { display: none; }
+#settings { z-index: 7; } /* above the pause menu it can be opened from */
+.pcard { width: min(510px, 100%); padding: 24px; display: grid; gap: 8px; }
+.pcard h2, .smodal h2 { margin: 0; font: 400 40px/1 'Archivo Black', sans-serif; }
+.pcard > p { margin: 0 0 12px; color: var(--tdim); font: 500 14px/1.3 Inter, sans-serif; }
+.pcard .legal { margin-top: 8px; }
+.smodal { width: min(1040px, 100%); height: min(720px, calc(100vh - 32px)); display: grid; grid-template-columns: 240px 1fr; overflow: hidden; padding: 0; }
+.stabs { display: grid; align-content: start; gap: 4px; padding: 24px 16px; background: var(--raised); }
+.stabs h2 { font-size: 24px; margin-bottom: 16px; }
+.stabs button { text-align: left; padding: 12px 16px; border-radius: 10px; border: 1px solid transparent; background: none; color: var(--tdim); font: 600 15px/1 Inter, sans-serif; }
+.stabs button.on { color: #fff; font-weight: 800; background: rgba(255, 255, 255, .06); border-color: var(--line); }
+.sbody { display: flex; flex-direction: column; padding: 32px; overflow-y: auto; min-width: 0; }
+.sbody h3 { margin: 0; font: 800 26px/1.2 Inter, sans-serif; } .sbody > p { margin: 4px 0 16px; color: var(--tdim); font: 500 14px/1.3 Inter, sans-serif; }
+.srow { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.srow > div:first-child { display: grid; gap: 2px; } .srow b { font: 700 15px/1.2 Inter, sans-serif; } .srow small { font: 500 12px/1.3 Inter, sans-serif; color: var(--tdim); }
+.seg { display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--raised); flex: none; }
+.seg button { border: 0; border-radius: 7px; padding: 8px 16px; background: none; color: var(--tdim); font: 700 13px/1 Inter, sans-serif; }
+.seg button.on { background: var(--acc); color: var(--acc-ink); }
+.tog { width: 44px; height: 24px; flex: none; border-radius: 12px; border: 1px solid var(--line2); background: var(--raised); position: relative; padding: 0; }
+.tog::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: left .15s; }
+.tog[aria-pressed="true"] { background: var(--acc); border-color: var(--acc); } .tog[aria-pressed="true"]::after { left: 22px; }
+.rng { display: flex; align-items: center; gap: 12px; flex: none; } .rng input { width: 220px; accent-color: var(--acc); } .rng b { min-width: 44px; text-align: right; }
+.sfoot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: auto; padding-top: 24px; color: var(--tdim); font: 600 13px/1 Inter, sans-serif; }
+.sfoot div { display: flex; gap: 8px; }
+.btn { border-radius: 10px; padding: 12px 24px; font: 800 15px/1 Inter, sans-serif; letter-spacing: .04em; border: 1px solid var(--line); background: none; color: #fff; }
+.btn.pri { background: var(--acc); border-color: var(--acc); color: var(--acc-ink); }
+.keylist { display: grid; grid-template-columns: auto 1fr; gap: 10px 20px; align-items: center; font: 600 14px/1.3 Inter, sans-serif; }
+.keylist > span:nth-child(odd) { display: flex; gap: 4px; }
+.note2 { color: #f5b83d; font: 600 12px/1.3 Inter, sans-serif; }
+@media (max-width: 899px) { .smodal { grid-template-columns: 1fr; grid-template-rows: auto 1fr; } .stabs { grid-auto-flow: column; justify-content: start; padding: 12px; } .stabs h2 { display: none; } .sbody { padding: 16px; } .srow { flex-wrap: wrap; } .rng input { width: 160px; } }
+/* HUD bits shared by phones and PCs */
+#bMenu { padding: 2px 5px !important; display: grid; place-content: center; } #bMenu svg.i { width: 12px; height: 12px; }
+#sys, #keys { display: none; }
+.dl { display: none; }
+#fps { position: fixed; z-index: 5; top: calc(max(8px, env(safe-area-inset-top)) + 70px); left: 8px; padding: 6px 12px; border-radius: 999px; background: var(--glass); border: 1px solid var(--line); font: 700 12px/1 Inter, sans-serif; color: #34d399; pointer-events: none; }
+#fps[hidden] { display: none; } #fps.mid { color: #f5b83d; } #fps.low { color: #f87171; }
+/* PC: a clock bar at top left, money chips at the top centre, system buttons at top right, a labelled dock, panels docked on the right */
+@media (min-width: 1100px) and (hover: hover) {
+  #bMenu { display: none !important; }
+  #bar { left: 24px; top: 24px; transform: none; gap: 12px; padding: 9px 16px; border-radius: 999px; background: var(--glass); border-color: var(--line); font-size: 13px; letter-spacing: .06em; -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+  #bar button { padding: 5px 10px; border-radius: 7px; font-size: 12px; }
+  #money { top: 24px; gap: 8px; }
+  #money div { display: grid; gap: 2px; padding: 8px 16px; border-radius: 10px; background: var(--glass); border-color: var(--line); font: 700 11px/1.2 Inter, sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--tdim); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+  #money b { font: 800 18px/1.2 Inter, sans-serif; letter-spacing: 0; text-transform: none; }
+  #sys { display: flex; gap: 8px; position: absolute; top: 28px; right: 24px; pointer-events: auto; }
+  #sys button { display: flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; background: var(--glass); border: 1px solid var(--line); color: #fff; }
+  #sys svg.i { width: 18px; height: 18px; }
+  #fps { top: 30px; right: 220px; left: auto; }
+  #dock { gap: 22px; padding: 10px 24px; border-radius: 999px; background: var(--glass); border: 1px solid var(--line); bottom: 56px; align-items: center; -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); transition: left .3s; }
+  body.drawer #dock { left: calc((100vw - var(--drawer-w, 0px)) / 2); }
+  body.drawer #keys { display: none; } /* the dock moves over it */
+  #dock .dk, #dock .avatar { display: grid; justify-items: center; gap: 6px; width: auto; height: auto; margin: 0; padding: 0; background: none; border: 0; box-shadow: none; filter: none; }
+  #dock .dk svg.i { box-sizing: content-box; width: 22px; height: 22px; padding: 14px; border-radius: 50%; background: var(--raised); border: 1px solid var(--line2); }
+  #dock .dk:hover svg.i, #dock .dk.on svg.i { background: var(--acc); color: var(--acc-ink); border-color: var(--acc); }
+  #dock .avatar svg { width: 34px; height: 52px; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, .45)); }
+  .dl { display: flex; align-items: center; gap: 5px; font: 600 11px/1 Inter, sans-serif; color: var(--tdim); }
+  .dl kbd { min-width: 16px; padding: 2px 4px; font-size: 10px; }
+  #ticker { height: 32px; } #tape { font-size: 12px; line-height: 32px; }
+  #hint { display: none; }
+  #keys { display: flex; align-items: center; gap: 5px; position: absolute; left: 24px; bottom: 56px; padding: 9px 16px; border-radius: 999px; background: var(--glass); border: 1px solid var(--line); font: 600 12px/1 Inter, sans-serif; color: var(--tdim); transition: opacity .6s; }
+  #keys kbd { margin-left: 3px; }
+  #ex { inset: 92px 24px 48px auto; transform: none; width: min(1100px, 62vw); }
+  #bank, #props { inset: 92px 24px 48px auto; transform: none; width: 520px; }
+  #listing, #cityCard { left: auto; right: 24px; bottom: 48px; width: 420px; }
+  #ostaff { left: auto; right: 24px; top: 92px; bottom: 120px; width: 440px; }
+  #breaking { top: 96px; }
+}
+#load { position: fixed; inset: 0; display: grid; place-content: center; gap: 8px; text-align: center; background: var(--bg); font: 400 22px/1.2 'Archivo Black', sans-serif; }
+#load[hidden] { display: none; }
+#load small { font: 600 13px/1.3 Inter, sans-serif; color: var(--dim); }
+.legal { display: flex; justify-content: center; gap: 16px; margin-top: 10px; font: 600 12px/1 Inter, sans-serif; }
+.legal a { color: rgba(255, 255, 255, .6); text-decoration: none; pointer-events: auto; } .legal a:hover { color: #fff; text-decoration: underline; }
+/* ---------- multiplayer (Goal 11): the Online panel, chat and players ---------- */
+#netChip { cursor: pointer; } #netChip.on b { color: #34d399; }
+#net { position: fixed; inset: max(8px, env(safe-area-inset-top)) 8px calc(env(safe-area-inset-bottom) + 30px); display: flex; flex-direction: column; background: var(--x-bg); border: 1px solid var(--x-line); border-radius: 10px; color: var(--x-ink); font: 600 12px/1.35 Inter, sans-serif; z-index: 5; box-shadow: 0 12px 40px rgba(0, 0, 0, .5); overflow: hidden; }
+#net[hidden] { display: none; }
+#netBody { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; padding: 12px; }
+#net input { user-select: text; -webkit-user-select: text; background: var(--x-panel); border: 1px solid var(--x-line); border-radius: 8px; padding: 10px 12px; color: #fff; font: 600 14px/1.2 Inter, sans-serif; min-width: 0; }
+#net input:focus { outline: 2px solid rgba(47, 208, 106, .6); }
+.rooms { display: flex; gap: 6px; margin-bottom: 8px; }
+.rooms button { border: 1px solid var(--x-line); background: none; color: var(--x-dim); border-radius: 999px; padding: 6px 12px; font: 700 12px/1 Inter, sans-serif; }
+.rooms button.on { background: #fff; color: #111; border-color: #fff; }
+.msgs { flex: 1; min-height: 160px; overflow-y: auto; display: grid; align-content: start; gap: 6px; }
+.msg { font: 500 13px/1.4 Inter, sans-serif; overflow-wrap: anywhere; } .msg .mt { color: var(--x-dim); font-size: 11px; margin-right: 6px; } .msg b { margin-right: 4px; }
+.say { display: flex; gap: 6px; margin-top: 8px; } .say input { flex: 1; }
+.say button { border: 0; border-radius: 8px; padding: 0 16px; background: var(--acc); color: var(--acc-ink); font: 800 13px/1 Inter, sans-serif; }
+.netp { display: grid; gap: 10px; } .netp > b { font: 800 18px/1.2 Inter, sans-serif; } .netp p { margin: 0; color: #c3c9d3; font: 500 13px/1.45 Inter, sans-serif; } .netp p.note { color: var(--x-dim); font-size: 12px; }
+.netp small { color: var(--x-dim); font: 800 10px/1 Inter, sans-serif; letter-spacing: .12em; margin-top: 6px; }
+.netp a, .lnk { color: var(--acc); } .lnk { background: none; border: 0; padding: 0; text-decoration: underline; font: inherit; }
+.prow { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--x-line); font: 600 13px/1.2 Inter, sans-serif; }
+.prow i { width: 10px; height: 10px; border-radius: 50%; flex: none; } .prow span { margin-left: auto; color: var(--x-dim); } .prow .rk { margin-left: 0; width: 18px; }
+.prow.big { font-size: 18px; border: 0; } .prow.big i { width: 16px; height: 16px; }
+.cols { display: grid; gap: 8px; } .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.btn.wide { width: 100%; } .btn.danger { border-color: #7f1d1d; color: #fca5a5; }
+.swatches { display: flex; gap: 8px; flex-wrap: wrap; } .swatches button { width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent; padding: 0; } .swatches button.on { border-color: #fff; box-shadow: 0 0 0 2px rgba(255, 255, 255, .3); }
+@media (min-width: 900px) { #net { left: auto; right: 16px; width: 400px; } }
+@media (min-width: 1100px) and (hover: hover) { #net { inset: 92px 24px 48px auto; width: 420px; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></symbol>
+  <symbol id="i-bank" viewBox="0 0 24 24"><path d="M3 9 12 4l9 5"/><path d="M4 9h16"/><path d="M6 9v9M10 9v9M14 9v9M18 9v9"/><path d="M3 20h18"/></symbol>
+  <symbol id="i-city" viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V9h5v12"/><path d="M10 21V4h6v17"/><path d="M16 21v-9h4v9"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 3 2.5 15 0 18M12 3c-2.5 3-2.5 15 0 18"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+  <symbol id="i-people" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 14.4c2.9.2 5.5 2.3 5.5 5.6"/></symbol>
+  <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 9 5.5 4h13L20 9"/><path d="M4 9h16v1.5a2.7 2.7 0 0 1-5.3.8 2.7 2.7 0 0 1-5.4 0 2.7 2.7 0 0 1-5.3-.8z"/><path d="M5 13v7h14v-7"/><path d="M10 20v-4h4v4"/></symbol>
+  <symbol id="i-avatar" viewBox="0 0 40 64"><circle cx="20" cy="14" r="11" fill="#a3a9b2" stroke="#1d2430" stroke-width="2"/><rect x="9" y="27" width="22" height="35" rx="11" fill="#3b6fd8" stroke="#1d2430" stroke-width="2"/></symbol>
+  <symbol id="i-iso" viewBox="0 0 48 48"><path d="M24 7 39 15v20L24 43 9 35V15z" fill="#e9edf2" stroke="#3d4652" stroke-width="2" stroke-linejoin="round"/><path d="M24 23 39 15v20L24 43z" fill="#b6c0cc"/><path d="M24 23 9 15v20l15 8z" fill="#dfe5ec"/><path d="M24 7 39 15 24 23 9 15z" fill="#f8fafc"/><path d="M12 20.5l9 4.5M12 25.5l9 4.5M12 30.5l9 4.5" stroke="#6f8fb3" stroke-width="2"/><path d="M27 25l9-4.5M27 30l9-4.5M27 35l9-4.5" stroke="#55769c" stroke-width="2"/><path d="M24 7 39 15v20L24 43 9 35V15z" fill="none" stroke="#3d4652" stroke-width="2" stroke-linejoin="round"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M3 7h15a3 3 0 0 1 3 3v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 7l12-4v4"/><circle cx="16.5" cy="14" r="1.3"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></symbol>
+  <symbol id="i-news" viewBox="0 0 24 24"><path d="M4 5h13v14H6a2 2 0 0 1-2-2z"/><path d="M17 9h3v8a2 2 0 0 1-2 2"/><path d="M7 9h7M7 12h7M7 15h4"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3M14 9l2 2"/></symbol>
+  <symbol id="i-brief" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 13h18"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></symbol>
+</svg>
+<canvas id="c"></canvas>
+<div id="labels"></div>
+<div id="hud" hidden>
+  <div id="bar"><span class="dot" id="dot"></span><span id="clock">NEW YORK · DAY 1 · 09:28</span><b id="mstat">PRE-MARKET</b><button id="speed" aria-label="Game speed">1×</button><button id="skip" hidden>Skip to open ▸</button><button id="bMenu" aria-label="Menu"><svg class="i"><use href="#i-pause"/></svg></button></div>
+  <div id="sys"><button id="bSettings" aria-label="Settings"><svg class="i"><use href="#i-gear"/></svg><kbd>F10</kbd></button><button id="bPause" aria-label="Pause menu"><svg class="i"><use href="#i-pause"/></svg><kbd>Esc</kbd></button></div>
+  <div id="money"><div>Cash <b id="cashV">$0</b></div><div>Worth <b id="worthV">$0</b></div><div class="rent" id="rentBox">Rent <b id="rentV">-</b></div><div class="debt" id="debtBox" hidden>Loan <b id="debtV">-</b></div><div id="netChip">Online <b id="netV">Solo</b></div></div>
+  <div id="dock">
+    <button id="bBank" class="dk" aria-label="Big Apple Bank"><svg class="i"><use href="#i-bank"/></svg><span class="dl">Bank<kbd>B</kbd></span></button>
+    <button id="bExchange" class="dk" aria-label="Share exchange"><svg class="i"><use href="#i-chart"/></svg><span class="dl">Exchange<kbd>X</kbd></span></button>
+    <button id="bHome" class="avatar" aria-label="Your apartment"><svg viewBox="0 0 40 64"><use href="#i-avatar"/></svg><span class="dl">Home<kbd>H</kbd></span></button>
+    <button id="bProps" class="dk" aria-label="Property"><svg class="i"><use href="#i-key"/></svg><span class="dl">Property<kbd>P</kbd></span></button>
+    <button id="bOffice" class="dk" aria-label="Your office"><svg class="i"><use href="#i-brief"/></svg><span class="dl">Office<kbd>O</kbd></span></button>
+    <button id="bWorld" class="dk" aria-label="World map"><svg class="i"><use href="#i-globe"/></svg><span class="dl">World<kbd>M</kbd></span></button>
+  </div>
+  <div id="ticker"><div id="tape"></div></div>
+  <div id="hint" class="glass"></div>
+  <div id="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move <kbd>Q</kbd><kbd>E</kbd> turn <kbd>R</kbd><kbd>F</kbd> zoom <kbd>Space</kbd> pause time <kbd>?</kbd> all keys</div>
+</div>
+<div id="fps" hidden>60 FPS</div>
+<div id="toast" class="glass"><div class="badge"><svg class="i"><use href="#i-lock"/></svg></div><div><b id="toastT">Locked</b><span id="toastB">Only New York is open. More cities in a future update.</span></div></div>
+<div id="big"></div>
+<div id="breaking"><small id="brkK">BREAKING NEWS</small><b id="brkT"></b><span id="brkB"></span><button id="brkGo" hidden>Look</button></div>
+<div id="ex" hidden>
+  <div class="exh"><b>CAPITAL STREET SHARE EXCHANGE</b><span class="st" id="exSt"></span><button id="exX" aria-label="Close">✕</button></div>
+  <div class="tabs"><button data-tab="companies" class="on">Companies</button><button data-tab="portfolio">Portfolio <i id="posN"></i></button><button data-tab="news">News</button></div>
+  <div id="exBody" class="pick">
+    <div id="list"></div>
+    <div id="detail"></div>
+    <div id="ticket"></div>
+  </div>
+  <div id="pf" hidden></div>
+  <div id="nf" hidden></div>
+</div>
+<div id="bank" hidden>
+  <div class="exh"><b>BIG APPLE BANK · WALL STREET</b><span class="st" id="bankSt"></span><button id="bankX" aria-label="Close">✕</button></div>
+  <div id="bankBody"></div>
+</div>
+<div id="props" hidden>
+  <div class="exh"><b>PROPERTY · NEW YORK</b><span class="st"></span><button id="propsX" aria-label="Close">✕</button></div>
+  <div class="tabs"><button data-pt="sale" class="on">For sale</button><button data-pt="mine">Yours</button></div>
+  <div id="propsBody"></div>
+</div>
+<div id="listing" hidden></div>
+<div id="cityCard" hidden></div>
+<div id="obar" hidden><span class="st">Vibe <b id="oVibe">0</b></span><span class="st">Staff <b id="oStaff">0/0</b></span><button class="pri" id="oFurnish">Furnish</button><button id="oPeople">Staff</button><button id="oDone">Done</button></div>
+<div id="otray" hidden></div>
+<div id="ostaff" hidden>
+  <div class="exh"><b>YOUR OFFICE</b><span class="st"></span><button id="ostaffX" aria-label="Close">✕</button></div>
+  <div class="tabs"><button data-st="staff" class="on">Staff</button><button data-st="hire">Hire</button><button data-st="report">Report</button></div>
+  <div id="ostaffBody"></div>
+</div>
+<div id="story" hidden><div class="box" id="storyBox"></div></div>
+<div id="title" class="ov" hidden>
+  <div class="menu-col">
+    <div class="brand">
+      <div class="over">A WALL STREET STORY</div>
+      <h1>CAPITAL<br><em>STREET</em></h1>
+      <p class="tagline">You live alone in a tiny New York apartment and the rent is due. You just found some cash. Trade it into a fortune.</p>
+    </div>
+    <nav class="menu" aria-label="Main menu">
+      <button id="play" class="mi sel"><span class="mk"></span><span class="mt"><b id="playT">Play</b><small id="playD">Rent is due in 3 days</small></span><kbd>Enter</kbd></button>
+      <button id="mNew" class="mi" hidden><span class="mk"></span><span class="mt"><b>New game</b><small id="newD">Start over from day 1</small></span><kbd>N</kbd></button>
+      <button id="mWorld" class="mi"><span class="mk"></span><span class="mt"><b>World</b><small id="worldD">Your cities on the globe</small></span><kbd>M</kbd></button>
+      <button id="mOnline" class="mi"><span class="mk"></span><span class="mt"><b>Online</b><small id="onlineD">Playing solo</small></span><kbd>O</kbd></button>
+      <button id="mSettings" class="mi"><span class="mk"></span><span class="mt"><b>Settings</b><small>Graphics and controls</small></span><kbd>S</kbd></button>
+      <a id="mCredits" class="mi" href="credits.html" target="_blank" rel="noopener"><span class="mk"></span><span class="mt"><b>Credits</b></span><kbd>C</kbd></a>
+    </nav>
+    <div class="menu-foot">
+      <nav class="legal"><a href="terms.html" target="_blank" rel="noopener">Terms</a><a href="privacy.html" target="_blank" rel="noopener">Privacy</a><a href="credits.html" target="_blank" rel="noopener">Credits</a></nav>
+      <small>Paper trading · fictional companies · anything can happen</small>
+    </div>
+  </div>
+  <div id="mstatus"><span class="dot"></span><span id="mstatusT">NEW YORK</span></div>
+  <div id="empire" hidden><small>YOUR EMPIRE</small><b id="empW">$0</b><span id="empD"></span><div class="chips"><div>Cash<b id="empC">$0</b></div><div>Buildings<b id="empB">0</b></div><div>Staff<b id="empS">0</b></div></div></div>
+</div>
+<div id="load">Loading New York…<small id="loadMsg">Fetching 56,000 real buildings</small></div>
+
+<script src="lib/three.min.js"></script>
+<script src="lib/OrbitControls.js"></script>
+<script src="js/cities.js"></script>
+<script src="js/market.js"></script>
+<script>
+'use strict';
+const loadMsg = document.getElementById('loadMsg');
+if (!window.THREE || !THREE.MapControls) { loadMsg.textContent = 'Could not load the 3D engine. Check your connection and reload.'; throw new Error('three.js missing'); }
+
+// ---------- projection (same as tools/build_map.py): Web Mercator, 1 unit = 1 m at New York, origin Times Square ----------
+const LAT0 = CITY.lat, LON0 = CITY.lon, R = 6378137, K = Math.cos(LAT0 * Math.PI / 180); // everything is laid out around the city you're in
+const mercY = lat => Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360));
+const Y0 = mercY(LAT0);
+const ll = (lat, lon) => [R * K * (lon - LON0) * Math.PI / 180, -R * K * (mercY(lat) - Y0)];
+
+// ---------- places ----------
+const PLACE = {
+  home: ll(40.7097, -74.0087),            // as in the reference: a rooftop room on a tower by John Street and Broadway
+  wall: ll(40.7064, -74.0094),
+  bank: ll(40.7061, -74.0087),            // Big Apple Bank, on Wall Street
+  manhattan: ll(...CITY.centre), // the city view
+  world: ll(CITY.lat - 4.7, CITY.lon + 3.7)
+};
+const UNLOCKED_R = 45000; // metres around the city that are playable; other cities open from the globe
+
+// ---------- binary map files written by tools/build_map.py ----------
+async function loadBin(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(url + ' ' + res.status);
+  const buf = await res.arrayBuffer();
+  const hl = new DataView(buf).getUint32(0, true);
+  const head = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 4, hl)));
+  const T = { uint8: Uint8Array, uint16: Uint16Array, int16: Int16Array, uint32: Uint32Array, float32: Float32Array };
+  const out = {};
+  for (const [name, [type, off, n]] of Object.entries(head)) out[name] = new T[type](buf, 4 + hl + off, n);
+  return out;
+}
+// polygon layer → one flat geometry on the ground
+function polyGeo(d, name) {
+  const r = d[name + '.r'], xy = d[name + '.xy'], shapes = [];
+  let ri = 1, p = 0;
+  const ring = n => { const pts = []; for (let i = 0; i < n; i++, p += 2) pts.push(new THREE.Vector2(xy[p], -xy[p + 1])); return pts; };
+  for (let k = 0; k < r[0]; k++) {
+    const rings = r[ri++];
+    const s = new THREE.Shape(ring(r[ri++]));
+    for (let h = 1; h < rings; h++) s.holes.push(new THREE.Path(ring(r[ri++])));
+    shapes.push(s);
+  }
+  return new THREE.ShapeGeometry(shapes).rotateX(-Math.PI / 2);
+}
+
+// ---------- renderer, scene, camera ----------
+const canvas = document.getElementById('c');
+// Graphics settings (the Settings screen is in js/pc.js). Read before the renderer exists: anti-aliasing can't change later.
+const GFX_DEFAULT = { preset: 'high', cap: 2, scale: 1, auto: true, fpsCap: 60, shadows: 'high', aa: true, detail: 'high', showFps: false };
+const GFX = (() => { try { return Object.assign({}, GFX_DEFAULT, JSON.parse(localStorage.getItem('cs-gfx') || '{}')); } catch (e) { return Object.assign({}, GFX_DEFAULT); } })();
+let dynScale = 1; // lowered by "keep 60 fps automatically" when the city gets busy
+const pixelRatio = () => Math.max(0.5, Math.min(devicePixelRatio, GFX.cap) * GFX.scale * dynScale);
+// High-end graphics: physically based materials, filmic tone mapping, sky reflections and real-time sun shadows.
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: GFX.aa, powerPreference: 'high-performance' });
+renderer.setPixelRatio(pixelRatio());
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.85;
+renderer.shadowMap.enabled = GFX.shadows !== 'off';
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const lin = hex => new THREE.Color(hex).convertSRGBToLinear();
+const OCEAN = 0x2b84c4, LAND = 0x64a04b, HORIZON = 0xd4e4f1, ZENITH = 0x5d9bd6, PAVEMENT = 0x7fb95c, ASPHALT = 0x3e4046, SIDEWALK = 0xcfc8b6; // green lots and beige sidewalks, like the reference // land and sea as on the reference world map
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(lin(HORIZON), 1e9, 2e9);
+const camera = new THREE.PerspectiveCamera(50, 1, 1, 1e5);
+// sky: a gradient dome that follows the camera, also baked into an environment map for reflections
+const skyMat = new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, fog: false,
+  uniforms: { top: { value: lin(ZENITH) }, bottom: { value: lin(HORIZON) } },
+  vertexShader: 'varying vec3 vD; void main(){ vD = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `uniform vec3 top, bottom; varying vec3 vD;
+    void main(){
+      gl_FragColor = vec4(mix(bottom, top, pow(clamp(vD.y, 0.0, 1.0), 0.45)), 1.0);
+      #include <tonemapping_fragment>
+      #include <encodings_fragment>
+    }`
+});
+const sky = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 16), skyMat);
+sky.renderOrder = -1; sky.frustumCulled = false;
+scene.add(sky);
+{
+  const envScene = new THREE.Scene(), pm = new THREE.PMREMGenerator(renderer);
+  envScene.add(new THREE.Mesh(new THREE.SphereGeometry(10, 32, 16), skyMat));
+  envScene.add(new THREE.Mesh(new THREE.CircleGeometry(9.9, 32).rotateX(-Math.PI / 2).translate(0, -1, 0), new THREE.MeshBasicMaterial({ color: lin(0x5d5a55) })));
+  scene.environment = pm.fromScene(envScene, 0.02).texture;
+}
+scene.add(new THREE.HemisphereLight(lin(0xdfeaff), lin(0x4d463e), 0.3));
+const SUN_DIR = new THREE.Vector3(-0.6, 0.5, 0.55).normalize(); // a lower, warmer sun for long shadows
+const sunLight = new THREE.DirectionalLight(lin(0xffeccc), 3.0);
+sunLight.castShadow = true;
+sunLight.shadow.mapSize.setScalar(GFX.shadows === 'low' ? 2048 : 4096);
+sunLight.shadow.bias = -0.0004;
+sunLight.shadow.camera.near = 10; sunLight.shadow.camera.far = 12000;
+scene.add(sunLight, sunLight.target);
+
+// Flat ground layers are drawn bottom-up without writing depth, so they never flicker against each other.
+function flat(geo, color, order, extra, unlit) {
+  const m = new THREE.Mesh(geo, unlit ? new THREE.MeshBasicMaterial({ color: lin(color), depthWrite: false, toneMapped: false })
+    : new THREE.MeshStandardMaterial(Object.assign({ color: lin(color), roughness: 1, metalness: 0, depthWrite: false }, extra)));
+  m.renderOrder = order; m.frustumCulled = false; m.receiveShadow = true;
+  scene.add(m);
+  return m;
+}
+flat(new THREE.PlaneGeometry(1e8, 1e8).rotateX(-Math.PI / 2), OCEAN, 0, null, true); // flat colours, like the reference map
+
+// The locked world: a light tint everywhere except around New York (tapping it says it's locked).
+const veil = new THREE.Mesh(new THREE.PlaneGeometry(1e8, 1e8).rotateX(-Math.PI / 2), new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false,
+  uniforms: { r0: { value: UNLOCKED_R }, r1: { value: UNLOCKED_R * 1.6 }, amount: { value: 1 } },
+  vertexShader: 'varying vec2 vP; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vP = w.xz; gl_Position = projectionMatrix * viewMatrix * w; }',
+  fragmentShader: `uniform float r0, r1, amount; varying vec2 vP;
+    void main(){ gl_FragColor = vec4(0.03, 0.05, 0.1, smoothstep(r0, r1, length(vP)) * amount * 0.1); }`
+}));
+veil.renderOrder = 6; veil.frustumCulled = false;
+scene.add(veil);
+
+// thick screen-space lines (country borders, like the reference map)
+function thickLines(segs, widthPx, color, order) {
+  const n = segs.length / 4, a = new Float32Array(n * 12), b = new Float32Array(n * 12), meta = new Float32Array(n * 8), idx = [];
+  for (let i = 0; i < n; i++) {
+    for (let v = 0; v < 4; v++) {
+      a.set([segs[4 * i], 0, segs[4 * i + 1]], 12 * i + 3 * v);
+      b.set([segs[4 * i + 2], 0, segs[4 * i + 3]], 12 * i + 3 * v);
+      meta.set([v >> 1, v & 1 ? -1 : 1], 8 * i + 2 * v);
+    }
+    const o = 4 * i; idx.push(o, o + 1, o + 2, o + 2, o + 1, o + 3);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(a, 3)); g.setAttribute('b', new THREE.BufferAttribute(b, 3)); g.setAttribute('meta', new THREE.BufferAttribute(meta, 2));
+  g.setIndex(idx);
+  const m = new THREE.Mesh(g, new THREE.ShaderMaterial({
+    depthWrite: false, depthTest: false, transparent: true,
+    uniforms: { res: { value: new THREE.Vector2(1, 1) }, width: { value: widthPx }, color: { value: new THREE.Color(color) }, alpha: { value: 1 } },
+    vertexShader: `attribute vec3 b; attribute vec2 meta; uniform vec2 res; uniform float width;
+      void main(){
+        vec4 ca = projectionMatrix * viewMatrix * vec4(position, 1.0), cb = projectionMatrix * viewMatrix * vec4(b, 1.0);
+        vec2 d = normalize((cb.xy / cb.w - ca.xy / ca.w) * res + 1e-6), nrm = vec2(-d.y, d.x);
+        vec4 c = meta.x < 0.5 ? ca : cb;
+        c.xy += nrm * meta.y * width / res * c.w;
+        gl_Position = c;
+      }`,
+    fragmentShader: 'uniform vec3 color; uniform float alpha; void main(){ gl_FragColor = vec4(color, alpha); }'
+  }));
+  m.renderOrder = order; m.frustumCulled = false;
+  scene.add(m);
+  return m;
+}
+
+// ---------- buildings: real footprints and heights, extruded here ----------
+// Every building has a type and a material (tools/build_map.py works them out from the map data and the city's own style):
+//   types     0 house, 1 terraced house, 2 apartments, 3 shop, 4 office, 5 tower, 6 factory, 7 landmark (church, school, town hall)
+//   materials 0 red brick, 1 brownstone, 2 yellow brick, 3 grey stone, 4 limestone, 5 white stucco, 6 painted plaster,
+//             7 timber frame, 8 concrete, 9 glass, 10 wood siding, 11 metal cladding
+// plus flags: 1 battlements, 2 dome, 4 spire, 8 shops on the ground floor, 16/32/64 awning colour.
+// The shader draws each type's windows, doors and shopfronts, and each material's bricks, stone courses, beams, boards or ribs up close.
+const buildingMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.88, metalness: 0, envMapIntensity: 0.35 });
+buildingMat.onBeforeCompile = sh => {
+  sh.uniforms.awnC = { value: [[0.55, 0.06, 0.05], [0.04, 0.22, 0.12], [0.05, 0.11, 0.32], [0.62, 0.42, 0.05], [0.28, 0.05, 0.18], [0.6, 0.6, 0.58], [0.02, 0.02, 0.025], [0.6, 0.18, 0.04]].map(c => new THREE.Vector3(...c)) }; // awning colours
+  sh.vertexShader = sh.vertexShader
+    .replace('#include <common>', '#include <common>\nattribute vec3 fac;\nvarying vec3 vFac;\nvarying vec3 vWP;')
+    .replace('#include <project_vertex>', '#include <project_vertex>\nvFac = fac;\nvWP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+  sh.fragmentShader = sh.fragmentShader
+    .replace('#include <common>', `#include <common>
+      varying vec3 vFac; varying vec3 vWP;
+      float boxAA(float f, float a, float b, float w) { return clamp(smoothstep(a - w, a + w, f) - smoothstep(b - w, b + w, f), 0.0, 1.0); }
+      float lineAA(float f, float w, float aa) { return 1.0 - smoothstep(w - aa, w + aa, min(f, 1.0 - f)); } // a thin line at each whole number
+      float hash1(float n) { return fract(sin(n * 12.9898) * 43758.5453); }
+      uniform vec3 awnC[8];`)
+    .replace('#include <color_fragment>', `#include <color_fragment>
+      vec3 base = pow(diffuseColor.rgb, vec3(2.2)); // stored as sRGB bytes
+      vec3 wn = normalize(cross(dFdx(vWP), dFdy(vWP)));
+      float y = vWP.y, u = vFac.x, top = vFac.y, code = floor(vFac.z + 0.5);
+      float flags = floor(code / 256.0), sty = code - flags * 256.0, typ = floor(sty / 16.0), mat = sty - typ * 16.0;
+      float shopF = mod(floor(flags / 8.0), 2.0), awn = floor(flags / 16.0);
+      float gMask = 0.0;
+      vec3 c = base;
+      if (abs(wn.y) > 0.6) {
+        c = y > top - 0.6 ? mix(base, vec3(0.74, 0.73, 0.70), 0.7) : mix(vec3(0.016, 0.017, 0.02), base * 0.1, 0.1); // dark roofs, light parapet caps
+      } else if (y > top - 1.25 && top > 9.0 && typ != 6.0) {
+        c = mix(base, vec3(0.8, 0.79, 0.76), mat == 9.0 ? 0.85 : 0.55); // cornice
+        c *= 1.0 - 0.25 * boxAA(y, top - 1.25, top - 1.05, fwidth(y));
+      } else {
+        // ---- the wall's own surface, only up close ----
+        float px = max(fwidth(u), fwidth(y));
+        float near = 1.0 - smoothstep(0.03, 0.09, px);
+        if (near <= 0.0) {} // too far to see the surface
+        else if (mat < 2.5) { // brick courses and stretcher joints
+          float r = y / 0.3, rr = fract(r), cc = fract(u / 0.6 + mod(floor(r), 2.0) * 0.5);
+          c *= 1.0 - 0.16 * near * max(lineAA(rr, 0.06, fwidth(r)), lineAA(cc, 0.03, fwidth(u / 0.6)));
+          c *= 1.0 + 0.10 * near * (hash1(floor(r) * 7.0 + floor(u / 0.6 + mod(floor(r), 2.0) * 0.5)) - 0.5);
+        } else if (mat < 4.5) { // stone blocks
+          float r = y / 0.62, cc = fract(u / 1.3 + mod(floor(r), 2.0) * 0.5);
+          c *= 1.0 - 0.12 * near * max(lineAA(fract(r), 0.03, fwidth(r)), lineAA(cc, 0.015, fwidth(u / 1.3)));
+        } else if (mat == 7.0) { // timber frame: cream panels between dark oak posts, rails and braces
+          float fy2 = fract(y / 3.0), bx = fract(u / 1.5), b2 = mod(floor(u / 1.5), 2.0);
+          float beam = max(max(lineAA(bx, 0.07, fwidth(u / 1.5)), lineAA(fy2, 0.05, fwidth(y / 3.0))), lineAA(fract(fy2 + (b2 > 0.5 ? bx : 1.0 - bx) * 1.0), 0.06, fwidth(y / 3.0) * 2.0));
+          c = mix(c, vec3(0.06, 0.035, 0.02), beam * mix(1.0, 0.5, 1.0 - near));
+        } else if (mat == 8.0) { // concrete panels
+          c *= 1.0 - 0.1 * near * max(lineAA(fract(u / 3.0), 0.01, fwidth(u / 3.0)), lineAA(fract(y / 3.0), 0.01, fwidth(y / 3.0)));
+        } else if (mat == 10.0) { // wood siding boards
+          float r = y / 0.22;
+          c *= 1.0 - 0.2 * near * (1.0 - smoothstep(0.0, 0.25 + fwidth(r), fract(r)));
+        } else if (mat == 11.0) { // ribbed metal
+          c *= 1.0 - 0.18 * near * lineAA(fract(u / 0.35), 0.15, fwidth(u / 0.35));
+        }
+        // ---- windows, doors and shopfronts by type ----
+        float fh = 3.2, bay = 2.4, wx0 = 0.32, wx1 = 0.68, wy0 = 0.3, wy1 = 0.78, frame = 1.0, glass = mat == 9.0 ? 1.0 : 0.0;
+        if (typ == 0.0) { fh = 3.0; bay = 3.4; wx0 = 0.33; wx1 = 0.67; wy0 = 0.32; wy1 = 0.76; }
+        else if (typ == 1.0) { fh = 3.4; bay = 2.3; wx0 = 0.3; wx1 = 0.7; wy0 = 0.24; wy1 = 0.82; }
+        else if (typ == 3.0) { fh = 3.3; bay = 2.6; }
+        else if (typ == 4.0) { fh = 3.8; bay = 1.6; wx0 = 0.04; wx1 = 0.96; wy0 = 0.22; wy1 = 0.9; frame = 0.0; }
+        else if (typ == 5.0) { fh = 3.9; bay = 1.5; wx0 = 0.06; wx1 = 0.94; wy0 = 0.2; wy1 = 0.92; frame = 0.0; }
+        else if (typ == 7.0) { fh = 5.2; bay = 3.6; wx0 = 0.34; wx1 = 0.66; wy0 = 0.18; wy1 = 0.84; }
+        if (mat == 9.0) { wx0 = 0.02; wx1 = 0.98; wy0 = 0.06; wy1 = 0.98; frame = 0.0; }
+        float fy = y / fh, fx = u / bay, wy = fwidth(fy), wx = fwidth(fx), ffy = fract(fy), ffx = fract(fx);
+        float far = smoothstep(0.3, 0.7, max(wx, wy));
+        float win = boxAA(ffy, wy0, wy1, wy) * boxAA(ffx, wx0, wx1, wx);
+        if (typ == 7.0) { vec2 q = vec2((ffx - 0.5) / (wx1 - wx0) * 2.0, (ffy - wy1 + 0.1) * fh / (bay * (wx1 - wx0))); if (ffy > wy1 - 0.1) win *= 1.0 - smoothstep(0.95, 1.05, length(q)); } // arched
+        float cover = (wx1 - wx0) * (wy1 - wy0);
+        if (typ == 6.0) { // factory: a strip of high windows and big loading doors
+          win = boxAA(y, top - 3.4, top - 1.8, fwidth(y)) * (1.0 - lineAA(fract(u / 1.6), 0.06, fwidth(u / 1.6)));
+          float door = boxAA(fract(u / 14.0), 0.35, 0.65, fwidth(u / 14.0)) * boxAA(y, 0.0, 4.6, fwidth(y));
+          c = mix(c, vec3(0.42, 0.43, 0.44) * (1.0 - 0.3 * lineAA(fract(y / 0.4), 0.08, fwidth(y / 0.4))), door);
+          cover = 0.1; frame = 0.0;
+        }
+        if (frame > 0.5) c = mix(c, vec3(0.86), (boxAA(ffy, wy0 - 0.05, wy1 + 0.05, wy) * boxAA(ffx, wx0 - 0.05, wx1 + 0.05, wx) - win) * (1.0 - far)); // window frames
+        if (typ == 5.0 && mat != 9.0) c *= 1.0 - 0.18 * lineAA(fract(u / 4.5), 0.06, fwidth(u / 4.5)) * (1.0 - far); // piers up stone towers
+        win = mix(win, cover, far);
+        // ground floor: front doors on houses, shopfronts and fascias where there are shops
+        if ((typ < 1.5) && y < fh) { float dr = boxAA(fract(u / (bay * 3.0)), 0.42, 0.58, fwidth(u / (bay * 3.0))) * boxAA(y, 0.0, 2.3, fwidth(y)); c = mix(c, vec3(0.08, 0.05, 0.035), dr * (1.0 - far)); win *= 1.0 - dr; }
+        if ((shopF > 0.5 || typ == 3.0) && y < 4.6 && typ != 6.0) {
+          float fy4 = fwidth(y), disp = boxAA(y, 0.35, 3.4, fy4) * (1.0 - lineAA(fract(u / 2.2), 0.04, fwidth(u / 2.2)));
+          vec3 aw = awnC[int(mod(awn, 8.0))];
+          float fas = boxAA(y, 3.5, 4.5, fy4);
+          float stripe = step(0.5, fract(u / 0.9)) * (awn > 3.5 ? 0.0 : 1.0);
+          c = mix(c, mix(aw, vec3(0.85), stripe * 0.6 * (1.0 - far)), fas);
+          win = disp * (1.0 - far) + 0.5 * far; win *= 1.0 - fas;
+        } else if (y < 4.6 && typ > 3.5 && typ < 5.5) {
+          win = boxAA(y, 0.4, 3.9, fwidth(y)) * (1.0 - lineAA(fract(u / 3.0), 0.03, fwidth(u / 3.0))) * (1.0 - far) + 0.5 * far; // lobby glass
+        }
+        gMask = win;
+        vec3 gl = mat == 9.0 ? base * 0.75 : (typ > 3.5 && typ < 5.5) ? vec3(0.05, 0.12, 0.28) : vec3(0.05, 0.08, 0.13);
+        c = mix(c, gl, win);
+        c *= mix(0.62, 1.0, smoothstep(0.0, 16.0, y)); // a little ambient occlusion near the street
+      }
+      c = max(mix(vec3(dot(c, vec3(0.299, 0.587, 0.114))), c, 1.08), 0.0); // a touch of extra colour
+      diffuseColor.rgb = c;`)
+    .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.3, gMask);')
+    .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = mix(metalnessFactor, 0.25, gMask);');
+};
+const TILE = 1000, TALL = 45;
+const tiles = []; // { mesh, tall, pid: piece index of every vertex, for tapping }
+const pieces = [], groups = new Map(); // every building piece, and building number -> its pieces (used by js/property.js)
+let homeTop = 20, homeAngle = 0;
+const towers = []; // tall buildings, for disasters
+const crowns = []; // buildings topped with battlements, a dome or a spire (built in js/city.js)
+function buildCity(d) {
+  const n = d['b.n'], ni = d['b.ni'], H = d['b.h'], MH = d['b.mh'], C = d['b.c'], S = d['b.s'], XY = d['b.xy'], IXY = d['b.ixy'], G = d['b.g'], F = d['b.f'] || new Uint8Array(n.length);
+  const bins = new Map();
+  const ring = (arr, off, k) => { const r = []; for (let j = 0; j < k; j++) r.push(new THREE.Vector2(arr[off + 2 * j] / 2, arr[off + 2 * j + 1] / 2)); return r; };
+  let p = 0, pi = 0, best = Infinity;
+  for (let i = 0; i < n.length; i++) {
+    const k = n[i], kin = ni[i], h = H[i] / 10, mh = MH[i] / 10, sty = S[i], typ = sty >> 4, mat = sty & 15, flags = F[i], code = sty + 256 * flags, tall = h >= TALL;
+    const outer = ring(XY, p, k), inner = kin ? ring(IXY, pi, kin) : null;
+    { // remember the piece: footprint area and centre, for prices and highlights
+      let area = 0, cx = 0, cz = 0;
+      for (let j = 0; j < k; j++) { const a = outer[j], c = outer[(j + 1) % k]; area += a.x * c.y - c.x * a.y; cx += a.x; cz += a.y; }
+      pieces.push({ i, off: p, k, area: Math.abs(area) / 2, x: cx / k, z: cz / k, h, mh, sty, typ, mat, flags, col: [C[3 * i], C[3 * i + 1], C[3 * i + 2]], g: G[i] });
+      if (flags & 7) crowns.push({ i, outer, h, flags, col: [C[3 * i], C[3 * i + 1], C[3 * i + 2]], x: cx / k, z: cz / k });
+      if (!groups.has(G[i])) groups.set(G[i], []);
+      groups.get(G[i]).push(i);
+    }
+    p += 2 * k; pi += 2 * kin;
+    if (h > 150 && mh === 0 && towers.length < 400) towers.push([outer[0].x, outer[0].y, h]);
+    if (h > 90 && mh === 0) { // the start: a tower by the home spot
+      let cx = 0, cz = 0;
+      for (const v of outer) { cx += v.x; cz += v.y; }
+      cx /= k; cz /= k;
+      const near = (cx - PLACE.home[0]) ** 2 + (cz - PLACE.home[1]) ** 2 < 230 ** 2;
+      if (near && -h < best) { // the tallest tower close by, so nothing blocks the view down onto its roof
+        best = -h; homeTop = kin ? h - 1.2 : h; PLACE.homeSnap = [cx, cz];
+        let L = 0; // turn the rooftop room with the building
+        for (let j = 0; j < k; j++) { const a = outer[j], c = outer[(j + 1) % k], l = a.distanceTo(c); if (l > L) { L = l; homeAngle = Math.atan2(c.y - a.y, c.x - a.x); } }
+      }
+    }
+    const key = Math.floor(outer[0].x / TILE) + ',' + Math.floor(outer[0].y / TILE) + (tall ? 'T' : 'L');
+    let b = bins.get(key);
+    if (!b) bins.set(key, b = { tall, pos: [], nor: [], col: [], fac: [], idx: [], pid: [] });
+    const v0 = b.pos.length / 3;
+    const cr = C[3 * i], cg = C[3 * i + 1], cb = C[3 * i + 2];
+    // a wall ring; corners are shared, with one extra vertex where the wall coordinate wraps round
+    const top = kin ? h : h + 2; // the shader's parapet height; buildings without one get a plain dark roof
+    const wall = (pts, y0, y1, inward) => {
+      const first = b.pos.length / 3, m = pts.length;
+      let u = 0;
+      for (let j = 0; j <= m; j++) {
+        const a = pts[j % m], nx = pts[(j + 1) % m], L = a.distanceTo(nx) || 1, s = inward ? -127 : 127;
+        const nX = Math.round((nx.y - a.y) / L * s), nZ = Math.round(-(nx.x - a.x) / L * s);
+        b.pos.push(a.x, y0, a.y, a.x, y1, a.y);
+        b.nor.push(nX, 0, nZ, nX, 0, nZ);
+        b.col.push(cr, cg, cb, cr, cg, cb);
+        b.fac.push(u, top, code, u, top, code);
+        u += L;
+      }
+      for (let j = 0; j < m; j++) {
+        const a0 = first + 2 * j, a1 = a0 + 2;
+        if (inward) b.idx.push(a0, a1, a1 + 1, a0, a1 + 1, a0 + 1);
+        else b.idx.push(a0, a1 + 1, a1, a0, a0 + 1, a1 + 1);
+      }
+      return first;
+    };
+    const up = (pts, t, map) => { // add a triangle facing the sky
+      const p0 = pts[t[0]], p1 = pts[t[1]], p2 = pts[t[2]];
+      const ok = (p1.y - p0.y) * (p2.x - p0.x) - (p1.x - p0.x) * (p2.y - p0.y) > 0;
+      b.idx.push(map(t[0]), map(t[ok ? 1 : 2]), map(t[ok ? 2 : 1]));
+    };
+    const o = wall(outer, mh, h, false);
+    if (inner) {
+      const io = wall(inner, h - 1.2, h, true), both = outer.concat(inner);
+      for (const t of THREE.ShapeUtils.triangulateShape(outer, [inner])) up(both, t, v => v < k ? o + 2 * v + 1 : io + 2 * (v - k) + 1); // parapet cap
+      for (const t of THREE.ShapeUtils.triangulateShape(inner, [])) up(inner, t, v => io + 2 * v); // roof, inside the parapet
+    } else {
+      for (const t of THREE.ShapeUtils.triangulateShape(outer, [])) up(outer, t, v => o + 2 * v + 1);
+    }
+    for (let v = v0; v < b.pos.length / 3; v++) b.pid.push(i);
+  }
+  for (const b of bins.values()) {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(b.pos, 3));
+    g.setAttribute('normal', new THREE.BufferAttribute(new Int8Array(b.nor), 3, true)); // only offsets shadow lookups; shading uses flat normals
+    g.setAttribute('color', new THREE.BufferAttribute(new Uint8Array(b.col), 3, true));
+    g.setAttribute('fac', new THREE.Float32BufferAttribute(b.fac, 3));
+    g.setIndex(b.idx);
+    g.computeBoundingSphere();
+    const m = new THREE.Mesh(g, buildingMat);
+    m.renderOrder = 10; m.castShadow = m.receiveShadow = true;
+    scene.add(m);
+    tiles.push({ mesh: m, tall: b.tall, pid: Uint32Array.from(b.pid) });
+  }
+  if (PLACE.homeSnap) PLACE.home = PLACE.homeSnap;
+}
+
+// instanced things in 800 m tiles, each with a bounding sphere covering its tile so off-screen tiles are culled
+function tiled(count, posOf) {
+  const bins = new Map();
+  for (let i = 0; i < count; i++) {
+    const [x, z] = posOf(i), key = Math.floor(x / 800) + ',' + Math.floor(z / 800);
+    if (!bins.has(key)) bins.set(key, []);
+    bins.get(key).push(i);
+  }
+  return [...bins.values()].map(list => {
+    const box = new THREE.Box3(), v = new THREE.Vector3();
+    for (const i of list) { const [x, z] = posOf(i); box.expandByPoint(v.set(x, 0, z)); }
+    box.max.y = 500;
+    const s = box.getBoundingSphere(new THREE.Sphere()); s.radius += 20;
+    return { list, sphere: s };
+  });
+}
+function instanced(geo, mat, list, sphere, set) {
+  const m = new THREE.InstancedMesh(geo.clone(), mat, list.length), o = new THREE.Object3D();
+  list.forEach((i, j) => { set(i, o, m, j); o.updateMatrix(); m.setMatrixAt(j, o.matrix); });
+  m.geometry.boundingSphere = sphere; // r128 culls instances by the geometry's sphere: make it cover the tile
+  m.castShadow = m.receiveShadow = true; m.renderOrder = 10;
+  scene.add(m);
+  return m;
+}
+function mergeGeos(list) {
+  const pos = [], nor = [], idx = [];
+  let off = 0;
+  for (const g of list) {
+    pos.push(...g.attributes.position.array); nor.push(...g.attributes.normal.array);
+    for (const i of g.index.array) idx.push(i + off);
+    off += g.attributes.position.count;
+  }
+  const m = new THREE.BufferGeometry();
+  m.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); m.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); m.setIndex(idx);
+  return m;
+}
+
+// ---------- rooftops: plant rooms, New York water towers, chimneys and solar panels ----------
+function solarTexture() { // dark blue cells with silver lines
+  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 128;
+  const g = cv.getContext('2d');
+  g.fillStyle = '#c9ced6'; g.fillRect(0, 0, 256, 128);
+  for (let cx = 0; cx < 8; cx++) for (let cy = 0; cy < 4; cy++) { g.fillStyle = cy % 2 ? '#1b2d52' : '#20365f'; g.fillRect(cx * 32 + 2, cy * 32 + 2, 28, 28); }
+  const t = new THREE.CanvasTexture(cv); t.encoding = THREE.sRGBEncoding; t.anisotropy = 8;
+  return t;
+}
+const roofThings = [];
+function buildRoofs(d) {
+  const T = d['r.t'], XY = d['r.xy'], Y = d['r.y'], S = d['r.s'], A = d['r.a'];
+  const boxGeo = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
+  const tankGeo = new THREE.CylinderGeometry(0.5, 0.5, 1, 14, 1).translate(0, 0.5, 0), coneGeo = new THREE.ConeGeometry(0.53, 1, 14).translate(0, 0.5, 0);
+  const legGeo = mergeGeos([[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([x, z]) => new THREE.BoxGeometry(0.07, 1, 0.07).translate(x * 0.3, 0.5, z * 0.3)));
+  const plantMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 }), chimMat = new THREE.MeshStandardMaterial({ color: lin(0x8e4a3a), roughness: 0.9 });
+  const woodMat = new THREE.MeshStandardMaterial({ color: lin(0x7a5236), roughness: 0.95 }), roofMat = new THREE.MeshStandardMaterial({ color: lin(0x34302c), roughness: 0.9 }), legMat = new THREE.MeshStandardMaterial({ color: lin(0x2b2c30), roughness: 0.8 });
+  const at = i => [XY[2 * i] / 2, XY[2 * i + 1] / 2], tint = new THREE.Color();
+  const solarMat = new THREE.MeshStandardMaterial({ color: 0xffffff, map: solarTexture(), roughness: 0.25, metalness: 0.5, envMapIntensity: 1.2 });
+  const clear = i => (XY[2 * i] / 2 - PLACE.home[0]) ** 2 + (XY[2 * i + 1] / 2 - PLACE.home[1]) ** 2 > 40 * 40; // keep your roof free
+  // one batch per kind for the whole city: thousands of small boxes drawn in one call beat hundreds of culled tiles
+  const list = [...T.keys()].filter(clear), sphere = allSphere(list.map(at));
+  const boxes = list.filter(i => T[i] === 0), towers = list.filter(i => T[i] === 1), chimneys = list.filter(i => T[i] === 2);
+  const solar = list.filter(i => T[i] === 3), arrays = list.filter(i => T[i] === 4);
+  const place = (i, o) => { const [x, z] = at(i); o.position.set(x, Y[i] / 10, z); o.rotation.set(0, -A[i] / 255 * Math.PI, 0); };
+  if (boxes.length) roofThings.push(instanced(boxGeo, plantMat, boxes, sphere, (i, o, m, j) => {
+    place(i, o); o.scale.set(S[3 * i] / 10, S[3 * i + 2] / 10, S[3 * i + 1] / 10);
+    m.setColorAt(j, tint.setScalar(0.55 + (i % 5) * 0.07));
+  }));
+  if (chimneys.length) roofThings.push(instanced(boxGeo, chimMat, chimneys, sphere, (i, o) => { place(i, o); o.scale.set(S[3 * i] / 10, S[3 * i + 2] / 10, S[3 * i + 1] / 10); }));
+  if (towers.length) {
+    const sz = i => [S[3 * i] / 10, S[3 * i + 2] / 10];
+    roofThings.push(instanced(legGeo, legMat, towers, sphere, (i, o) => { place(i, o); const [w, h] = sz(i); o.scale.set(w, h * 0.38, w); }));
+    roofThings.push(instanced(tankGeo, woodMat, towers, sphere, (i, o) => { place(i, o); const [w, h] = sz(i); o.position.y += h * 0.38; o.scale.set(w, h * 0.47, w); }));
+    roofThings.push(instanced(coneGeo, roofMat, towers, sphere, (i, o) => { place(i, o); const [w, h] = sz(i); o.position.y += h * 0.85; o.scale.set(w, h * 0.15, w); }));
+  }
+  if (solar.length) roofThings.push(instanced(boxGeo, solarMat, solar, sphere, (i, o) => { // a panel on one slope of a pitched roof
+    const [x, z] = at(i), y = Y[i] / 10, w = S[3 * i] / 10, W = S[3 * i + 1] / 10, rise = S[3 * i + 2] / 10, a = A[i] / 255 * Math.PI;
+    const th = Math.atan2(rise, W / 2), lz = W / 4, side = i % 2 ? 1 : -1;
+    o.position.set(x - Math.sin(a) * lz * side, y + rise / 2 + 0.025, z + Math.cos(a) * lz * side);
+    o.rotation.order = 'YXZ'; o.rotation.set(th * side, -a, 0);
+    o.scale.set(w, 0.07, W / 2 * 0.7 / Math.cos(th));
+  }));
+  if (arrays.length) for (const k of [-1, 0, 1]) roofThings.push(instanced(boxGeo, solarMat, arrays, sphere, (i, o) => { // rows of tilted panels on a flat roof
+    const [x, z] = at(i), y = Y[i] / 10, w = S[3 * i] / 10, d = S[3 * i + 1] / 10, a = A[i] / 255 * Math.PI, gap = d / 3;
+    o.position.set(x - Math.sin(a) * gap * k, y + 0.5, z + Math.cos(a) * gap * k);
+    o.rotation.order = 'YXZ'; o.rotation.set(0.35, -a, 0);
+    o.scale.set(w, 0.08, gap * 0.8);
+  }));
+}
+
+// ---------- street names painted on the map ----------
+let streetLabels;
+async function buildStreetLabels(d, names) {
+  try { await document.fonts.load('700 26px Inter'); } catch (e) { /* system font is fine */ }
+  const W = 4096, CW = 512, CH = 40, cols = W / CW, cv = document.createElement('canvas');
+  cv.width = W; cv.height = Math.min(4096, Math.ceil(names.length / cols) * CH);
+  const g = cv.getContext('2d');
+  g.font = '700 26px Inter, system-ui, sans-serif'; g.textBaseline = 'middle'; g.fillStyle = '#fff';
+  const cells = names.map((nm, i) => {
+    const x = (i % cols) * CW + 4, y = Math.floor(i / cols) * CH, w = Math.min(CW - 8, g.measureText(nm).width);
+    g.fillText(nm, x, y + CH / 2, CW - 8);
+    return [x, y, w];
+  });
+  const tex = new THREE.CanvasTexture(cv);
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  const I = d['sl.i'], XY = d['sl.xy'], A = d['sl.a'], n = I.length, uvo = new Float32Array(n * 4);
+  const geo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+  const mat = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, depthTest: false,
+    uniforms: { map: { value: tex }, fade: { value: 1 } },
+    vertexShader: 'attribute vec4 uvo; varying vec2 vUv; void main(){ vUv = uvo.xy + uv * uvo.zw; gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0); }',
+    fragmentShader: 'uniform sampler2D map; uniform float fade; varying vec2 vUv; void main(){ gl_FragColor = vec4(vec3(0.95), texture2D(map, vUv).a * 0.9 * fade); }'
+  });
+  const m = new THREE.InstancedMesh(geo, mat, n), o = new THREE.Object3D(), TH = 6.5;
+  for (let i = 0; i < n; i++) {
+    const [cx, cy, cw] = cells[I[i]];
+    uvo.set([cx / W, 1 - (cy + CH) / cv.height, cw / W, CH / cv.height], 4 * i);
+    o.position.set(XY[2 * i] / 2, 0.3, XY[2 * i + 1] / 2); o.rotation.set(0, -A[i], 0); o.scale.set(TH * cw / CH, 1, TH); o.updateMatrix();
+    m.setMatrixAt(i, o.matrix);
+  }
+  geo.setAttribute('uvo', new THREE.InstancedBufferAttribute(uvo, 4));
+  m.renderOrder = 20; m.frustumCulled = false;
+  scene.add(m);
+  streetLabels = m;
+}
+
+// ---------- trees: every mapped tree in Manhattan, plus the woods ----------
+const trees = []; // tiles of instanced trees, so off-screen ones are culled
+function buildTrees(d) {
+  const xy = d['t.xy'], sz = d['t.s'], bins = new Map();
+  for (let i = 0; i < sz.length; i++) {
+    const key = Math.floor(xy[2 * i] / 2 / 800) + ',' + Math.floor(xy[2 * i + 1] / 2 / 800);
+    if (!bins.has(key)) bins.set(key, []);
+    bins.get(key).push(i);
+  }
+  const crownGeo = new THREE.IcosahedronGeometry(1, 0), trunkGeo = new THREE.CylinderGeometry(0.25, 0.35, 1, 5).translate(0, 0.5, 0);
+  const crownMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, flatShading: true }), trunkMat = new THREE.MeshStandardMaterial({ color: lin(0x5b4330), roughness: 1 });
+  const o = new THREE.Object3D(), tint = new THREE.Color();
+  for (const list of bins.values()) {
+    const crown = new THREE.InstancedMesh(crownGeo, crownMat, list.length), trunk = new THREE.InstancedMesh(trunkGeo, trunkMat, list.length);
+    list.forEach((i, j) => {
+      const x = xy[2 * i] / 2, z = xy[2 * i + 1] / 2, s = 0.7 + sz[i] / 255 * 0.8, r = 3.2 * s, h = 3.5 * s;
+      o.position.set(x, 0, z); o.rotation.set(0, sz[i], 0); o.scale.set(1.2 * s, h, 1.2 * s); o.updateMatrix(); trunk.setMatrixAt(j, o.matrix);
+      o.position.set(x, h + r * 0.75, z); o.scale.set(r, r * 1.15, r); o.updateMatrix(); crown.setMatrixAt(j, o.matrix);
+      crown.setColorAt(j, tint.setHSL(0.27 + (sz[i] % 7) * 0.008, 0.5, 0.26 + (sz[i] % 5) * 0.02).convertSRGBToLinear());
+    });
+    const box = new THREE.Box3();
+    for (const i of list) box.expandByPoint(o.position.set(xy[2 * i] / 2, 0, xy[2 * i + 1] / 2));
+    box.max.y = 25;
+    const sphere = box.getBoundingSphere(new THREE.Sphere());
+    sphere.radius += 10;
+    for (const m of [crown, trunk]) {
+      m.castShadow = m.receiveShadow = true; m.renderOrder = 10;
+      m.geometry = m.geometry.clone(); m.geometry.boundingSphere = sphere; // r128 culls instances by the geometry's sphere: make it cover the tile
+      scene.add(m); trees.push(m);
+    }
+  }
+}
+
+// ---------- labels ----------
+const labelsEl = document.getElementById('labels');
+const labels = [];
+function label(html, cls, p, y, min, max) {
+  const el = document.createElement('div');
+  el.className = 'lab ' + cls; el.innerHTML = html;
+  labelsEl.appendChild(el);
+  const l = { el, p: new THREE.Vector3(p[0], y, p[1]), min, max, on: false };
+  labels.push(l);
+  return l;
+}
+function cityLabels() {
+  CITY.districts.forEach(([t, a, b]) => label(t, 'district', ll(a, b), 0, t === 'CENTRAL PARK' ? 1200 : 2800, 30000));
+  CITY.nearby.forEach(([t, a, b]) => { label(t, 'district', ll(a, b), 0, 1500, 30000).el.style.color = '#e9f2e0'; });
+  CITY.water.forEach(([t, a, b]) => label(t, 'water', ll(a, b), 0, 1200, 30000));
+  CITY.places.forEach(([t, a, b, y]) => label(t, 'place', ll(a, b), y, 0, 7000));
+  if (CITY.id === 'nyc') { // the bank, like your apartment, is in New York
+    bankLabel = label('🏦 Big Apple Bank', 'place bank', PLACE.bank, 45, 0, 9000);
+    bankLabel.el.onclick = () => window.CSUI && CSUI.openBank();
+  }
+}
+function countryLabels(list) {
+  for (const [name, lat, lon, km2] of list) {
+    if (name === 'United States of America') continue; // placed by hand, clear of New York's marker
+    const min = Math.max(150000, 2.2e6 - Math.sqrt(km2) * 1500); // big countries stay readable from further out
+    label(name, 'country', ll(lat, lon), 0, Math.min(min, 2.0e6), 3e7);
+  }
+  label('United States of America', 'country', ll(39.5, -98.5), 0, 6e5, 3e7);
+  [['North America', 47, -103], ['South America', -14, -60], ['Europe', 53, 14], ['Africa', 6, 19], ['Asia', 46, 88], ['Oceania', -24, 134]]
+    .forEach(([t, a, b]) => label(t, 'continent', ll(a, b), 0, 2.5e6, 3e7));
+}
+// every city on the map: an office-block icon, a check when it's open, a lock when it isn't (js/world.js opens its card)
+const cityMarkers = Object.values(CITIES).map(c => {
+  const l = label(`<svg class="iso" viewBox="0 0 48 48"><use href="#i-iso"/></svg><span class="badge"></span><span class="cname">${c.flag} ${c.name}</span>`, 'city', ll(c.lat, c.lon), 0, c.id === CITY.id ? 30000 : 9000, 3e7);
+  l.city = c.id;
+  return l;
+});
+let homeLabel, bankLabel;
+
+// ---------- camera: everything is driven by target + distance + polar + azimuth ----------
+const controls = new THREE.MapControls(camera, canvas);
+controls.enableDamping = true; controls.dampingFactor = 0.12;
+controls.screenSpacePanning = false;
+controls.minDistance = 22; controls.maxDistance = 2.4e7;
+controls.zoomSpeed = 2.2;
+const tiltFor = dist => dist > 3e5 ? 0.02 : dist > 25000 ? 0.02 + 0.6 * (1 - Math.log(dist / 25000) / Math.log(12)) : dist > 6000 ? 0.62 + 0.6 * (1 - Math.log(dist / 6000) / Math.log(25000 / 6000)) : 1.25;
+function view(target, dist, polar, az, y = 0) { return { t: new THREE.Vector3(target[0], y, target[1]), dist, polar, az }; }
+function place(v) {
+  const s = Math.sin(v.polar) * v.dist;
+  controls.target.copy(v.t);
+  camera.position.set(v.t.x + Math.sin(v.az) * s, v.t.y + Math.cos(v.polar) * v.dist, v.t.z + Math.cos(v.az) * s);
+  camera.lookAt(v.t);
+}
+function current() {
+  const d = camera.position.clone().sub(controls.target), dist = d.length();
+  return { t: controls.target.clone(), dist, polar: Math.acos(Math.min(1, d.y / dist)), az: Math.atan2(d.x, d.z) };
+}
+let fly = null;
+function flyTo(v, secs = 2.6, done) { fly = { a: current(), b: v, t: 0, secs, done }; controls.enabled = false; }
+const ease = t => t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+function flyStep(dt) {
+  fly.t = Math.min(1, fly.t + dt / fly.secs);
+  const k = ease(fly.t), a = fly.a, b = fly.b;
+  let daz = b.az - a.az; daz = Math.atan2(Math.sin(daz), Math.cos(daz));
+  // fly out and back in again over long distances, so the camera never skims the ground
+  const hop = Math.min(1, a.t.distanceTo(b.t) / Math.max(a.dist, b.dist));
+  const dist = Math.exp(Math.log(a.dist) * (1 - k) + Math.log(b.dist) * k) * (1 + hop * 1.5 * Math.sin(Math.PI * k));
+  place({ t: a.t.clone().lerp(b.t, k), dist, polar: a.polar + (b.polar - a.polar) * k, az: a.az + daz * k });
+  if (fly.t >= 1) { const d = fly.done; fly = null; controls.enabled = true; controls.update(); if (d) d(); }
+}
+const AZ = -0.5; // looking up the island
+const V = {
+  world: () => view(PLACE.world, 6.5e6, 0.02, 0),
+  city: () => view(PLACE.manhattan, CITY.view, 0.7, AZ),
+  home: () => view(PLACE.home, 70, 0.55, current().az, homeTop),
+  wall: () => view(PLACE.wall, 700, 0.5, current().az),
+  bank: () => view(PLACE.bank, 260, 0.75, current().az)
+};
+
+// ---------- taps: locked places ----------
+const toastEl = document.getElementById('toast');
+let toastT = 0;
+function toast(title = 'Locked', body = 'Only New York is open. More cities in a future update.') {
+  document.getElementById('toastT').textContent = title; document.getElementById('toastB').textContent = body;
+  toastEl.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('on'), 2200); }
+const ray = new THREE.Raycaster(), ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), ndc = new THREE.Vector2();
+let down = null;
+canvas.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+canvas.addEventListener('pointerup', e => {
+  if (!down || fly || !document.getElementById('title').hidden) return;
+  const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y), quick = performance.now() - down.t < 500;
+  down = null;
+  if (moved > 8 || !quick) return;
+  ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  if (window.Office && Office.active() && Office.tap(ray)) return; // inside your office: furnish it
+  if (current().dist < 6000 && !document.getElementById('hud').hidden && window.Property && Property.tap(ray)) return; // a building: open its listing
+  const hit = ray.ray.intersectPlane(ground, new THREE.Vector3());
+  if (!hit) return;
+  const r = Math.hypot(hit.x, hit.z), dist = current().dist;
+  if (r > UNLOCKED_R) toast();
+  else if (dist > 60000) flyTo(V.city());
+});
+
+
+// ---------- the globe: zoomed far out, the flat map gives way to a planet in space, like the reference ----------
+const globe = { scene: new THREE.Scene(), cam: new THREE.PerspectiveCamera(50, 1, 0.01, 300), t: 0, mats: [] };
+const toGeo = (x, z) => [(2 * Math.atan(Math.exp(-z / (R * K) + Y0)) - Math.PI / 2) * 180 / Math.PI, x / (R * K) * 180 / Math.PI + LON0];
+const geoVec = (lat, lon, r = 1) => { const th = (90 - lat) * Math.PI / 180, ph = (lon + 180) * Math.PI / 180; return new THREE.Vector3(-Math.cos(ph) * Math.sin(th) * r, Math.cos(th) * r, Math.sin(ph) * Math.sin(th) * r); };
+function buildGlobe(world) {
+  const W = 4096, H = 2048, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const g = cv.getContext('2d'), X = lon => (lon + 180) / 360 * W, Yy = lat => (90 - lat) / 180 * H;
+  g.fillStyle = '#2b84c4'; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#eef3f6'; g.fillRect(0, Yy(-62), W, H - Yy(-62)); // ice to the south
+  g.fillStyle = '#64a04b';
+  for (const name of ['world']) {
+    const r = world[name + '.r'], xy = world[name + '.xy'];
+    let ri = 1, p = 0;
+    for (let k = 0; k < r[0]; k++) {
+      const rings = r[ri++];
+      g.beginPath();
+      for (let h = 0; h < rings; h++) { const n = r[ri++]; for (let j = 0; j < n; j++, p += 2) { const [lat, lon] = toGeo(xy[p], xy[p + 1]); j ? g.lineTo(X(lon), Yy(lat)) : g.moveTo(X(lon), Yy(lat)); } g.closePath(); }
+      g.fill('evenodd');
+    }
+  }
+  g.strokeStyle = 'rgba(20, 28, 20, .9)'; g.lineWidth = 2.2; g.lineJoin = 'round';
+  { const r = world['border.r'], xy = world['border.xy']; let p = 0; for (let i = 1; i <= r[0]; i++) { g.beginPath(); for (let j = 0; j < r[i]; j++, p += 2) { const [lat, lon] = toGeo(xy[p], xy[p + 1]); j ? g.lineTo(X(lon), Yy(lat)) : g.moveTo(X(lon), Yy(lat)); } g.stroke(); } }
+  const tex = new THREE.CanvasTexture(cv); tex.encoding = THREE.sRGBEncoding; tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  const fade = m => { m.transparent = true; globe.mats.push(m); return m; };
+  const backdrop = new THREE.Mesh(new THREE.SphereGeometry(150, 16, 12), fade(new THREE.MeshBasicMaterial({ color: 0x05070d, side: THREE.BackSide, depthWrite: false, toneMapped: false })));
+  const sp = []; for (let i = 0; i < 3000; i++) { const v = new THREE.Vector3(Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1).normalize().multiplyScalar(120); sp.push(v.x, v.y, v.z); }
+  const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.Float32BufferAttribute(sp, 3));
+  const stars = new THREE.Points(sg, fade(new THREE.PointsMaterial({ color: 0xffffff, size: 1.6, sizeAttenuation: false, depthWrite: false, toneMapped: false })));
+  const earth = new THREE.Mesh(new THREE.SphereGeometry(1, 160, 120), fade(new THREE.MeshBasicMaterial({ map: tex, toneMapped: false })));
+  const hc = document.createElement('canvas'); hc.width = hc.height = 512;
+  { const hg = hc.getContext('2d'), gr = hg.createRadialGradient(256, 256, 0, 256, 256, 256);
+    gr.addColorStop(0, 'rgba(210,230,255,1)'); gr.addColorStop(0.72, 'rgba(210,230,255,1)'); gr.addColorStop(0.76, 'rgba(190,220,255,.75)'); gr.addColorStop(0.86, 'rgba(160,200,255,.25)'); gr.addColorStop(1, 'rgba(140,180,255,0)');
+    hg.fillStyle = gr; hg.fillRect(0, 0, 512, 512); }
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(hc), transparent: true, depthWrite: false, toneMapped: false }));
+  glow.scale.set(2.75, 2.75, 1); // the earth is radius 1; the halo fades out just beyond it
+  globe.glow = glow.material;
+  backdrop.renderOrder = -2; stars.renderOrder = -1; glow.renderOrder = 0; earth.renderOrder = 1;
+  globe.scene.add(backdrop, stars, earth, glow);
+}
+function renderGlobeAndCity(dist) {
+  const t = Math.min(1, Math.max(0, (Math.log(dist) - Math.log(1.4e6)) / (Math.log(3.2e6) - Math.log(1.4e6))));
+  globe.t = t * t * (3 - 2 * t);
+  renderer.autoClear = false;
+  renderer.clear();
+  if (globe.t < 0.999) renderer.render(scene, camera);
+  if (globe.t > 0.001 && globe.mats.length) {
+    const [lat, lon] = toGeo(controls.target.x, controls.target.z), alt = dist / 6.371e6;
+    globe.cam.position.copy(geoVec(Math.max(-80, Math.min(80, lat)), lon, 1 + alt));
+    globe.cam.up.set(0, 1, 0); globe.cam.lookAt(0, 0, 0);
+    globe.cam.aspect = camera.aspect; globe.cam.near = Math.max(0.001, alt * 0.2); globe.cam.updateProjectionMatrix();
+    for (const m of globe.mats) m.opacity = globe.t;
+    globe.glow.opacity = globe.t * 0.9;
+    renderer.clearDepth();
+    renderer.render(globe.scene, globe.cam);
+  }
+}
+
+// ---------- frame loop ----------
+const tmp = new THREE.Vector3();
+let last = performance.now(), clock = 0, w0 = 0, h0 = 0, checkT = 0, pin, manhattanLand, borders;
+function resize() {
+  const w = innerWidth, h = innerHeight;
+  if (w === w0 && h === h0) return;
+  w0 = w; h0 = h;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+const cityGrey = lin(PAVEMENT), cityGreen = lin(LAND);
+function frame(now) {
+  if (GFX.fpsCap && now - last < 1000 / GFX.fpsCap - 2) { requestAnimationFrame(frame); return; } // the frame-rate limit in Settings
+  const dt = Math.min(0.05, (now - last) / 1000); last = now; clock += dt;
+  resize();
+  if (fly) flyStep(dt);
+  else {
+    controls.maxPolarAngle = tiltFor(current().dist);
+    controls.update();
+    // keep the camera over New York when zoomed in; the further out, the further you may roam
+    const c = current(), t = controls.target, r = Math.hypot(t.x, t.z), lim = Math.max(18000, c.dist * 1.2);
+    if (r > lim) {
+      const k = lim / r, nx = t.x * k, nz = t.z * k;
+      camera.position.x += nx - t.x; camera.position.z += nz - t.z;
+      t.x = nx; t.z = nz;
+    }
+  }
+  const dist = camera.position.distanceTo(controls.target);
+  camera.near = Math.max(2, dist * 0.01); camera.far = dist * 40 + 20000; camera.updateProjectionMatrix();
+  scene.fog.near = dist * 3; scene.fog.far = dist * 12;
+  veil.material.uniforms.amount.value = Math.min(1, Math.max(0, (dist - 20000) / 40000));
+  // zooming out, the city shrinks into the map: heights ease down to nothing between 6 km and 70 km
+  const sink = 1 - Math.min(1, Math.max(0, Math.log(dist / 6000) / Math.log(70000 / 6000)));
+  const hs = Math.max(0.01, sink * sink * (3 - 2 * sink));
+  for (const t of tiles) { t.mesh.visible = dist < (t.tall ? 120000 : 40000); t.mesh.scale.y = hs; }
+  const lowDetail = GFX.detail === 'low'; // Settings: building detail
+  for (const t of cityTiles) { t.mesh.visible = dist < (t.kind === 'marks' ? 3000 : t.kind === 'detail' ? (lowDetail ? 0 : 2500) : t.kind === 'crown' ? (lowDetail ? 0 : 6000) : 40000); if (t.kind === 'roof') t.mesh.scale.y = hs; } // crowns go before the city starts sinking at 6 km
+  for (const f of frameHooks) f(dt, dist);
+  for (const t of trees) t.visible = dist < (lowDetail ? 1500 : 4500);
+  for (const t of roofThings) t.visible = !lowDetail && dist < 3500;
+  if (streetLabels) { streetLabels.visible = dist < 2600; streetLabels.material.uniforms.fade.value = 1 - Math.max(0, (dist - 1800) / 800); }
+  if (borders) {
+    renderer.getDrawingBufferSize(borders.material.uniforms.res.value);
+    borders.material.uniforms.width.value = 2.4 * renderer.getPixelRatio();
+    borders.material.uniforms.alpha.value = Math.min(1, Math.max(0, (dist - 60000) / 200000));
+    borders.visible = dist > 60000;
+  }
+  sky.position.copy(camera.position); sky.scale.setScalar(camera.far * 0.9);
+  { // the sun's shadow box follows what you are looking at
+    const t = controls.target, S = Math.min(6000, Math.max(450, dist * 1.25)), cam = sunLight.shadow.camera;
+    sunLight.target.position.copy(t);
+    sunLight.position.copy(t).addScaledVector(SUN_DIR, 6000);
+    if (cam.right !== S) { cam.left = cam.bottom = -S; cam.right = cam.top = S; cam.updateProjectionMatrix(); }
+  }
+  if (manhattanLand) manhattanLand.material.color.lerpColors(cityGrey, cityGreen, Math.min(1, Math.max(0, (dist - 15000) / 60000)));
+  if (pin) {
+    pin.visible = dist > 450 && dist < 60000;
+    pin.scale.setScalar(Math.max(0.3, Math.min(30, dist / 900)));
+    pin.position.y = homeTop + 3 + (4 + Math.sin(clock * 3) * 4) * pin.scale.x;
+    homeLabel.p.y = pin.position.y + 46 * pin.scale.x;
+  }
+  for (const l of labels) {
+    let on = !l.hidden && dist >= l.min && dist <= l.max;
+    if (on && globe.t > 0.5) { // on the globe only countries, continents and New York are shown
+      on = /country|continent|city/.test(l.el.className) && !(l.el.className.includes('country') && dist > 9e6);
+      if (on) {
+        if (!l.geo) l.geo = toGeo(l.p.x, l.p.z);
+        const v = geoVec(l.geo[0], l.geo[1], 1.002);
+        on = v.dot(tmp.copy(globe.cam.position).sub(v)) > 0.02;
+        if (on) { v.project(globe.cam); l.el.style.transform = `translate(${(v.x + 1) / 2 * w0}px, ${(1 - v.y) / 2 * h0}px) translate(-50%, -50%)`; }
+      }
+    } else if (on) {
+      tmp.copy(l.p).project(camera);
+      on = tmp.z < 1 && tmp.x > -1.2 && tmp.x < 1.2 && tmp.y > -1.2 && tmp.y < 1.2;
+      if (on) l.el.style.transform = `translate(${(tmp.x + 1) / 2 * w0}px, ${(1 - tmp.y) / 2 * h0}px) translate(-50%, -50%)`;
+    }
+    if (on !== l.on) { l.on = on; l.el.style.display = on ? (l.el.classList.contains('home') ? 'flex' : 'block') : 'none'; }
+  }
+  renderGlobeAndCity(dist);
+  requestAnimationFrame(frame);
+}
+
+// ---------- intro and HUD ----------
+const big = document.getElementById('big');
+function shout(text, ms = 2600) { big.textContent = text; big.classList.add('on'); setTimeout(() => big.classList.remove('on'), ms); }
+const touch = matchMedia('(pointer: coarse)').matches;
+document.getElementById('hint').textContent = touch ? 'Drag to move · Pinch to zoom · Twist with two fingers' : 'Drag to move · Scroll to zoom · Right-drag to turn';
+document.getElementById('bHome').onclick = () => flyTo(V.home());
+// the map button flips between the world and your apartment
+document.getElementById('bOffice').onclick = () => Office.active() ? Office.exit() : Office.enter();
+// into the game from the menu: fly somewhere (your apartment by default), then show the HUD
+function startGame(to = view(PLACE.home, 70, 0.55, AZ, homeTop), msg = window.Market && Market.state.started ? '' : 'WHERE YOU START') {
+  document.getElementById('title').hidden = true;
+  flyTo(to, 5, () => {
+    if (msg) shout(msg);
+    document.getElementById('hud').hidden = false;
+    setTimeout(() => { document.getElementById('hint').style.opacity = 0; }, 6000);
+    setTimeout(() => window.CSUI && CSUI.intro(), 2200);
+  });
+  homeLabel.hidden = false;
+}
+document.getElementById('play').onclick = () => startGame();
+
+(async () => {
+  try {
+    const [world, nyc, countries, streets] = await Promise.all([loadBin('data/world.bin'), loadBin(`data/${CITY.id}.bin`), fetch('data/countries.json').then(r => r.json()), fetch(`data/${CITY.id}-streets.json`).then(r => r.json())]);
+    loadMsg.textContent = `Building ${CITY.name}`;
+    await new Promise(r => setTimeout(r, 30));
+    for (const k of ['world.xy', 'border.xy']) { // the world map is stored in degrees: lay it out around this city
+      const a = world[k];
+      for (let i = 0; i < a.length; i += 2) { const [x, z] = ll(a[i + 1], a[i]); a[i] = x; a[i + 1] = z; }
+    }
+    flat(polyGeo(world, 'world'), LAND, 1, null, true);
+    flat(polyGeo(nyc, 'rwater'), OCEAN, 1.5, null, true); // the city's real coastline, over the coarse world map
+    flat(polyGeo(nyc, 'region'), LAND, 2, null, true);
+    {
+      const r = world['border.r'], xy = world['border.xy'], seg = [];
+      let p = 0;
+      for (let i = 1; i <= r[0]; i++) { for (let j = 0; j < r[i] - 1; j++) seg.push(xy[p + 2 * j], xy[p + 2 * j + 1], xy[p + 2 * j + 2], xy[p + 2 * j + 3]); p += 2 * r[i]; }
+      borders = thickLines(seg, 2.4, 0x111111, 7);
+    }
+    manhattanLand = flat(polyGeo(nyc, 'land'), PAVEMENT, 3);
+    flat(polyGeo(nyc, 'park'), 0x6aaa4c, 4);
+    flat(polyGeo(nyc, 'walk'), SIDEWALK, 4.3);
+    flat(polyGeo(nyc, 'road'), ASPHALT, 4.5);
+    flat(polyGeo(nyc, 'lake'), OCEAN, 5, null, true);
+    buildCity(nyc);
+    buildRoofs(nyc);
+    buildPitched(nyc);
+    buildCrowns();
+    buildSaw(nyc);
+    buildTrees(nyc);
+    const streetLines = lines(nyc);
+    buildMarkings(nyc, streetLines);
+    buildTraffic(streetLines);
+    buildGlobe(world);
+    await buildStreetLabels(nyc, streets);
+    if (window.Property) Property.init(nyc, streets);
+    if (window.Office) Office.init(nyc);
+    if (CITY.id === 'nyc') buildApartment(PLACE.home, homeTop, homeAngle); // your studio, with the ceiling off
+    pin = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({ color: lin(0xffcc4d), emissive: lin(0x885500), roughness: 0.35, metalness: 0.3 });
+    pin.add(new THREE.Mesh(new THREE.ConeGeometry(9, 26, 16).rotateX(Math.PI).translate(0, 13, 0), mat), new THREE.Mesh(new THREE.SphereGeometry(10, 16, 12).translate(0, 30, 0), mat));
+    pin.position.set(PLACE.home[0], homeTop + 3, PLACE.home[1]); pin.renderOrder = 11;
+    if (CITY.id === 'nyc') scene.add(pin);
+    homeLabel = label('<svg class="i"><use href="#i-home"/></svg>YOUR APARTMENT', 'home', PLACE.home, 70, 320, 60000); // hidden up close, where you can see the room itself
+    homeLabel.hidden = true;
+    cityLabels();
+    countryLabels(countries);
+  } catch (e) {
+    loadMsg.textContent = 'Could not load the map (' + e.message + '). Reload to try again.';
+    throw e;
+  }
+  place(V.world());
+  controls.update();
+  document.getElementById('load').hidden = true;
+  document.getElementById('title').hidden = false;
+  window.CS = { scene, renderer, tiles, flyTo, view, V, PLACE, current, place, ll, borders, startGame, home: () => [homeTop, homeAngle],
+    smoke() { const mid = towers.filter(t => Math.hypot(t[0], t[1]) < 2500), t = (mid.length ? mid : towers)[Math.floor(Math.random() * (mid.length || towers.length))]; smokeAt(t[0], t[1], t[2]); return [t[0], t[1]]; } }; // handy for testing in the console
+  requestAnimationFrame(frame);
+  // installable app: works offline after the first visit
+  if ('serviceWorker' in navigator && location.protocol === 'https:' && !window.Capacitor) navigator.serviceWorker.register('sw.js').catch(() => {}); // the app already has every file
+})();
+</script>
+<script src="js/city.js"></script>
+<script src="js/ui.js"></script>
+<script src="lib/supabase.js"></script>
+<script src="js/net-config.js"></script>
+<script src="js/net.js"></script>
+<script src="js/property.js"></script>
+<script src="js/office.js"></script>
+<script src="js/world.js"></script>
+<script src="js/pc.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
