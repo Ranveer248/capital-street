@@ -347,5 +347,5 @@ window.Property = (function () {
     }
     drawOwned();
   }
-  return { init, tap, select, open, info, goal, deselect, merged, card, wholePrice, perFloor, redraw: () => { if (!panel.hidden) drawPanel(); if (!sheet.hidden && selected != null) drawListing(false); }, get tab() { return panel.hidden ? null : tab; }, refreshOwned: drawOwned, key, isHere, gOf, cityOf, debug: () => ({ meshes: ownMeshes.size, labels: [...ownLabels.values()].map(l => [l.el.textContent, l.on, l.p.y]) }) };
+  return { init, loaded: () => !!NYC, tap, select, open, info, goal, deselect, merged, card, wholePrice, perFloor, redraw: () => { if (!panel.hidden) drawPanel(); if (!sheet.hidden && selected != null) drawListing(false); }, get tab() { return panel.hidden ? null : tab; }, refreshOwned: drawOwned, key, isHere, gOf, cityOf, debug: () => ({ meshes: ownMeshes.size, labels: [...ownLabels.values()].map(l => [l.el.textContent, l.on, l.p.y]) }) };
 })();

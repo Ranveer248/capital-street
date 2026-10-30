@@ -1531,6 +1531,8 @@ document.getElementById('play').onclick = () => startGame();
     buildTraffic(streetLines);
     buildGlobe(world);
     await buildStreetLabels(nyc, streets);
+    // the map data can come from the offline cache before the game's other scripts have run: wait for them
+    if (document.readyState === 'loading') await new Promise(r => document.addEventListener('DOMContentLoaded', r, { once: true }));
     if (window.Property) Property.init(nyc, streets);
     if (window.Land) Land.init(nyc);
     if (window.Office) Office.init(nyc);

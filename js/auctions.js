@@ -17,7 +17,7 @@ window.Auctions = (function () {
   let keys = null;
   const buildingKeys = () => keys || (keys = [...groups.keys()]);
   const plotList = () => [...Land.plots.values()];
-  const ready = () => window.Property && window.Land && typeof groups !== 'undefined' && groups.size > 0;
+  const ready = () => window.Property && Property.loaded() && window.Land && typeof groups !== 'undefined' && groups.size > 0;
   // something is for sale while neither you nor another player owns it
   const freeB = g => !M.state.props[Property.key(g)] && !(window.Net && Net.ownerOf(Property.key(g)));
   const freeP = p => !Land.mine(p) && !Land.theirs(p);
