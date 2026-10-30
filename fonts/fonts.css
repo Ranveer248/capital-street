@@ -1,3 +1,5 @@
 /* Archivo Black and Inter (latin), bundled so the game and the app work offline. Both: SIL Open Font License 1.1. */
 @font-face { font-family: 'Archivo Black'; font-style: normal; font-weight: 400; font-display: swap; src: url(archivo-black-latin.woff2) format('woff2'); }
 @font-face { font-family: 'Inter'; font-style: normal; font-weight: 600 800; font-display: swap; src: url(inter-latin.woff2) format('woff2'); }
+/* Lilita One (latin), the chunky game font of Goal 26. SIL Open Font License 1.1. */
+@font-face { font-family: 'Lilita One'; font-style: normal; font-weight: 400; font-display: swap; src: url(lilita-one-latin.woff2) format('woff2'); }

@@ -305,6 +305,19 @@ The sunny, toy-like style of the mobile city builders, on real cities: you don't
 | Tutorial | ✅ Penny shows the money, rent, Jobs, Property, rebuilding, auctions to players, the Exchange and the news |
 | Other players see rebuilds | ✅ each design is stored on the server (cs_buildings.design, set only by the owner through cs_set_design), so every player sees what you built, and it stays with the building when you sell it to another player |
 
+## Goal 26: a city-builder screen and lobby ✅
+
+Designed first in Figma ([Capital Street — Game UI](https://www.figma.com/design/9PMFhcKouB5mSqsUjjD64j), page "Goal 26 · SimCity-style redesign": components, a phone lobby and the in-game screen), then built. Laid out the way city builders do it: level and stats top-left, money top-right, the main button in the bottom-right corner, big labelled buttons.
+
+| Check | Result |
+|---|---|
+| New controls | ✅ the old centred dock with the avatar is gone. Exchange and Property are big tiles bottom-left, JOBS is a big orange button in the bottom-right corner, and Home, Bank, Office and World are a rail of round buttons up the right |
+| Tactile buttons | ✅ gradient faces, a gloss on top, a navy outline and a solid lip underneath, chunky Lilita One type with an outline |
+| Top of the screen | ✅ level badge top-left, cash (with a + that opens Jobs) and net worth as pills with icons top-right, the clock and market under the level |
+| Lobby | ✅ the menu sits over the live city instead of the globe: a logo plaque with a ribbon, cards for today's deals, live auctions and your buildings (tap to go there), round buttons for World, How to play, Settings, Credits and New game, a big green Play, and the same tiles and JOBS button as in the game |
+| Camera | ✅ a narrow lens and a fixed tilt in the city, for the flatter near-isometric look of city builders instead of a low, very 3D view |
+| Play always starts | ✅ tapping Play while still connecting now always starts the game once you're online |
+
 ## Roadmap
 
 1. ✅ The New York map
@@ -335,6 +348,7 @@ From the 5 new reference videos (a player-run economy game on the real world map
 21. ✅ **High-end graphics:** bloom, grading, a sun that follows the clock, clouds, glass, water, night lights
 22. ✅ **Simpler:** a new menu, online-only play, a clean map and screen, a tutorial
 23. ✅ **Surprises:** more market events, planes in the sky, plane crashes
+26. ✅ **City-builder screen:** designed in Figma; corner JOBS button, tiles and a rail instead of the dock, a lobby over the city, a flatter camera
 25. ✅ **City builder:** a bright toy-city look, rebuild what you own, 12 balanced jobs, online only, our own icons
 24. ✅ **Easier, livelier:** one game bar in and out of the game, an Earn button, simple trading, fewer crashes, boats, helicopters and car lights
 

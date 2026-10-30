@@ -40,15 +40,16 @@ window.HUD = (function () {
   document.body.appendChild(join);
   let color = COLORS[Math.floor(Math.random() * COLORS.length)], busy = false, why = '', name = '';
   try { name = localStorage.getItem('cs-name') || ''; } catch (e) { /* storage blocked */ }
+  let wantPlay = false; // you tapped Play and are waiting to get online
   let after = null; // what to open once you're in, when you tapped a bar button or an Earn tile on the menu
   function play(then) {
     after = typeof then === 'function' && !(window.Tutorial && Tutorial.want()) ? then : null;
     const st = window.Net ? Net.status : 'off';
     if (!window.Net || !Net.configured || st === 'online') { go(); return; }
-    why = ''; join.hidden = false; drawJoin();
+    why = ''; wantPlay = true; join.hidden = false; drawJoin();
   }
   function go() {
-    join.hidden = true; CS.startGame();
+    join.hidden = true; wantPlay = false; CS.startGame();
     if (!after) return;
     const f = after; after = null;
     const t = setInterval(() => { if ($('hud').hidden || !window.Property || !Property.loaded()) return; clearInterval(t); setTimeout(f, 300); }, 200);
@@ -72,7 +73,7 @@ window.HUD = (function () {
     }
     join.innerHTML = `<div class="jbox"><button class="jx" id="jX" aria-label="Close">${IC('close')}</button><div class="jlogo">${IC('skyline')}</div><b>Join New York</b>${body}
       <small>By playing you agree to the <a href="terms.html" target="_blank" rel="noopener">Terms</a> and <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a>.</small></div>`;
-    $('jX').onclick = () => { join.hidden = true; after = null; };
+    $('jX').onclick = () => { join.hidden = true; after = null; wantPlay = false; };
     if ($('jRetry')) $('jRetry').onclick = () => location.reload();
     if ($('jAcc')) $('jAcc').onclick = () => { join.hidden = true; Net.open('account'); };
     join.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { color = b.dataset.c; join.querySelectorAll('[data-c]').forEach(x => x.classList.toggle('on', x === b)); });
@@ -96,6 +97,11 @@ window.HUD = (function () {
     }
   }
   if (window.Net) Net.on(t => { if (t === 'me' && !join.hidden && !busy) drawJoin(); });
+  let lastSt = ''; // and whenever the status changes (the 'me' news can come before the status does)
+  setInterval(() => {
+    if (wantPlay && window.Net && Net.status === 'online' && !$('title').hidden) { go(); return; } // a safety net: tapped Play, now online
+    if (!window.Net || join.hidden || busy || Net.status === lastSt) return; lastSt = Net.status; drawJoin();
+  }, 300);
   $('mTut').onclick = () => { if (window.Tutorial) Tutorial.reset(); play(); };
 
   // ---------- one game bar, in the game and on the menu (Goal 24) ----------
@@ -141,6 +147,25 @@ window.HUD = (function () {
     });
   }
   $('earnG').onclick = openEarn; $('earnM').onclick = openEarn;
+  if ($('cashPlus')) $('cashPlus').onclick = openEarn;
+
+  // ---------- the lobby's cards (Goal 26): today in the city, one tap to go there ----------
+  const CARDS = [
+    ['tag', () => window.Auctions ? Auctions.deals().size : 0, 'Deals', () => Property.open('deals')],
+    ['gavel', () => window.Auctions && Auctions.live ? Auctions.live().length : 0, 'Auctions', () => Property.open('auctions')],
+    ['key', () => Object.keys(S().props || {}).length, 'Yours', () => Property.open('mine')]
+  ];
+  let cardsSig = '';
+  setInterval(() => {
+    if ($('title').hidden || !$('lcards')) return;
+    let vals;
+    try { vals = CARDS.map(c => c[1]()); } catch (e) { return; } // the city isn't loaded yet
+    const sig = vals.join(',');
+    if (sig === cardsSig) return;
+    cardsSig = sig;
+    $('lcards').innerHTML = CARDS.map(([ic, , label], i) => `<button data-lc="${i}">${IC(ic)}<b>${vals[i]}</b><small>${label}</small></button>`).join('');
+    $('lcards').querySelectorAll('[data-lc]').forEach(b => b.onclick = () => play(CARDS[+b.dataset.lc][3]));
+  }, 700);
 
   // ---------- the menu's player card ----------
   setInterval(() => {
