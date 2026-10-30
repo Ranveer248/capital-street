@@ -197,6 +197,16 @@ Five tables and nine checked functions in [`server/schema.sql`](server/schema.sq
 
 Cash still lives in each player's own save, so a player who edits their save could promise money they don't have; moving cash to the server is the cheat-proof next step.
 
+## Goal 16: inside buildings ✅ (renting rooms to players waits on the server)
+
+| Check | Result |
+|---|---|
+| Rooms and tenants | ✅ every building you own (other than your office) has two rooms a floor, let to tenants with names; its card shows how many are let, who lives there, how happy they are and what the building makes tonight. Tenants move in and out each night towards how good the rooms are |
+| Furniture and fit-outs | ✅ Basic, Nice (+15% rent) or Luxury (+35% rent) rooms, priced by the building's size and value; nicer rooms keep tenants too. Your office keeps its own furniture, now with an air conditioner |
+| Extensions and basements | ✅ add up to three floors on top (two more rooms each, counted in the building's value) and dig a parking basement that pays every night |
+| Temperature | ✅ a 28-day year from a cold winter (about −2°C) to summer heatwaves (about 30°C), shown in the top bar. Without heating, winter empties rooms; without cooling, so does a heatwave; heating and cooling cost a little each night to run. In your office, server racks, news screens and hot days make heat that lowers the vibe unless air conditioners take it away, and a cold office is gloomy too |
+| Renting rooms to players | ⬜ needs new server tables (rooms on offer, leases, rent paid between players). Waiting on the owner |
+
 ## Roadmap
 
 1. ✅ The New York map
@@ -219,7 +229,7 @@ From the 5 new reference videos (a player-run economy game on the real world map
 13. ✅ **Real land and buildings for everyone:** land plots on the map; a Zillow-style property market with photos, filters and auctions with max bids; everything for sale lights up
 14. ✅ **Businesses:** farms, mines, oil rigs and shops on your land; NPC income that rewards setup cost and effort without inflating the economy
 15. ✅ **Player-set markets:** an item exchange where players set every price; production chains from raw resources to finished goods; a factory planner
-16. **Inside buildings:** rooms, furniture, renting rooms to players and NPCs, extensions and basements, temperature (heat from machines, cooling, happy tenants and workers)
+16. ✅ **Inside buildings:** rooms, furniture, renting rooms to players and NPCs, extensions and basements, temperature (heat from machines, cooling, happy tenants and workers)
 17. **Companies and the stock market:** start a company, take it public, players trade its shares
 18. **Logistics:** ports, ships and trucks moving goods between cities
 19. **Wiki, changelog and community**

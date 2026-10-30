@@ -208,6 +208,7 @@ window.Property = (function () {
           ${p && window.Office ? (Office.hq() === it.g ? '<button class="buy" id="lsOffice">Enter your office</button>' : '<button class="plain" id="lsOffice">Make this my office</button>') : ''}
           <button class="plain" id="lsFly">Fly there</button>
         </div>
+        ${p && window.Interior ? Interior.section(key(selected), p) : ''}
         ${window.Trade ? Trade.block({ kind: 'b', key: key(selected), mine: !!p, value: p ? p.floors * M.floorValue(p) : wholePrice(it), floors: p ? p.floors : 0, name: it.name }) : ''}
         ${other && !(window.Trade && (Trade.listing(key(selected)) || Trade.auctionOf(key(selected)))) ? `<p class="note"><b>${esc(other.name)}</b> owns this building. Players can sell to each other: they list it, or auction it.</p>` : ''}
         <p class="note">Tenants pay rent every night. Prices follow the New York property market, which crashes and booms with everything else. Selling costs ${M.PROP_FEE * 100}%.</p>
@@ -216,6 +217,7 @@ window.Property = (function () {
     $('lsX').onclick = deselect;
     $('lsFly').onclick = () => select(selected, true);
     if ($('lsAuc')) $('lsAuc').onclick = () => open('auctions');
+    if (p && window.Interior) Interior.bind(sheet, key(selected), p, () => drawListing(false));
     if (window.Trade) Trade.bind(sheet, { kind: 'b', key: key(selected), it, floors: p ? p.floors : 0, name: it.name, value: p ? p.floors * M.floorValue(p) : wholePrice(it), redraw: () => drawListing(false) });
     if ($('lsOffice')) $('lsOffice').onclick = () => { if (Office.hq() !== it.g) { Office.setHQ(it.g); drawListing(false); } else Office.enter(); };
     sheet.querySelectorAll('[data-buy]').forEach(b => b.onclick = () => {

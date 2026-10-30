@@ -22,7 +22,8 @@ window.Office = (function () {
     shelf: { name: 'Bookshelf', cat: 'Decor', w: 1, d: 1, cost: 250, vibe: 2, cap: 5, icon: '📚' },
     wall: { name: 'Wall', cat: 'Decor', w: 1, d: 1, cost: 80, icon: '🧱' },
     server: { name: 'Server rack', cat: 'Tech', w: 1, d: 1, cost: 2000, icon: '🗄️', note: 'Brokers earn 10% more (up to 3)' },
-    tv: { name: 'News screen', cat: 'Tech', w: 2, d: 1, cost: 800, vibe: 3, cap: 2, icon: '📺' }
+    tv: { name: 'News screen', cat: 'Tech', w: 2, d: 1, cost: 800, vibe: 3, cap: 2, icon: '📺' },
+    ac: { name: 'Air conditioner', cat: 'Tech', w: 1, d: 1, cost: 1500, icon: '❄️', note: 'Takes away the heat of 2 server racks or a summer day' }
   };
   const CATS = ['Desks', 'Comfort', 'Decor', 'Tech'];
   // fee to hire, salary a day, what they earn a day before skill and vibe
@@ -112,6 +113,7 @@ window.Office = (function () {
     shelf(g) { box(g, 1.0, 1.9, 0.4, 0, 0, 0, 0x7a5236); for (let k = 0; k < 4; k++) for (let b = 0; b < 5; b++) box(g, 0.14, 0.32, 0.3, -0.36 + b * 0.18, 0.12 + k * 0.45, 0, [0x3b6fd8, 0xd94c3d, 0xe8c25a, 0x2f8f5a, 0xf4f4f2][(k + b) % 5]); },
     wall(g) { box(g, 1.2, 2.8, 0.14, 0, 0, 0, 0xe9ece6); },
     server(g) { box(g, 0.75, 2.0, 0.9, 0, 0, 0, 0x16181d); for (let k = 0; k < 8; k++) box(g, 0.05, 0.05, 0.02, 0.25, 0.2 + k * 0.22, 0.46, 0x22c55e, { emissive: lin(0x22c55e), emissiveIntensity: 1 }); },
+    ac(g) { box(g, 0.9, 1.7, 0.45, 0, 0, 0, 0xeef2f6); for (let k = 0; k < 6; k++) box(g, 0.7, 0.04, 0.02, 0, 0.9 + k * 0.1, 0.23, 0x9aa5b0); box(g, 0.2, 0.08, 0.02, 0.2, 1.55, 0.23, 0x2fd47a, { emissive: lin(0x2fd47a), emissiveIntensity: 1 }); },
     tv(g) { box(g, 2.0, 0.6, 0.45, 0, 0, 0, 0x2c2f36); box(g, 1.9, 1.1, 0.06, 0, 0.75, 0, 0x111318, { emissive: lin(0xb91c1c), emissiveIntensity: 0.55 }); }
   };
 
@@ -192,6 +194,10 @@ window.Office = (function () {
     for (const it of O().items) counts[it.type] = (counts[it.type] || 0) + 1;
     const parts = [];
     for (const [t, n] of Object.entries(counts)) { const I = ITEMS[t]; if (I.vibe) parts.push([I.name, Math.min(n, I.cap) * I.vibe]); }
+    // Goal 16: machines and summer make heat; air conditioners take it away
+    const t = window.Interior ? Interior.temp() : 18, heat = 3 * (counts.server || 0) + (counts.tv || 0) + Math.max(0, t - 22), cool = 6 * (counts.ac || 0);
+    if (heat > 0) parts.push([`Heat (${t}°C outside${counts.server ? ', server racks' : ''})`, -Math.max(0, heat - cool)]);
+    if (t < 6) parts.push(['A cold office', -(6 - t)]);
     return parts;
   };
   const vibe = () => Math.max(0, Math.min(100, 30 + vibeParts().reduce((s, p) => s + p[1], 0)));
@@ -358,7 +364,7 @@ window.Office = (function () {
     } else {
       const l = o.last;
       html = `<div class="cards"><div>Vibe<b>${Math.round(vibe())}/100</b></div><div>Work speed<b>${Math.round(productivity() * 100)}%</b></div><div>All-time<b class="${(o.total || 0) >= 0 ? 'up' : 'dn'}">${usd(o.total || 0)}</b></div></div>
-        <div class="sec">WHAT MAKES THE VIBE</div><table class="tbl"><tr><td>Bare office</td><td>30</td></tr>${vibeParts().map(([n, v]) => `<tr><td>${n}</td><td>+${v}</td></tr>`).join('')}</table>
+        <div class="sec">WHAT MAKES THE VIBE</div><table class="tbl"><tr><td>Bare office</td><td>30</td></tr>${vibeParts().map(([n, v]) => `<tr><td>${n}</td><td>${v >= 0 ? "+" : ""}${v}</td></tr>`).join('')}</table>
         <div class="sec">LAST NIGHT</div>${l ? `<table class="tbl"><tr><td>Office income</td><td class="up">${usd(l.revenue)}</td></tr><tr><td>Broker trading</td><td class="${l.brokers >= 0 ? 'up' : 'dn'}">${usd(l.brokers)}</td></tr><tr><td>Salaries</td><td class="dn">-${usd(l.salaries)}</td></tr><tr><td><b>Net</b></td><td class="${l.net >= 0 ? 'up' : 'dn'}"><b>${usd(l.net)}</b></td></tr></table>${[...l.lines, ...l.quit].map(t => `<p class="note">• ${t}</p>`).join('')}` : '<p class="note">Your first report comes tonight.</p>'}`;
     }
     $('ostaffBody').innerHTML = html;

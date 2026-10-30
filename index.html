@@ -611,6 +611,16 @@ h1 { -webkit-text-stroke: 3px var(--ol); paint-order: stroke fill; text-shadow: 
 .obr { display: flex; gap: 8px; align-items: baseline; font-size: 12px; } .obr span { flex: 1; color: var(--x-dim); } .obr i { font-style: normal; font-size: 10px; color: var(--c-gold); }
 .obr.sell b { color: #ff9aa4; } .obr.buy b { color: var(--c-green); }
 .xform { flex-wrap: wrap; } .auc.pa { grid-template-columns: 1fr; border-color: var(--c-pink); } .auc.pa .lnk { justify-self: start; color: var(--c-pink); }
+/* ---------- Goal 16: inside buildings ---------- */
+.inside { display: grid; gap: 8px; margin: 10px 0; padding: 12px; border-radius: 16px; background: var(--pi); border: 2px solid var(--ol); }
+.inside > small { font: 800 10px/1 Inter, sans-serif; letter-spacing: .12em; color: var(--c-blue); }
+.sbar.occ i { background: linear-gradient(var(--c-green), var(--c-green2)); }
+.inside .ground b.up { color: var(--c-green); } .inside .ground b.dn { color: #ff9aa4; }
+.opts { display: grid; gap: 6px; } .opts > div { display: grid; gap: 4px; } .opts b { font: 800 11px/1 Inter, sans-serif; color: var(--x-dim); letter-spacing: .06em; text-transform: uppercase; }
+.opts span { display: flex; flex-wrap: wrap; gap: 6px; }
+.opts button { padding: 6px 10px; border-radius: 10px; border: 2px solid var(--ol); background: var(--pl); color: #fff; font: 700 11px/1.2 Inter, sans-serif; box-shadow: 0 2px 0 var(--ol); }
+.opts button.on { background: var(--c-green); color: #05240f; } .opts button:disabled:not(.on) { opacity: .45; }
+#wx { padding: 2px 8px; border-radius: 999px; background: var(--pl); border: 2px solid var(--ol); font: 800 11px/1.2 Inter, sans-serif; color: #fff; white-space: nowrap; }
 .planout .cards span { display: block; font-size: 10px; color: var(--x-dim); text-transform: none; letter-spacing: 0; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
 </style>
@@ -1555,6 +1565,7 @@ document.getElementById('play').onclick = () => startGame();
 <script src="js/auctions.js"></script>
 <script src="js/business.js"></script>
 <script src="js/trade.js"></script>
+<script src="js/interior.js"></script>
 <script src="js/office.js"></script>
 <script src="js/world.js"></script>
 <script src="js/pc.js"></script>
