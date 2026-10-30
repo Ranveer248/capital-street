@@ -208,10 +208,12 @@ window.Biz = (function () {
     html += `<small class="ahd">YOUR BUSINESSES${here.length < list.length ? ` (${list.length - here.length} in other cities)` : ''}</small><div class="lbtns"><button class="buy" id="bzAll" ${ready ? '' : 'disabled'}>Collect everything (${ready.toLocaleString('en-US')})</button></div>`;
     html += here.length ? here.map(([k, o]) => { const b = o.biz, T = TYPES[b.type]; return `<button class="bzrow ${b.type}" data-plot="${o.i},${o.j}"><i></i><div><b>${T.name} · level ${b.lvl}</b><span>${esc(o.name)}</span></div><span>${T.makes ? `${Math.floor(b.stock)} / ${cap(b)} ${GOODS[T.makes].unit}` : usd(b.earned)}</span></button>`; }).join('')
       : '<p class="note">No businesses yet. Buy a land plot (Land tab), then build a farm, mine, oil well or shop on it.</p>';
+    if (window.Company) html += Company.section();
     if (window.Trade) html += Trade.exchangeHTML();
     body.innerHTML = html;
     body.querySelectorAll('[data-sell]').forEach(b => b.onclick = () => { const g = b.dataset.sell, r = sell(g, Math.max(1, Math.floor(inv()[g] * +b.dataset.f))); if (r.ok) toast('Sold', `${r.q.toLocaleString('en-US')} ${GOODS[g].unit} for ${usd(r.total)}.`); else toast('Can\'t sell', r.why); draw2d(); });
     if ($('bzAll')) $('bzAll').onclick = collectAll;
+    if (window.Company) Company.bind(body);
     if (window.Trade) Trade.bindExchange(body);
     body.querySelectorAll('form[data-ask]').forEach(f => f.onsubmit = e => { e.preventDefault(); const [q, p] = [...f.querySelectorAll('input')].map(i => +i.value), r = ask(f.dataset.ask, q, p); if (!r.ok) toast('Can\'t list', r.why); else toast('Listed', `Buyers pick it up overnight. Closer to the city's price sells faster.`); draw2d(); });
     body.querySelectorAll('[data-unask]').forEach(b => b.onclick = () => { unask(b.dataset.unask); draw2d(); });

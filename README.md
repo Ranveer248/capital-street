@@ -207,6 +207,15 @@ Cash still lives in each player's own save, so a player who edits their save cou
 | Temperature | ✅ a 28-day year from a cold winter (about −2°C) to summer heatwaves (about 30°C), shown in the top bar. Without heating, winter empties rooms; without cooling, so does a heatwave; heating and cooling cost a little each night to run. In your office, server racks, news screens and hot days make heat that lowers the vibe unless air conditioners take it away, and a cold office is gloomy too |
 | Renting rooms to players | ⬜ needs new server tables (rooms on offer, leases, rent paid between players). Waiting on the owner |
 
+## Goal 17: your own company on the stock market ✅ (players trading its shares waits on the server)
+
+| Check | Result |
+|---|---|
+| Start a company | ✅ Property → Business → Your company: once your net worth reaches $250,000, pick a name and a 3–4 letter ticker and found it ($25,000). Its book value is your buildings, land, businesses and goods, split into shares so it lists at about $20 |
+| Take it public | ✅ while the market is open, sell 20%, 30% or 40% to investors at 10% over book (the bankers keep 3%). Its ticker then trades every minute on the Share Exchange next to the fictional companies, with charts, news and surprise events |
+| A price that follows your empire | ✅ every night investors reprice it towards its book value plus 20 times what the empire grew; buy shares back on the exchange to own more of it, sell yours to raise cash. The part investors own counts against your net worth, so going public never counts the same buildings twice |
+| Players trading its shares | ⬜ needs the exchange's order book to accept company shares as well as goods (a server change). Waiting on the owner |
+
 ## Roadmap
 
 1. ✅ The New York map
@@ -230,7 +239,7 @@ From the 5 new reference videos (a player-run economy game on the real world map
 14. ✅ **Businesses:** farms, mines, oil rigs and shops on your land; NPC income that rewards setup cost and effort without inflating the economy
 15. ✅ **Player-set markets:** an item exchange where players set every price; production chains from raw resources to finished goods; a factory planner
 16. ✅ **Inside buildings:** rooms, furniture, renting rooms to players and NPCs, extensions and basements, temperature (heat from machines, cooling, happy tenants and workers)
-17. **Companies and the stock market:** start a company, take it public, players trade its shares
+17. ✅ **Companies and the stock market:** start a company, take it public, players trade its shares
 18. **Logistics:** ports, ships and trucks moving goods between cities
 19. **Wiki, changelog and community**
 20. **Launch on PC:** hosting for a game of any size, then a desktop download (Steam / itch.io)

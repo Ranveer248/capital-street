@@ -621,6 +621,9 @@ h1 { -webkit-text-stroke: 3px var(--ol); paint-order: stroke fill; text-shadow: 
 .opts button { padding: 6px 10px; border-radius: 10px; border: 2px solid var(--ol); background: var(--pl); color: #fff; font: 700 11px/1.2 Inter, sans-serif; box-shadow: 0 2px 0 var(--ol); }
 .opts button.on { background: var(--c-green); color: #05240f; } .opts button:disabled:not(.on) { opacity: .45; }
 #wx { padding: 2px 8px; border-radius: 999px; background: var(--pl); border: 2px solid var(--ol); font: 800 11px/1.2 Inter, sans-serif; color: #fff; white-space: nowrap; }
+/* ---------- Goal 17: your company ---------- */
+.co { display: grid; gap: 8px; padding: 12px; border-radius: 16px; background: var(--pi); border: 2px solid var(--c-gold); }
+.coh { display: flex; align-items: center; gap: 10px; } .coh b { font: 400 20px/1.1 'Archivo Black', sans-serif; } .tick { padding: 3px 8px; border-radius: 8px; background: var(--c-gold); color: #2a1800; font: 800 12px/1 Inter, sans-serif; letter-spacing: .08em; }
 .planout .cards span { display: block; font-size: 10px; color: var(--x-dim); text-transform: none; letter-spacing: 0; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
 </style>
@@ -1566,6 +1569,7 @@ document.getElementById('play').onclick = () => startGame();
 <script src="js/business.js"></script>
 <script src="js/trade.js"></script>
 <script src="js/interior.js"></script>
+<script src="js/company.js"></script>
 <script src="js/office.js"></script>
 <script src="js/world.js"></script>
 <script src="js/pc.js"></script>

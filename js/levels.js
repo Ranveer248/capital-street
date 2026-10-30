@@ -54,6 +54,7 @@ window.Levels = (function () {
     else if (type === 'land' && d.kind === 'bought') give(Math.min(150, 30 + d.cost / 2000));
     else if (type === 'auction' && d.kind === 'won') give(120);
     else if (type === 'biz' && d.kind === 'built') give(80);
+    else if (type === 'company') give(d.kind === 'ipo' ? 500 : 200);
     else if (type === 'interior' && d.kind !== 'night') give(Math.min(80, 20 + d.cost / 2000));
     else if (type === 'biz' && d.kind === 'upgraded') give(60);
     else if (type === 'biz' && d.kind === 'sold') give(Math.min(60, 5 + d.total / 500));
