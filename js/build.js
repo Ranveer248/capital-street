@@ -3,8 +3,8 @@
 // hours as a construction site with a crane, then it's yours to rent out or to sell to other players at auction.
 // You pay for what the new building adds (plus 5% to knock the old one down), so it pays when you put something bigger
 // and better on a good spot: a little on the price, and more in rent. The build time keeps it level with the other jobs.
-// Builds are kept in the save (state.builds by property key); other players see your new building once the server
-// stores designs (see server/schema.sql), until then they see the old one.
+// Builds are kept in the save (state.builds by property key) and on the server (cs_buildings.design, server/schema.sql),
+// so every player sees what you built, and the design stays with the building when you sell it to another player.
 'use strict';
 window.Build = (function () {
   const M = window.Market, $ = id => document.getElementById(id);
@@ -39,28 +39,43 @@ window.Build = (function () {
   const inPoly = (x, z, pts) => { let c = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) { const a = pts[i], b = pts[j]; if ((a.y > z) !== (b.y > z) && x < (b.x - a.x) * (z - a.y) / (b.y - a.y) + a.x) c = !c; } return c; };
 
   // ---------- knocking the old building down (only on screen: the map data never changes) ----------
-  const cleared = new Map(); // g -> outlines of all its pieces
+  const cleared = new Map(); // g -> { polys: outlines of all its pieces, undo: what was moved, to put it back }
   const zero = new THREE.Matrix4().makeScale(0, 0, 0), mtx = new THREE.Matrix4(), pos = new THREE.Vector3();
   function clear(g) {
     if (cleared.has(g)) return;
     const ids = new Set(groups.get(g) || []), XY = Property.data()['b.xy'], polys = [];
     for (const i of ids) { const p = pieces[i], pts = []; for (let j = 0; j < p.k; j++) pts.push(new THREE.Vector2(XY[p.off + 2 * j] / 2, XY[p.off + 2 * j + 1] / 2)); polys.push(pts); }
-    cleared.set(g, polys);
+    const undo = [];
+    cleared.set(g, { polys, undo });
     for (const t of tiles) { // sink the walls and roofs below the street
       const P = t.mesh.geometry.attributes.position; let hit = false;
-      for (let v = 0; v < t.pid.length; v++) if (ids.has(t.pid[v])) { P.setY(v, -3); hit = true; }
+      for (let v = 0; v < t.pid.length; v++) if (ids.has(t.pid[v])) { undo.push({ P, v, y: P.getY(v) }); P.setY(v, -3); hit = true; }
       if (hit) P.needsUpdate = true;
     }
     const inside = (x, z) => polys.some(pts => inPoly(x, z, pts));
     for (const m of roofThings.concat(cityTiles.filter(t => t.kind === 'crown' || t.kind === 'detail').map(t => t.mesh))) { // water towers, plant rooms, domes, spires
       if (!m.isInstancedMesh) continue;
       let hit = false;
-      for (let i = 0; i < m.count; i++) { m.getMatrixAt(i, mtx); pos.setFromMatrixPosition(mtx); if (inside(pos.x, pos.z)) { m.setMatrixAt(i, zero); hit = true; } }
+      for (let i = 0; i < m.count; i++) { m.getMatrixAt(i, mtx); pos.setFromMatrixPosition(mtx); if (inside(pos.x, pos.z)) { undo.push({ m, i, mtx: mtx.clone() }); m.setMatrixAt(i, zero); hit = true; } }
       if (hit) m.instanceMatrix.needsUpdate = true;
     }
     const o = outline(g); if (o) refreshPitched(o.x, o.z);
   }
-  const inCleared = (x, z) => { for (const polys of cleared.values()) if (polys.some(pts => inPoly(x, z, pts))) return true; return false; };
+  const inCleared = (x, z) => { for (const c of cleared.values()) if (c.polys.some(pts => inPoly(x, z, pts))) return true; return false; };
+  function restore(g) { // the old building comes back (a design was taken off the server)
+    const c = cleared.get(g); if (!c) return;
+    for (const u of c.undo) if (u.P) { u.P.setY(u.v, u.y); u.P.needsUpdate = true; } else { u.m.setMatrixAt(u.i, u.mtx); u.m.instanceMatrix.needsUpdate = true; }
+    cleared.delete(g);
+    const o = outline(g); if (o) refreshPitched(o.x, o.z);
+  }
+  // what stands on a building: your own build from the save, or what its owner built, from the server
+  function rec(k) {
+    const net = window.Net && Net.designOf ? Net.designOf(k) : null, theirs = window.Net && Net.ownerOf ? Net.ownerOf(k) : null, mine = B()[k];
+    if (mine && !theirs) return mine;
+    if (!net || !D(net.d) || !(net.f > 0)) return null;
+    return { d: net.d, c: net.c | 0, floors: net.f, fp: net.fp, start: 0, end: net.done || !theirs ? -Infinity : Infinity, remote: true };
+  }
+  const share = (k, r, done) => window.Net && Net.setDesign ? Net.setDesign(k, { d: r.d, c: r.c, f: r.floors, fp: r.fp, done }) : null;
 
   // ---------- the new building's shape ----------
   function geometry(o, d, col, floors) {
@@ -108,9 +123,9 @@ window.Build = (function () {
   const built = new Map(); // g -> THREE.Group
   const site = { scaff: new THREE.MeshStandardMaterial({ color: lin(0xe0a83a), roughness: 0.7, transparent: true, opacity: 0.55 }), crane: new THREE.MeshStandardMaterial({ color: lin(0xffc21f), roughness: 0.5 }), fence: new THREE.MeshStandardMaterial({ color: lin(0x2c4a7a), roughness: 0.8 }) };
   function draw(g) {
-    const k = keyOf(g), r = B()[k], o = outline(g);
+    const k = keyOf(g), r = rec(k), o = outline(g);
     if (built.has(g)) { const old = built.get(g); scene.remove(old); old.traverse(x => { if (x.geometry) x.geometry.dispose(); }); built.delete(g); }
-    if (!r || !o) return;
+    if (!r || !o) { restore(g); return; }
     clear(g);
     const d = D(r.d), grp = new THREE.Group(), now = M.state.time, done = now >= r.end;
     const { g: geo, H } = geometry(o, d, d.cols[r.c] || d.cols[0], r.floors);
@@ -195,9 +210,9 @@ window.Build = (function () {
     if (q.cost > M.state.cash) return { ok: false, why: `You need ${usd(q.cost)} in cash` };
     M.state.cash -= q.cost;
     p.paid += q.cost; p.uc = true; p.floors = q.floors; p.totalFloors = q.floors; p.floorPrice = q.fp; p.type = d.name;
-    B()[k] = { d: id, c, floors: q.floors, fp: q.fp, start: M.state.time, end: M.state.time + q.mins };
+    const r = B()[k] = { d: id, c, floors: q.floors, fp: q.fp, start: M.state.time, end: M.state.time + q.mins };
     M.save(); Property.forget(g); draw(g);
-    if (window.Net) Net.claim(k, q.floors, it.name);
+    if (window.Net) Net.claim(k, q.floors, it.name).then(() => share(k, r, false));
     if (window.Levels) Levels.give(Math.min(400, 20 + q.floors * 4), 'Building');
     toast('Building started', `${d.name} at ${it.name}: ready in ${hm(q.mins)}`);
     Property.redraw();
@@ -206,8 +221,8 @@ window.Build = (function () {
 
   // the listing card's part: a Rebuild button, or how far along the building is
   function section(g) {
-    const k = keyOf(g), p = M.state.props[k], r = B()[k], it = Property.info(g);
-    if (r && M.state.time < r.end) { const f = (M.state.time - r.start) / (r.end - r.start); return `<div class="bdprog"><span>${IC('crane')} ${esc(D(r.d).name)} going up</span><i><b style="width:${Math.round(f * 100)}%"></b></i><small>Ready in ${hm(Math.max(1, Math.round(r.end - M.state.time)))}</small></div>`; }
+    const k = keyOf(g), p = M.state.props[k], r = rec(k), it = Property.info(g);
+    if (r && M.state.time < r.end && !r.remote) { const f = (M.state.time - r.start) / (r.end - r.start); return `<div class="bdprog"><span>${IC('crane')} ${esc(D(r.d).name)} going up</span><i><b style="width:${Math.round(f * 100)}%"></b></i><small>Ready in ${hm(Math.max(1, Math.round(r.end - M.state.time)))}</small></div>`; }
     if (!p || p.floors < it.floors) return '';
     return `<button class="buy" id="lsBuild">${IC('crane')} Rebuild</button>`;
   }
@@ -215,7 +230,7 @@ window.Build = (function () {
 
   // a rebuilt building reports its new size to the listing, the rent and the price
   function adjust(it) {
-    const r = B()[keyOf(it.g)]; if (!r) return it;
+    const r = rec(keyOf(it.g)); if (!r) return it;
     const d = D(r.d);
     return Object.assign({}, it, { floors: r.floors, maxH: r.floors * 3.6, floorPrice: r.fp, type: d.name, kind: d.typ <= 2 ? 'homes' : d.typ === 3 ? 'shops' : d.typ === 6 ? 'factories' : r.floors > 12 ? 'towers' : 'offices', rebuilt: true });
   }
@@ -223,17 +238,31 @@ window.Build = (function () {
   // ---------- every frame: put up what's in the save, finish what's done, turn the cranes ----------
   let ready = false;
   frameHooks.push(dt => {
-    if (!ready) { if (!window.Property || !Property.loaded()) return; ready = true; for (const k of Object.keys(B())) if (Property.isHere(k)) draw(Property.gOf(k)); }
+    if (!ready) { if (!window.Property || !Property.loaded()) return; ready = true; sync(); if (window.Net) Net.on(t => { if (t === 'owners') sync(); }); }
     for (const [g, grp] of built) {
       if (!grp.userData.site) continue;
-      const k = keyOf(g), r = B()[k];
+      const k = keyOf(g), r = rec(k);
       if (grp.userData.jib) grp.userData.jib.rotation.y += dt * 0.15;
-      if (!r) continue;
-      if (M.state.time >= r.end) { const p = M.state.props[k]; if (p) delete p.uc; M.save(); draw(g); Property.forget(g); toast('Building finished', `Your ${D(r.d).name.toLowerCase()} is ready. Tenants move in tonight.`); Property.redraw(); }
+      if (!r || r.remote) continue;
+      if (M.state.time >= r.end) { const p = M.state.props[k]; if (p) delete p.uc; M.save(); draw(g); share(k, r, true); Property.forget(g); toast('Building finished', `Your ${D(r.d).name.toLowerCase()} is ready. Tenants move in tonight.`); Property.redraw(); }
       else if ((grp.userData.t = (grp.userData.t || 0) + dt) > 3) { grp.userData.t = 0; draw(g); } // the frame grows
     }
   });
   const tapMeshes = () => [...built.values()];
+  // draw every building with a design here (yours and other players'), and send yours to the server if it's missing
+  const drawn = new Map(); // g -> what was drawn, to redraw only what changed
+  function sync() {
+    const keys = new Set(Object.keys(B()).filter(Property.isHere));
+    if (window.Net) for (const [k, o] of Net.owners) if (o.design && Property.isHere(k)) keys.add(k);
+    for (const g of drawn.keys()) keys.add(keyOf(g));
+    for (const k of keys) {
+      const g = Property.gOf(k), r = rec(k), sig = r ? JSON.stringify([r.d, r.c, r.floors, r.end === -Infinity || M.state.time >= r.end]) : '';
+      if (drawn.get(g) !== sig) { drawn.set(g, sig); Property.forget(g); draw(g); }
+      const mine = B()[k], net = window.Net && Net.designOf ? Net.designOf(k) : null, own = M.state.props[k] && window.Net && Net.owners.has(k) && !Net.ownerOf(k);
+      if (mine && own && (!net || net.d !== mine.d || net.c !== mine.c || net.f !== mine.floors || !!net.done !== (M.state.time >= mine.end))) share(k, mine, M.state.time >= mine.end);
+    }
+    if (window.Property) Property.redraw();
+  }
 
   return { DESIGNS, open, section, bind, adjust, inCleared, tapMeshes, quote, start };
 })();

@@ -64,11 +64,11 @@ window.Net = (function () {
   async function loadOwners() {
     owners.clear();
     for (let from = 0; ; from += 1000) {
-      const { data, error } = await sb.from('cs_buildings').select('building, owner, floors, name, cs_players(name, color)').eq('city', CITY.id).range(from, from + 999);
+      const { data, error } = await sb.from('cs_buildings').select('building, owner, floors, name, design, cs_players(name, color)').eq('city', CITY.id).range(from, from + 999);
       if (error) return;
       for (const r of data) {
         if (r.cs_players) players.set(r.owner, r.cs_players);
-        owners.set(r.building, { owner: r.owner, floors: r.floors, name: (r.cs_players || {}).name || 'a player', color: (r.cs_players || {}).color || '#4c8dff' });
+        owners.set(r.building, { owner: r.owner, floors: r.floors, name: (r.cs_players || {}).name || 'a player', color: (r.cs_players || {}).color || '#4c8dff', design: r.design || null });
       }
       if (data.length < 1000) break;
     }
@@ -85,7 +85,15 @@ window.Net = (function () {
     if (status !== 'online') return { ok: true, local: true };
     const { data, error } = await sb.rpc('cs_claim_building', { p_city: CITY.id, p_building: k, p_floors: floors, p_name: name || '' });
     if (error) return { ok: false, why: /Another player/.test(error.message) ? 'Another player just bought this building.' : err(error) };
-    owners.set(k, { owner: me.id, floors: data.floors, name: me.name, color: me.color }); emit('owners');
+    owners.set(k, { owner: me.id, floors: data.floors, name: me.name, color: me.color, design: data.design || null }); emit('owners');
+    return { ok: true };
+  }
+  // what you built on a building (js/build.js), so every player sees it; it stays with the building when it's sold
+  async function setDesign(k, design) {
+    if (status !== 'online') return { ok: true, local: true };
+    const { error } = await sb.rpc('cs_set_design', { p_city: CITY.id, p_building: k, p_design: design });
+    if (error) return { ok: false, why: err(error) };
+    const o = owners.get(k); if (o) o.design = design;
     return { ok: true };
   }
   async function release(k) {
@@ -295,7 +303,7 @@ window.Net = (function () {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'cs_buildings', filter: 'city=eq.' + CITY.id }, async p => {
         if (p.eventType === 'DELETE') { owners.delete(p.old.building); emit('owners'); return; }
         const r = p.new, pl = await playerOf(r.owner);
-        owners.set(r.building, { owner: r.owner, floors: r.floors, name: pl.name, color: pl.color }); emit('owners');
+        owners.set(r.building, { owner: r.owner, floors: r.floors, name: pl.name, color: pl.color, design: r.design || null }); emit('owners');
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'cs_chat', filter: `room=in.(global,${CITY.id})` }, p => {
         msgs.push(p.new); if (msgs.length > 200) msgs.shift(); emit('chat', p.new);
@@ -306,6 +314,6 @@ window.Net = (function () {
 
   return {
     get status() { return status; }, get me() { return me; }, get online() { return online; }, get sb() { return sb; }, get user() { return user; }, configured, playerOf,
-    on: f => listeners.push(f), ownerOf, owners, claim, release, open, send, guest, signIn, signUp, signOut, createPlayer, deleteMe,
+    on: f => listeners.push(f), ownerOf, owners, claim, release, setDesign, designOf: k => (owners.get(k) || {}).design || null, open, send, guest, signIn, signUp, signOut, createPlayer, deleteMe,
   };
 })();

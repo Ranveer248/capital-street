@@ -58,9 +58,24 @@ begin
 end $$;
 
 create or replace function public.cs_release_building(p_city text, p_building text)
-returns void language sql security definer set search_path = '' as $$
+returns void language sql security definer set search_path = '' as $
   delete from public.cs_buildings where city = p_city and building = p_building and owner = auth.uid();
-$$;
+$;
+
+-- Goal 25: what a player built on a building (design, colour, floors, floor price, finished or not), so everyone sees it.
+-- It stays with the building when it's sold to another player, and goes when the building is sold back to the city.
+alter table public.cs_buildings add column if not exists design jsonb
+  check (design is null or (jsonb_typeof(design) = 'object' and octet_length(design::text) <= 200));
+create or replace function public.cs_set_design(p_city text, p_building text, p_design jsonb)
+returns void language plpgsql security definer set search_path = '' as $
+begin
+  if auth.uid() is null then raise exception 'Sign in first'; end if;
+  update public.cs_buildings set design = p_design
+    where city = p_city and building = p_building and owner = auth.uid();
+  if not found then raise exception 'You don''t own this building'; end if;
+end $;
+revoke all on function public.cs_set_design(text, text, jsonb) from public, anon;
+grant execute on function public.cs_set_design(text, text, jsonb) to authenticated;
 
 -- ---------- chat: a world room and one per city ----------
 create table if not exists public.cs_chat (

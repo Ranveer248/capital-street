@@ -1,5 +1,5 @@
 // Capital Street offline support. Bump VERSION whenever data/ or the page changes.
-const VERSION = 'capital-street-2026-10-30.13';
+const VERSION = 'capital-street-2026-10-30.14';
 const CORE = ['./', './js/cities.js', './js/market.js', './js/city.js', './js/ui.js', './js/net-config.js', './js/net.js', './js/property.js', './js/land.js', './js/auctions.js', './js/business.js', './js/trade.js', './js/interior.js', './js/company.js', './js/logistics.js', './js/office.js', './js/world.js', './js/pc.js', './js/levels.js', './js/smooth.js', './js/gfx.js', './js/sky.js', './js/hud.js', './js/tutorial.js', './js/life.js', './js/build.js', './js/icons.js', './js/app.js', './lib/three.min.js', './lib/OrbitControls.js', './lib/supabase.js', './fonts/fonts.css', './fonts/inter-latin.woff2', './fonts/archivo-black-latin.woff2', './manifest.webmanifest', './data/nyc.bin', './data/world.bin', './data/countries.json', './data/nyc-streets.json', './icons/icon-192.png'];
 self.addEventListener('install', e => {
   self.skipWaiting();

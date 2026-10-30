@@ -303,7 +303,7 @@ The sunny, toy-like style of the mobile city builders, on real cities: you don't
 | Online only | ✅ no offline game: if the server can't be reached, Try again |
 | Our own icons | ✅ 52 hand-drawn icons and Penny the piggy bank as SVG (js/icons.js), replacing every emoji; also in Figma on the "Icons" page of Capital Street — Game UI |
 | Tutorial | ✅ Penny shows the money, rent, Jobs, Property, rebuilding, auctions to players, the Exchange and the news |
-| Other players see rebuilds | not yet: needs a design column on the server's buildings table |
+| Other players see rebuilds | ✅ each design is stored on the server (cs_buildings.design, set only by the owner through cs_set_design), so every player sees what you built, and it stays with the building when you sell it to another player |
 
 ## Roadmap
 
