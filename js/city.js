@@ -281,7 +281,7 @@ function buildTraffic(L) {
   const respawnCar = (w, l) => { w.l = l; w.s = Math.random() * l.len; w.dir = Math.random() < 0.5 ? 1 : -1; w.off = w.dir * (l.w / 4 + 0.2); w.seg = 0; };
   const respawnPerson = (w, l) => { w.l = l; w.s = Math.random() * l.len; w.dir = Math.random() < 0.5 ? 1 : -1; w.off = (Math.random() < 0.5 ? 1 : -1) * (l.w / 2 + 1.2 + Math.random() * 1.6); w.seg = 0; };
   const mk = (n, f) => Array.from({ length: n }, (_, i) => f(i));
-  walkers.cars = mk(1800, () => ({ l: null, s: 0, dir: 1, off: 0, v: 7 + Math.random() * 7, seg: 0 }));
+  walkers.cars = mk(2400, () => ({ l: null, s: 0, dir: 1, off: 0, v: 7 + Math.random() * 7, seg: 0 }));
   walkers.people = mk(3500, () => ({ l: null, s: 0, dir: 1, off: 0, v: 1.1 + Math.random() * 0.6, seg: 0, ph: Math.random() * 6 }));
   // a boxy low-poly car and a ball-headed person, like the reference
   const body = new THREE.BoxGeometry(4.3, 1.0, 1.85).translate(0, 0.75, 0), cab = new THREE.BoxGeometry(2.3, 0.75, 1.65).translate(-0.25, 1.62, 0);
@@ -316,11 +316,11 @@ function buildTraffic(L) {
   };
   let clock = 0;
   frameHooks.push((dt, dist) => {
-    const show = dist < 2600;
+    const show = dist < 4500;
     cars.visible = people.visible = heads.visible = show;
     if (!show) return;
     clock += dt;
-    const t = controls.target, R = Math.min(1500, Math.max(350, dist * 1.6)), R2 = R * R;
+    const t = controls.target, R = Math.min(2000, Math.max(350, dist * 1.6)), R2 = R * R;
     walkers.cars.forEach((w, i) => {
       if (!w.l || (w.l.mx - t.x) ** 2 + (w.l.mz - t.z) ** 2 > R2) { const l = pickNear(t.x, t.z, R * 0.9); if (!l) return; respawnCar(w, l); }
       place(w, dt, 1, 0, true); cars.setMatrixAt(i, o.matrix);

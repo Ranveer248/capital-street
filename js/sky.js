@@ -32,8 +32,8 @@ window.Sky = (function () {
   const flights = [];
   const v1 = new THREE.Vector3(), v2 = new THREE.Vector3();
 
-  // ---------- everyday traffic: one every minute or so, passing near where you're looking ----------
-  let next = 8;
+  // ---------- everyday traffic: one every 15-40 seconds, passing near where you're looking (Goal 24: more often) ----------
+  let next = 4;
   function spawn() {
     const t = controls.target, head = Math.random() * Math.PI * 2, off = (Math.random() - 0.5) * 2600;
     const dir = new THREE.Vector3(Math.cos(head), 0, Math.sin(head)), side = new THREE.Vector3(-dir.z, 0, dir.x);
@@ -51,7 +51,7 @@ window.Sky = (function () {
   }
   frameHooks.push((dt, dist) => {
     if (!window.CS) return;
-    if ((next -= dt) <= 0) { next = 35 + Math.random() * 55; if (dist < 25000 && $('title').hidden && flights.length < 3) spawn(); }
+    if ((next -= dt) <= 0) { next = 15 + Math.random() * 25; if (dist < 25000 && flights.length < 5) spawn(); }
     for (let i = flights.length - 1; i >= 0; i--) {
       const f = flights[i];
       f.t += dt * f.speed / f.len;

@@ -62,13 +62,13 @@
   // ---------- events: anything can happen ----------
   // each returns a headline and effects: { who: 'all' | sector | ticker, jump (instant fraction), drift (per minute), mins, sticky (moves fair value too) }
   const EVENTS = [
-    { w: 3, run() { const total = -(0.12 + rnd() * 0.18); return { kind: 'crash', title: 'MARKET CRASH', text: 'Panic on Wall Street: investors are dumping everything.', fx: [{ who: 'all', jump: total * 0.35, drift: total * 0.65 / 30, mins: 30, sticky: true }], halt: rnd() < 0.6 ? 15 : 0 }; } },
+    { w: 1, run() { const total = -(0.07 + rnd() * 0.08); return { kind: 'crash', title: 'MARKET CRASH', text: 'Panic on Wall Street: investors are dumping everything.', fx: [{ who: 'all', jump: total * 0.35, drift: total * 0.65 / 30, mins: 30, sticky: true }], halt: rnd() < 0.6 ? 15 : 0 }; } },
     { w: 3, run() { const total = 0.06 + rnd() * 0.1; return { kind: 'rally', title: 'STOCKS SOAR', text: 'Inflation cools and buyers pile back in.', fx: [{ who: 'all', jump: total * 0.3, drift: total * 0.7 / 40, mins: 40, sticky: true }] }; } },
     { w: 1, run() { return { kind: 'plane', title: 'PLANE CRASHES INTO A MIDTOWN TOWER', text: 'Trading is halted. Airlines plunge, builders jump on rebuilding hopes.', fx: [{ who: 'all', jump: -0.09, drift: -0.002, mins: 20, sticky: true }, { who: 'PGNA', jump: -0.35, sticky: true }, { who: 'Construction', jump: 0.12, sticky: true }], halt: 30, smoke: true }; } },
     { w: 1, run() { return { kind: 'blackout', title: 'CITYWIDE BLACKOUT', text: 'The exchange has closed for the rest of the day.', fx: [{ who: 'all', jump: -0.03, sticky: true }, { who: 'Energy', jump: -0.08, sticky: true }], closeDay: true }; } },
     { w: 2, run() { return { kind: 'fed', title: 'FED SURPRISES WITH A RATE HIKE', text: 'Banks rally, tech and crypto slide.', fx: [{ who: 'Finance', jump: 0.05, sticky: true }, { who: 'Tech', jump: -0.06, drift: -0.0008, mins: 30, sticky: true }, { who: 'Crypto', jump: -0.15, sticky: true }] }; } },
-    { w: 4, run() { const c = pick(LISTED()), d = 0.25 + rnd() * 0.3; return { kind: 'scandal', title: `${c.name.toUpperCase()} CEO ARRESTED`, text: `Fraud charges send ${c.t} into free fall.`, fx: [{ who: c.t, jump: -d * 0.6, drift: -d * 0.4 / 25, mins: 25, sticky: true }] }; } },
-    { w: 6, run() { const c = pick(LISTED()), good = rnd() < 0.55, d = (0.06 + rnd() * 0.18) * (good ? 1 : -1); return { kind: 'earnings', title: `${c.t} ${good ? 'SMASHES' : 'MISSES'} EARNINGS`, text: `${c.name} ${good ? 'beat every forecast' : 'came in far below forecasts'}.`, fx: [{ who: c.t, jump: d, sticky: true }] }; } },
+    { w: 2, run() { const c = pick(LISTED()), d = 0.15 + rnd() * 0.2; return { kind: 'scandal', title: `${c.name.toUpperCase()} CEO ARRESTED`, text: `Fraud charges send ${c.t} into free fall.`, fx: [{ who: c.t, jump: -d * 0.6, drift: -d * 0.4 / 25, mins: 25, sticky: true }] }; } },
+    { w: 6, run() { const c = pick(LISTED()), good = rnd() < 0.65, d = (0.06 + rnd() * 0.18) * (good ? 1 : -1); return { kind: 'earnings', title: `${c.t} ${good ? 'SMASHES' : 'MISSES'} EARNINGS`, text: `${c.name} ${good ? 'beat every forecast' : 'came in far below forecasts'}.`, fx: [{ who: c.t, jump: d, sticky: true }] }; } },
     { w: 2, run() { const c = pick(LISTED().filter(x => x.price < 40).concat([company('MOON')])), d = 0.5 + rnd() * 1.5; return { kind: 'squeeze', title: `${c.t} GOES VIRAL`, text: `Meme traders pile into ${c.name}. This can't last... can it?`, fx: [{ who: c.t, drift: Math.log(1 + d) / 30, mins: 30, sticky: false }] }; } },
     { w: 2, run() { const c = pick(LISTED()), d = 0.2 + rnd() * 0.25; return { kind: 'merger', title: `${c.t} TO BE BOUGHT OUT`, text: `A rival offers a big premium for ${c.name}.`, fx: [{ who: c.t, jump: d, sticky: true }] }; } },
     { w: 1, run() { return { kind: 'hack', title: 'EXCHANGE HACKED', text: 'Trading is halted while the exchange investigates.', fx: [{ who: 'all', jump: -0.02, sticky: true }], halt: 20 }; } },
@@ -76,16 +76,16 @@
     { w: 2, run() { const s = pick(SECTORS), good = rnd() < 0.5, d = (0.05 + rnd() * 0.08) * (good ? 1 : -1); return { kind: 'sector', title: `${s.toUpperCase()} ${good ? 'BOOM' : 'SLUMP'}`, text: `${good ? 'Money floods into' : 'Investors flee'} ${s.toLowerCase()} stocks.`, fx: [{ who: s, jump: d * 0.4, drift: d * 0.6 / 30, mins: 30, sticky: true }] }; } },
     // Goal 23: more ways for the market to surprise you
     { w: 2, run() { const total = 0.12 + rnd() * 0.15; return { kind: 'bull', title: 'BULL RUN!', text: 'Everyone is buying. Prices climb hour after hour.', fx: [{ who: 'all', jump: total * 0.15, drift: total * 0.85 / 90, mins: 90, sticky: true }] }; } },
-    { w: 2, run() { return { kind: 'flash', title: 'FLASH CRASH', text: 'A trading robot goes haywire. Prices drop in seconds... and start to bounce back.', fx: [{ who: 'all', jump: -0.08 - rnd() * 0.06 }] }; } },
-    { w: 1, run() { return { kind: 'recession', title: 'RECESSION FEARS', text: 'Shoppers stop spending. Shops and builders slide for days.', fx: [{ who: 'all', jump: -0.04, drift: -0.06 / 120, mins: 120, sticky: true }, { who: 'Retail', jump: -0.06, sticky: true }, { who: 'Construction', jump: -0.05, sticky: true }] }; } },
+    { w: 1, run() { return { kind: 'flash', title: 'FLASH CRASH', text: 'A trading robot goes haywire. Prices drop in seconds... and start to bounce back.', fx: [{ who: 'all', jump: -0.04 - rnd() * 0.04 }] }; } },
+    { w: 0.5, run() { return { kind: 'recession', title: 'RECESSION FEARS', text: 'Shoppers stop spending. Shops and builders slide for days.', fx: [{ who: 'all', jump: -0.04, drift: -0.06 / 120, mins: 120, sticky: true }, { who: 'Retail', jump: -0.06, sticky: true }, { who: 'Construction', jump: -0.05, sticky: true }] }; } },
     { w: 2, run() { return { kind: 'stimulus', title: 'GOVERNMENT CUTS TAXES', text: 'Free money for everyone. Shops and builders cheer.', fx: [{ who: 'all', jump: 0.04, sticky: true }, { who: 'Construction', jump: 0.07, sticky: true }, { who: 'Retail', jump: 0.06, sticky: true }] }; } },
     { w: 2, run() { const up = rnd() < 0.5; return { kind: 'oil', title: up ? 'OIL PRICES SKYROCKET' : 'OIL PRICES COLLAPSE', text: up ? 'Energy stocks gush, airlines and taxis suffer.' : 'Cheap fuel: transport soars, energy sinks.', fx: [{ who: 'Energy', jump: up ? 0.14 : -0.12, sticky: true }, { who: 'Transport', jump: up ? -0.09 : 0.08, sticky: true }] }; } },
-    { w: 1, run() { return { kind: 'bubble', title: 'TECH BUBBLE BURSTS', text: 'The party is over for tech and crypto.', fx: [{ who: 'Tech', jump: -0.14, drift: -0.1 / 40, mins: 40, sticky: true }, { who: 'Crypto', jump: -0.3, sticky: true }] }; } },
+    { w: 0.5, run() { return { kind: 'bubble', title: 'TECH BUBBLE BURSTS', text: 'The party is over for tech and crypto.', fx: [{ who: 'Tech', jump: -0.14, drift: -0.1 / 40, mins: 40, sticky: true }, { who: 'Crypto', jump: -0.3, sticky: true }] }; } },
     { w: 2, run() { return { kind: 'ai', title: 'AI BREAKTHROUGH', text: 'A new robot brain amazes the world. Tech stocks fly.', fx: [{ who: 'Tech', jump: 0.1, drift: 0.06 / 30, mins: 30, sticky: true }] }; } },
-    { w: 1, run() { return { kind: 'bankrun', title: 'BANK RUN', text: 'Long lines outside the banks. Everyone wants their cash back.', fx: [{ who: 'Finance', jump: -0.18, sticky: true }, { who: 'all', jump: -0.03, sticky: true }] }; } },
+    { w: 0.5, run() { return { kind: 'bankrun', title: 'BANK RUN', text: 'Long lines outside the banks. Everyone wants their cash back.', fx: [{ who: 'Finance', jump: -0.18, sticky: true }, { who: 'all', jump: -0.03, sticky: true }] }; } },
     { w: 2, run() { return { kind: 'tourism', title: 'RECORD TOURIST SEASON', text: 'The city is packed. Restaurants and shops are cashing in.', fx: [{ who: 'Food', jump: 0.08, sticky: true }, { who: 'Retail', jump: 0.06, sticky: true }, { who: 'Transport', jump: 0.04, sticky: true }] }; } },
     { w: 3, run() { const c = pick(LISTED()), d = 0.2 + rnd() * 0.35; return { kind: 'whale', title: `MYSTERY BUYER SNAPS UP ${c.t}`, text: `Someone very rich is buying every share of ${c.name} they can find.`, fx: [{ who: c.t, jump: d * 0.5, drift: d * 0.5 / 20, mins: 20, sticky: true }] }; } },
-    { w: 2, run() { const c = pick(LISTED()), d = 0.15 + rnd() * 0.25; return { kind: 'recall', title: `${c.t} RECALLS ITS PRODUCTS`, text: `Customers are angry and ${c.name} shares tumble.`, fx: [{ who: c.t, jump: -d, sticky: true }] }; } },
+    { w: 1, run() { const c = pick(LISTED()), d = 0.1 + rnd() * 0.15; return { kind: 'recall', title: `${c.t} RECALLS ITS PRODUCTS`, text: `Customers are angry and ${c.name} shares tumble.`, fx: [{ who: c.t, jump: -d, sticky: true }] }; } },
   ];
   const EVENT_W = EVENTS.reduce((s, e) => s + e.w, 0);
 
@@ -286,7 +286,8 @@
       if ((o.side === 'buy' && p <= o.limit) || (o.side === 'sell' && p >= o.limit)) { S.orders.splice(i, 1); fill(o.side, o.t, o.shares, Math.min(p, o.side === 'buy' ? o.limit : Infinity) || p, true); }
     }
     // roughly four surprises a day
-    if (rnd() < 4 / MIN_PER_DAY) { let r = rnd() * EVENT_W; applyEvent(EVENTS.find(e => (r -= e.w) < 0).run()); }
+    // about two or three surprises a day, more good than bad (Goal 24)
+    if (rnd() < 2.5 / MIN_PER_DAY) { let r = rnd() * EVENT_W; applyEvent(EVENTS.find(e => (r -= e.w) < 0).run()); }
   }
 
   function fill(side, t, shares, price, fromLimit) {

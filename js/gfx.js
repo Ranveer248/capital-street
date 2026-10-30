@@ -3,7 +3,6 @@
 // (cool shadows, warm highlights), the edges darken a little and distance fades into haze. The sun follows the game
 // clock, so mornings are pale, evenings golden and nights dark blue with lit windows, glowing streets and stars.
 // The sky has drifting clouds, glass towers reflect it, and the sea and rivers have moving waves that catch the sun.
-// Devices that are likely too slow get a warning once; the game doesn't lower its graphics for them.
 'use strict';
 window.Post = (function () {
   const $ = id => document.getElementById(id);
@@ -288,41 +287,6 @@ window.Post = (function () {
   }
   // tone mapping moves into the finish above: the scene itself is drawn in plain linear light
   renderer.toneMapping = THREE.NoToneMapping;
-
-  // ---------- slow devices: say so once ----------
-  function slowDevice() {
-    const dbg = gl.getExtension('WEBGL_debug_renderer_info'), gpu = dbg ? String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL)) : '';
-    const mem = navigator.deviceMemory, cores = navigator.hardwareConcurrency;
-    const weakGpu = /SwiftShader|llvmpipe|Software|Mali-4|Mali-T|Mali-G(31|51|52|57|68|71|72)\b|Adreno \(TM\) ([1-5]\d\d|6[0-2]\d)\b|PowerVR|Intel\(R\) (HD|UHD) Graphics( [2-6]\d\d)?\b|GMA/i.test(gpu);
-    return { slow: !caps.isWebGL2 || weakGpu || (mem && mem <= 3) || (cores && cores <= 2), gpu };
-  }
-  function warn(why) {
-    try { if (localStorage.getItem('cs-slow-ok')) return; } catch (e) { /* storage blocked: ask every visit */ }
-    const el = document.createElement('div');
-    el.id = 'slowDev';
-    el.innerHTML = `<div class="sdbox"><div class="sdic">⚡</div><b>This device may be too slow</b>
-      <p>Capital Street is made for recent phones, tablets and computers, like an iPhone 15 or newer, a recent iPad, a Mac or a gaming laptop. ${why} It will probably lag here.</p>
-      <div class="sdrow"><button class="btn pri" id="sdOk">Play anyway</button><button class="btn" id="sdNo">Don't show again</button></div></div>`;
-    document.body.appendChild(el);
-    $('sdOk').onclick = () => el.remove();
-    $('sdNo').onclick = () => { try { localStorage.setItem('cs-slow-ok', '1'); } catch (e) { /* fine */ } el.remove(); };
-  }
-  const ready = setInterval(() => {
-    if (!window.CS || !$('load').hidden) return;
-    clearInterval(ready);
-    const d = slowDevice();
-    if (d.slow) warn(d.gpu ? `Its graphics chip (${d.gpu.replace(/[<>&]/g, '')}) isn't one of them.` : '');
-    // or it turns out slow: under 24 frames a second for 20 seconds of play
-    let low = 0, frames = 0, t0 = performance.now(), told = false;
-    frameHooks.push(() => {
-      if (told || document.hidden || !$('title').hidden) return;
-      frames++;
-      const now = performance.now();
-      if (now - t0 < 1000) return;
-      low = frames * 1000 / (now - t0) < 24 ? low + 1 : 0; frames = 0; t0 = now;
-      if (low >= 20) { told = true; warn('It has been running below 24 frames a second.'); }
-    });
-  }, 300);
 
   return { frame, shot, U, set hour(h) { force = h; }, get hour() { return force; }, get on() { return on; }, hdr, light, bakeEnv };
 })();

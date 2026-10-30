@@ -40,12 +40,19 @@ window.HUD = (function () {
   document.body.appendChild(join);
   let color = COLORS[Math.floor(Math.random() * COLORS.length)], busy = false, why = '', name = '';
   try { name = localStorage.getItem('cs-name') || ''; } catch (e) { /* storage blocked */ }
-  function play() {
+  let after = null; // what to open once you're in, when you tapped a bar button or an Earn tile on the menu
+  function play(then) {
+    after = typeof then === 'function' && !(window.Tutorial && Tutorial.want()) ? then : null;
     const st = window.Net ? Net.status : 'off';
     if (!window.Net || !Net.configured || st === 'online') { go(); return; }
     why = ''; join.hidden = false; drawJoin();
   }
-  function go() { join.hidden = true; CS.startGame(); }
+  function go() {
+    join.hidden = true; CS.startGame();
+    if (!after) return;
+    const f = after; after = null;
+    const t = setInterval(() => { if ($('hud').hidden || !window.Property || !Property.loaded()) return; clearInterval(t); setTimeout(f, 300); }, 200);
+  }
   function drawJoin() {
     if (join.hidden) return;
     const st = Net.status;
@@ -65,7 +72,7 @@ window.HUD = (function () {
     }
     join.innerHTML = `<div class="jbox"><button class="jx" id="jX" aria-label="Close">✕</button><div class="jlogo">🏙️</div><b>Join New York</b>${body}
       <small>By playing you agree to the <a href="terms.html" target="_blank" rel="noopener">Terms</a> and <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a>.</small></div>`;
-    $('jX').onclick = () => { join.hidden = true; };
+    $('jX').onclick = () => { join.hidden = true; after = null; };
     if ($('jRetry')) $('jRetry').onclick = () => location.reload();
     if ($('jOff')) $('jOff').onclick = go;
     if ($('jAcc')) $('jAcc').onclick = () => { join.hidden = true; Net.open('account'); };
@@ -92,6 +99,49 @@ window.HUD = (function () {
   if (window.Net) Net.on(t => { if (t === 'me' && !join.hidden && !busy) drawJoin(); });
   $('mTut').onclick = () => { if (window.Tutorial) Tutorial.reset(); play(); };
 
+  // ---------- one game bar, in the game and on the menu (Goal 24) ----------
+  // The menu shows the same bar as the game: each button takes you in and straight there.
+  document.querySelectorAll('#mdock [data-go]').forEach(b => b.onclick = () => {
+    const id = b.dataset.go;
+    if (id === 'mWorld') { $('mWorld').click(); return; }
+    play(id === 'bHome' ? null : () => { if (id === 'bOffice' ? !Office.active() : id === 'bExchange' ? $('ex').hidden : id === 'bBank' ? $('bank').hidden : $('props').hidden) $(id).click(); });
+  });
+
+  // ---------- Earn: every way to make money in one place ----------
+  const S = () => M.state, usd = v => '$' + Math.round(v).toLocaleString('en-US');
+  const owned = () => Object.keys(S().props || {}).length;
+  const WAYS = [
+    ['📈', 'Shares', 'Buy shares cheap, sell them for more', () => { if ($('ex').hidden) $('bExchange').click(); }, () => { const n = Object.keys(S().positions).length; return n ? n + ' compan' + (n === 1 ? 'y' : 'ies') + ' in your portfolio' : ''; }],
+    ['🏢', 'Buildings', 'Tenants pay you rent every night', () => Property.open('sale'), () => owned() ? 'You own ' + owned() : ''],
+    ['🏷️', 'Deals', 'Buildings on sale below their value', () => Property.open('deals')],
+    ['🔨', 'Auctions', 'Bid on buildings and land', () => Property.open('auctions')],
+    ['🌳', 'Land', 'Plots that pay you a lease', () => Property.open('land')],
+    ['🚜', 'Businesses', 'Farms, mines, oil wells and shops', () => Property.open('business')],
+    ['🚢', 'Shipping', 'Sell your goods in other cities', () => Property.open('business')],
+    ['🏛️', 'Your company', 'Start one and sell shares in it', () => Property.open('business')],
+    ['💼', 'Office', 'Hire brokers who trade for you', () => { if (!Office.active()) Office.enter(); }],
+    ['🏦', 'Bank', 'Borrow money to grow faster', () => { if ($('bank').hidden) $('bBank').click(); }],
+    ['🔑', 'Your property', 'Collect rent and see what you own', () => Property.open('mine')],
+    ['📰', 'The news', 'Big news moves prices: be first', () => { if ($('ex').hidden) $('bExchange').click(); const t = document.querySelector('#ex .tabs [data-tab=news]'); if (t) t.click(); }]
+  ];
+  const earn = document.createElement('div');
+  earn.id = 'earn'; earn.className = 'ov2'; earn.hidden = true;
+  document.body.appendChild(earn);
+  function openEarn() {
+    const inGame = $('title').hidden;
+    earn.innerHTML = `<div class="ebox"><button id="earnX" aria-label="Close">✕</button><b>Ways to make money</b><p>You have ${usd(S().cash)}. Tap one to go there.</p>
+      <div class="egrid">${WAYS.map(([ic, n, d, , st], i) => { const x = st && st(); return `<button data-w="${i}"><i>${ic}</i><span><b>${n}</b><small>${d}</small>${x ? `<em>${esc(x)}</em>` : ''}</span></button>`; }).join('')}</div></div>`;
+    earn.hidden = false;
+    $('earnX').onclick = () => { earn.hidden = true; };
+    earn.onclick = e => { if (e.target === earn) earn.hidden = true; };
+    earn.querySelectorAll('[data-w]').forEach(b => b.onclick = () => {
+      const go = WAYS[+b.dataset.w][3];
+      earn.hidden = true;
+      if (inGame) { if ($('ex').hidden === false && go !== WAYS[0][3]) $('ex').hidden = true; go(); } else play(go);
+    });
+  }
+  $('earnG').onclick = openEarn; $('earnM').onclick = openEarn;
+
   // ---------- the menu's player card ----------
   setInterval(() => {
     if ($('title').hidden) return;
@@ -111,5 +161,5 @@ window.HUD = (function () {
     document.body.classList.toggle('wide', shown('ex')); // the exchange is wide: the dock steps aside on PCs
   }, 500);
 
-  return { play, get browsing() { return browsing; } };
+  return { play, earn: openEarn, get browsing() { return browsing; } };
 })();

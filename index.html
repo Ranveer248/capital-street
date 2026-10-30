@@ -706,10 +706,6 @@ h1 { -webkit-text-stroke: 3px var(--ol); paint-order: stroke fill; text-shadow: 
 .tbtns { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 2px; }
 .tbtns .lnk { padding: 4px 0; background: none; border: 0; color: #7a83a6; font: 700 12px/1 Inter, sans-serif; cursor: pointer; } .tbtns .btn { padding: 9px 18px; }
 .tbtns .btn[hidden] { display: none; }
-#slowDev { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 16px; background: rgba(10, 15, 46, .6); }
-.sdbox { width: min(440px, 100%); display: grid; gap: 12px; justify-items: center; text-align: center; padding: 22px; border-radius: 26px; background: var(--pb); border: 4px solid var(--ol); box-shadow: 0 8px 0 var(--ol); }
-.sdic { font-size: 40px; } .sdbox b { font: 400 24px/1.1 'Archivo Black', sans-serif; text-shadow: 0 3px 0 var(--ol); } .sdbox p { margin: 0; color: var(--soft); font: 600 14px/1.45 Inter, sans-serif; }
-.sdrow { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 #ticker, #keys, #hint { display: none !important; }
 #rentBox:not(.soon):not(.late), #debtBox[hidden] { display: none !important; }
 #dock { bottom: calc(env(safe-area-inset-bottom) + 14px) !important; }
@@ -730,6 +726,74 @@ h1 { -webkit-text-stroke: 3px var(--ol); paint-order: stroke fill; text-shadow: 
 #breaking { border-radius: 16px; border: 3px solid var(--ol) !important; box-shadow: 0 5px 0 var(--ol); }
 #propsBody .chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; } #propsBody .chips::-webkit-scrollbar { display: none; } #propsBody .chips button { flex: none; }
 @media (min-width: 900px) { body.wide #dock { opacity: 0; pointer-events: none; } }
+/* ---------- Goal 24: one game bar in the game and on the menu, the Earn button, the easy trade ticket ---------- */
+#dock, .gbar { position: absolute; left: 50% !important; right: auto !important; transform: translateX(-50%) !important; bottom: calc(env(safe-area-inset-bottom) + 12px) !important; z-index: 2; display: flex !important; align-items: flex-end !important; gap: 4px !important; margin: 0;
+  padding: 8px 12px 7px !important; border-radius: 26px !important; background: var(--pb) !important; border: 4px solid var(--ol) !important; box-shadow: 0 5px 0 var(--ol), 0 16px 32px rgba(10, 15, 46, .4) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+#dock .dk, .gbar .dk, #dock .avatar, .gbar .avatar { display: grid !important; justify-items: center; align-content: end; gap: 5px; width: 60px !important; height: auto !important; margin: 0 !important; padding: 0 !important; background: none !important; border: 0 !important; box-shadow: none !important; filter: none !important; color: #fff; cursor: pointer; }
+#dock .dk svg.i, .gbar .dk svg.i { box-sizing: content-box; width: 24px !important; height: 24px !important; padding: 12px !important; border-radius: 50%; background: linear-gradient(var(--dc, var(--pl)), var(--dc2, var(--pi))) !important; border: 3px solid var(--ol) !important; box-shadow: 0 4px 0 var(--ol); color: #fff !important; transition: translate .2s var(--spring); }
+#dock .dk:hover svg.i, .gbar .dk:hover svg.i { translate: 0 -3px; }
+#dock .dk.on svg.i { outline: 3px solid #fff; outline-offset: 2px; }
+#dock .avatar svg, .gbar .avatar svg { width: 36px !important; height: 56px !important; filter: drop-shadow(0 4px 4px rgba(10, 15, 46, .5)); }
+#dock .dl, .gbar .dl { display: block !important; font: 800 10px/1 Inter, sans-serif !important; color: #fff !important; letter-spacing: .04em; text-transform: uppercase; text-shadow: 0 2px 0 var(--ol); white-space: nowrap; }
+#dock .dl kbd { display: none; }
+@media (min-width: 1100px) and (hover: hover) { #dock .dl kbd { display: inline-block; margin-left: 4px; } }
+.earnb { position: absolute; right: max(14px, env(safe-area-inset-right)); bottom: calc(env(safe-area-inset-bottom) + 112px); z-index: 2; width: 74px; height: 74px; display: grid; place-content: center; justify-items: center; gap: 1px; padding: 0; border-radius: 50%; cursor: pointer; pointer-events: auto;
+  background: radial-gradient(circle at 35% 30%, #fff3a6, #ffd21f 45%, #e09a00); border: 4px solid var(--ol); box-shadow: 0 5px 0 var(--ol), 0 0 0 6px rgba(255, 210, 31, .25); animation: earnBob 2.6s ease-in-out infinite; transition: scale .2s var(--spring); }
+.earnb span { font: 400 30px/1 'Archivo Black', sans-serif; color: #fff; -webkit-text-stroke: 2px var(--ol); paint-order: stroke fill; text-shadow: 0 3px 0 var(--ol); }
+.earnb b { font: 800 10px/1 Inter, sans-serif; letter-spacing: .08em; color: var(--ol); }
+.earnb:hover { scale: 1.07; } .earnb:active { scale: .95; }
+@keyframes earnBob { 50% { translate: 0 -4px; } }
+@media (min-width: 620px) { .earnb { right: 20px; bottom: calc(env(safe-area-inset-bottom) + 14px); } }
+@media (min-width: 900px) { .earnb { right: 28px; bottom: calc(env(safe-area-inset-bottom) + 18px); width: 86px; height: 86px; } .earnb span { font-size: 36px; } }
+#hud.in-office #earnG { display: none; }
+@media (min-width: 900px) { body.wide #earnG { opacity: 0; pointer-events: none; } }
+/* the menu: Play over the same bar as in the game, small round buttons on the right */
+#title.ov { padding-bottom: calc(env(safe-area-inset-bottom) + 108px) !important; }
+#title .mrow { position: absolute; right: max(14px, env(safe-area-inset-right)); top: calc(max(14px, env(safe-area-inset-top)) + 64px); display: grid !important; gap: 10px !important; justify-items: center; }
+#title #mWorld { display: none; }
+#title .rb { width: 64px !important; } #title .rb .ri { width: 48px !important; height: 48px !important; font-size: 20px !important; border-width: 3px !important; box-shadow: 0 4px 0 var(--ol) !important; } #title .rb .ri svg.i { width: 22px !important; height: 22px !important; }
+#title .rb b { font-size: 10px !important; }
+#title .brand { margin-top: 0; }
+#title .mmid { gap: 12px; }
+@media (max-width: 600px) {
+  #dock, .gbar { gap: 2px !important; padding: 7px 8px 6px !important; border-radius: 22px !important; }
+  #dock .dk, .gbar .dk, #dock .avatar, .gbar .avatar { width: 52px !important; }
+  #dock .dk svg.i, .gbar .dk svg.i { width: 22px !important; height: 22px !important; padding: 9px !important; }
+  #dock .avatar svg, .gbar .avatar svg { width: 30px !important; height: 48px !important; }
+  #dock .dl, .gbar .dl { font-size: 9px !important; }
+  .earnb { bottom: calc(env(safe-area-inset-bottom) + 100px); width: 66px; height: 66px; } .earnb span { font-size: 26px; }
+  #title.ov { padding-bottom: calc(env(safe-area-inset-bottom) + 96px) !important; }
+  #title .brand h1 { font-size: 44px; }
+  #title .mrow { top: calc(max(14px, env(safe-area-inset-top)) + 58px); }
+  #title .menu-foot { padding-right: 76px; }
+}
+/* the Earn sheet: every way to make money in one place */
+#earn { position: fixed; inset: 0; z-index: 8; display: grid; place-items: center; padding: 16px; background: rgba(10, 15, 46, .55); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+#earn[hidden] { display: none; }
+.ebox { position: relative; width: min(760px, 100%); max-height: calc(100dvh - 32px); overflow: auto; display: grid; gap: 12px; padding: 18px; border-radius: 28px; background: var(--pb); border: 4px solid var(--ol); box-shadow: 0 8px 0 var(--ol); }
+.ebox > b { font: 400 26px/1.1 'Archivo Black', sans-serif; text-shadow: 0 3px 0 var(--ol); text-align: center; }
+.ebox > p { margin: -6px 0 0; text-align: center; color: var(--soft); font: 600 13px/1.4 Inter, sans-serif; }
+.egrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.egrid button { display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: center; gap: 10px; padding: 10px; text-align: left; border-radius: 18px; background: var(--pi); border: 3px solid var(--ol); box-shadow: 0 4px 0 var(--ol); color: #fff; cursor: pointer; transition: translate .2s var(--spring); }
+.egrid button:hover { translate: 0 -3px; } .egrid button:active { translate: 0 2px; box-shadow: 0 2px 0 var(--ol); }
+.egrid i { width: 48px; height: 48px; display: grid; place-items: center; font-size: 26px; font-style: normal; border-radius: 50%; background: linear-gradient(#fff3a6, #ffd21f); border: 3px solid var(--ol); }
+.egrid b { display: block; font: 800 15px/1.2 Inter, sans-serif; } .egrid small { display: block; margin-top: 2px; font: 600 12px/1.3 Inter, sans-serif; color: var(--soft); }
+.egrid em { display: block; margin-top: 3px; font: 800 11px/1.2 Inter, sans-serif; font-style: normal; color: var(--c-green); }
+#earnX { position: absolute; right: 12px; top: 12px; width: 38px; height: 38px; border-radius: 50%; border: 3px solid var(--ol); background: var(--c-red, #e05d5d); color: #fff; font: 800 16px/1 Inter, sans-serif; cursor: pointer; }
+@media (max-width: 760px) { .egrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 420px) { .egrid { grid-template-columns: minmax(0, 1fr); } .egrid button { padding: 8px 10px; } }
+/* the easy trade ticket */
+.tk.easy { gap: 10px; }
+.tk.easy .own { font: 700 13px/1.4 Inter, sans-serif; } .tk.easy .own b { color: #fff; }
+.tk.easy label { font: 800 11px/1 Inter, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--soft); }
+.tk.easy .amts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
+.tk.easy .amts button { padding: 10px 0; border-radius: 12px; border: 3px solid var(--ol); background: var(--pi); color: #fff; font: 800 13px/1 Inter, sans-serif; cursor: pointer; }
+.tk.easy .amts button.on { background: var(--c-gold); color: var(--ol); } .tk.easy .amts button:disabled { opacity: .4; }
+.tk.easy .bs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tk.easy .bs button { padding: 15px 0; border-radius: 16px; border: 3px solid var(--ol); box-shadow: 0 4px 0 var(--ol); font: 400 20px/1 'Archivo Black', sans-serif; color: #fff; text-shadow: 0 2px 0 var(--ol); cursor: pointer; }
+.tk.easy .bs .buy { background: linear-gradient(#45f08f, #17b257); } .tk.easy .bs .sell { background: linear-gradient(#ff7a7a, #d93a3a); }
+.tk.easy .bs button:disabled { opacity: .4; cursor: default; }
+.tk .lnk { justify-self: center; padding: 4px; background: none; border: 0; color: var(--soft); font: 700 12px/1 Inter, sans-serif; text-decoration: underline; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -766,6 +830,7 @@ h1 { -webkit-text-stroke: 3px var(--ol); paint-order: stroke fill; text-shadow: 
     <button id="bOffice" class="dk" aria-label="Your office"><svg class="i"><use href="#i-brief"/></svg><span class="dl">Office<kbd>O</kbd></span></button>
     <button id="bWorld" class="dk" aria-label="World map"><svg class="i"><use href="#i-globe"/></svg><span class="dl">World<kbd>M</kbd></span></button>
   </div>
+  <button id="earnG" class="earnb" aria-label="Ways to make money"><span>$</span><b>EARN</b></button>
   <div id="ticker"><div id="tape"></div></div>
   <div id="hint" class="glass"></div>
   <div id="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move <kbd>Q</kbd><kbd>E</kbd> turn <kbd>R</kbd><kbd>F</kbd> zoom <kbd>Space</kbd> pause time <kbd>?</kbd> all keys</div>
@@ -828,6 +893,15 @@ h1 { -webkit-text-stroke: 3px var(--ol); paint-order: stroke fill; text-shadow: 
     <nav class="legal"><a href="terms.html" target="_blank" rel="noopener">Terms</a><a href="privacy.html" target="_blank" rel="noopener">Privacy</a><a href="credits.html" target="_blank" rel="noopener">Credits</a><a href="wiki.html" target="_blank" rel="noopener">Wiki</a><a href="changelog.html" target="_blank" rel="noopener">What's new</a></nav>
     <small>Paper trading · fictional companies · anything can happen · © 2026 Pocket Rocket Studio</small>
   </div>
+  <nav id="mdock" class="gbar" aria-label="Go straight to">
+    <button class="dk" data-go="bBank" style="--dc:var(--c-gold);--dc2:var(--c-gold2)"><svg class="i"><use href="#i-bank"/></svg><span class="dl">Bank</span></button>
+    <button class="dk" data-go="bExchange" style="--dc:var(--c-blue);--dc2:var(--c-blue2)"><svg class="i"><use href="#i-chart"/></svg><span class="dl">Exchange</span></button>
+    <button class="avatar" data-go="bHome"><svg viewBox="0 0 40 64"><use href="#i-avatar"/></svg><span class="dl">Home</span></button>
+    <button class="dk" data-go="bProps" style="--dc:var(--c-orange);--dc2:var(--c-orange2)"><svg class="i"><use href="#i-key"/></svg><span class="dl">Property</span></button>
+    <button class="dk" data-go="bOffice" style="--dc:var(--c-purple);--dc2:var(--c-purple2)"><svg class="i"><use href="#i-brief"/></svg><span class="dl">Office</span></button>
+    <button class="dk" data-go="mWorld" style="--dc:var(--c-green);--dc2:var(--c-green2)"><svg class="i"><use href="#i-globe"/></svg><span class="dl">World</span></button>
+  </nav>
+  <button id="earnM" class="earnb" aria-label="Ways to make money"><span>$</span><b>EARN</b></button>
 </div>
 <div id="load">Loading New York…<small id="loadMsg">Fetching 56,000 real buildings</small></div>
 
@@ -1691,6 +1765,7 @@ document.getElementById('play').onclick = () => window.HUD ? HUD.play() : startG
 <script src="js/sky.js"></script>
 <script src="js/hud.js"></script>
 <script src="js/tutorial.js"></script>
+<script src="js/life.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

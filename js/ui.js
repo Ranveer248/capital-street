@@ -48,7 +48,8 @@
   }
 
   // ---------- exchange panel ----------
-  let tab = 'companies', sel = 'HDSN', range = '1D', ctype = 'line', side = 'buy', otype = 'market';
+  let tab = 'companies', sel = 'HDSN', range = '1D', ctype = 'line', side = 'buy', otype = 'market', amt = 1000;
+  let easy = true; try { easy = localStorage.getItem('cs-trade-pro') !== '1'; } catch (e) { /* storage blocked */ }
   const ex = $('ex');
   const closeProps = () => { $('props').hidden = true; $('listing').hidden = true; };
   function openEx(t, which = 'companies') { $('bank').hidden = true; closeProps(); ex.hidden = false; setTab(which); if (t) choose(t); else drawAll(); }
@@ -138,14 +139,43 @@
   }
   function positionsTable(compact) {
     const s = S(), rows = Object.entries(s.positions);
-    if (!rows.length) return '<p class="note">No shares yet. Buy something on the right.</p>';
+    if (!rows.length) return '<p class="note">No shares yet. Pick an amount and tap BUY.</p>';
     return `<table class="tbl"><tr><th>Symbol</th><th>Shares</th><th>Avg cost</th>${compact ? '' : '<th>Price</th>'}<th>Value</th><th>P&amp;L</th></tr>${rows.map(([t, p]) => {
       const px = M.priceOf(t), val = p.shares * px, pl = val - p.cost;
       return `<tr data-t="${t}"><td><b>${t}</b></td><td>${p.shares}</td><td>${usd(p.cost / p.shares)}</td>${compact ? '' : `<td>${usd(px)}</td>`}<td>${usd(val)}</td><td class="${cls(pl)}">${usd(pl)} (${pct(pl / p.cost)})</td></tr>`;
     }).join('')}</table>`;
   }
   function bindPosRows(root) { root.querySelectorAll('tr[data-t]').forEach(r => r.onclick = () => { setTab('companies'); choose(r.dataset.t); }); }
+  // the easy ticket (Goal 24): pick an amount of money, then one big BUY or SELL; "More options" has limit orders
+  function drawEasy() {
+    const c = M.company(sel), px = M.priceOf(sel), s = S(), pos = s.positions[sel], open = M.status() === 'OPEN';
+    const AMTS = [100, 1000, 10000, 100000];
+    const n = amt < 0 ? Math.floor(s.cash / (px * 1.0005)) : Math.floor(Math.min(amt, s.cash) / (px * 1.0005));
+    const val = pos ? pos.shares * px : 0, pl = pos ? val - pos.cost : 0;
+    $('ticket').innerHTML = `
+      <div class="tk easy">
+        <div class="own">${pos ? `You own <b>${pos.shares} shares</b> worth <b>${usd(val)}</b> <span class="${cls(pl)}">${pl >= 0 ? '▲' : '▼'} ${usd(Math.abs(pl))}</span>` : `You don't own any ${c.t} yet`}</div>
+        <label>How much money?</label>
+        <div class="amts">${AMTS.map(a => `<button data-a="${a}" class="${amt === a ? 'on' : ''}" ${a > s.cash * 1.5 && a > 100 ? 'disabled' : ''}>${a >= 1000 ? '$' + a / 1000 + 'k' : '$' + a}</button>`).join('')}<button data-a="-1" class="${amt < 0 ? 'on' : ''}">All</button></div>
+        <div class="est"><span>That buys</span><b>${n.toLocaleString('en-US')} share${n === 1 ? '' : 's'}</b></div>
+        <div class="bs"><button id="eBuy" class="buy" ${n > 0 ? '' : 'disabled'}>BUY</button><button id="eSell" class="sell" ${pos ? '' : 'disabled'}>SELL${pos ? ' ALL' : ''}</button></div>
+        <p class="note">${open ? 'Buy low, sell high: sell when the price is above what you paid.' : M.status() === 'HALTED' ? 'Trading is paused for a moment. Your order goes through when it starts again.' : 'The market is closed. Your order goes through when it opens at 9:30.'}</p>
+        <button class="lnk" id="ePro">More options (limit orders)</button>
+      </div>`;
+    $('ticket').querySelectorAll('[data-a]').forEach(b => b.onclick = () => { amt = +b.dataset.a; drawEasy(); });
+    const order = (sd, q) => {
+      const r = M.placeOrder(open ? { side: sd, t: sel, shares: q, type: 'market' } : { side: sd, t: sel, shares: q, type: 'limit', limit: +(px * (sd === 'buy' ? 1.03 : 0.97)).toFixed(2) });
+      if (!r.ok) toast('Order rejected', r.why);
+      else if (r.queued) toast('Order waiting', `${sd === 'buy' ? 'Buying' : 'Selling'} ${q} ${sel} when the market opens`);
+      else toast(sd === 'buy' ? 'Bought!' : 'Sold!', `${q} ${sel} shares at ${usd(px)}`);
+      drawAll(true);
+    };
+    $('eBuy').onclick = () => { if (n > 0) order('buy', n); };
+    $('eSell').onclick = () => { if (pos) order('sell', pos.shares); };
+    $('ePro').onclick = () => { easy = false; try { localStorage.setItem('cs-trade-pro', '1'); } catch (e) { /* fine */ } drawTicket(); };
+  }
   function drawTicket(keepInputs) {
+    if (easy) { drawEasy(); return; }
     const c = M.company(sel), px = M.priceOf(sel), s = S(), pos = s.positions[sel];
     const prevShares = keepInputs && $('qty') && +$('qty').value > 0 ? String(Math.floor(+$('qty').value)) : '';
     const prevLimit = keepInputs && $('lim') && +$('lim').value > 0 ? (+$('lim').value).toFixed(2) : '';
@@ -164,6 +194,7 @@
         <div class="est"><span>Estimated total</span><b id="estV">$0.00</b></div>
         <div class="est"><span>${side === 'buy' ? 'Cash available' : 'Shares you own'}</span><b>${side === 'buy' ? usd(s.cash) : (pos ? pos.shares : 0)}</b></div>
         <button id="go" class="${side}">${side === 'buy' ? 'Buy' : 'Sell'} ${c.t}</button>
+        <button class="lnk" id="eEasy">Simple buying</button>
         <p class="note">${M.status() === 'OPEN' ? 'Market orders fill right away.' : otype === 'limit' ? 'Limit orders wait until the price is reached.' : 'The market is ' + M.status().toLowerCase() + '. Use a limit order or wait for the open.'}</p>
       </div>`;
     const qty = $('qty'), lim = $('lim');
@@ -180,6 +211,7 @@
       qty.value = side === 'buy' ? Math.floor(S().cash * f / (price() * 1.0005)) : Math.floor((pos ? pos.shares : 0) * f);
       upd();
     });
+    $('eEasy').onclick = () => { easy = true; try { localStorage.removeItem('cs-trade-pro'); } catch (e) { /* fine */ } drawTicket(); };
     $('go').onclick = () => {
       const r = M.placeOrder({ side, t: sel, shares: +qty.value, type: otype, limit: lim ? +lim.value : 0 });
       if (!r.ok) toast('Order rejected', r.why);

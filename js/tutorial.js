@@ -23,6 +23,7 @@ window.Tutorial = (function () {
     { at: 'ticket', say: () => M.status() === 'OPEN' ? 'Now tap <b>BUY</b>. If the price goes up later, your shares are worth more!' : `This is where you <b>BUY</b>. The market is closed right now: it opens at 9:30, so come back and buy then.`, wait: () => bought, tap: true, next: () => M.status() === 'OPEN' ? 'Skip this' : 'Next' },
     { at: 'exX', say: () => `You're an investor now! Sell when the price is <b>higher</b> than you paid. Close the exchange for now.`, wait: () => $('ex').hidden, tap: true },
     { at: 'bProps', say: () => `Later you can buy <b>buildings</b> in Property. Tenants pay you rent every night, even while you sleep!` },
+    { at: 'earnG', say: () => `Tap the gold <b>EARN</b> button any time to see <b>every way to make money</b>: buildings, land, farms, shipping, your own company and more.` },
     { say: () => `Watch out for <b>BREAKING NEWS</b>! Markets can crash 📉 or soar 📈 at any moment. Even a plane can crash into a tower!` },
     { say: () => `That's it! Pay your rent, grow your money, buy buildings and become a <b>Wall Street Legend</b>. Good luck!`, next: 'Play!' }
   ];

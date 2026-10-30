@@ -277,6 +277,20 @@ Cash still lives in each player's own save, so a player who edits their save cou
 | Planes | ✅ airliners cross the sky with blinking lights about once a minute |
 | Plane crashes | ✅ the rare crash in the news is shown: an airliner with a failed engine comes down into a tower, with a fireball, a flash and smoke. Very rarely it is one of your buildings: you pay a share of the repairs and the whole market crashes again |
 
+## Goal 24: easier to play, a livelier city ✅
+
+Menus modelled on the city builders (SimCity BuildIt, Clash of Clans, Hay Day): one bar of big labelled buttons at the bottom, the main money button in the bottom-right corner, small round buttons down the side.
+
+| Check | Result |
+|---|---|
+| One game bar everywhere | ✅ the bar in the game (Bank, Exchange, Home, Property, Office, World) is now also on the main menu; each button takes you in and straight there. Every button has a label, on phones too |
+| Earn button | ✅ a gold EARN button opens every way to make money in one place: shares, buildings, deals, auctions, land, businesses, shipping, your own company, the office, the bank, your property and the news |
+| No slow-device warning | ✅ removed |
+| Easier trading | ✅ pick an amount (00, k, 0k, 00k or All) and tap one big BUY or SELL ALL; when the market is closed the order waits for the open. "More options" still has limit orders |
+| Fewer crashes | ✅ about two or three surprises a day instead of four, market crashes three times rarer and about half as deep, and more good news than bad |
+| Real city life | ✅ cars switch on head and tail lights at night and can be seen from further out; the Staten Island ferry, harbour tour boats, river boats and a container ship sail their real routes; a tour helicopter flies up the Hudson and a news helicopter circles the city; planes come every 15-40 seconds, on the menu too |
+| Bigger map | not yet: the map is all of Manhattan; adding Brooklyn, Queens and Jersey City needs the map data rebuilt and makes the download about twice as big |
+
 ## Roadmap
 
 1. ✅ The New York map
@@ -307,6 +321,7 @@ From the 5 new reference videos (a player-run economy game on the real world map
 21. ✅ **High-end graphics:** bloom, grading, a sun that follows the clock, clouds, glass, water, night lights
 22. ✅ **Simpler:** a new menu, online-only play, a clean map and screen, a tutorial
 23. ✅ **Surprises:** more market events, planes in the sky, plane crashes
+24. ✅ **Easier, livelier:** one game bar in and out of the game, an Earn button, simple trading, fewer crashes, boats, helicopters and car lights
 
 ## Legal
 
