@@ -29,7 +29,9 @@ window.Biz = (function () {
     food: { name: 'Food factory', cost: 20000, upkeep: 120, makes: 'food', out: 40, uses: { crates: 4 }, blurb: 'Packs 4 crates into a box of food.' },
     steel: { name: 'Steel mill', cost: 45000, upkeep: 220, makes: 'steel', out: 20, uses: { ore: 3 }, blurb: 'Smelts 3 t of ore into 1 t of steel.' },
     refinery: { name: 'Refinery', cost: 90000, upkeep: 400, makes: 'fuel', out: 15, uses: { oil: 2 }, blurb: 'Refines 2 barrels of crude into a drum of fuel.' },
-    machines: { name: 'Machine works', cost: 160000, upkeep: 600, makes: 'machines', out: 6, uses: { steel: 2, fuel: 1 }, blurb: 'Builds a machine from 2 t of steel and a drum of fuel.' }
+    machines: { name: 'Machine works', cost: 160000, upkeep: 600, makes: 'machines', out: 6, uses: { steel: 2, fuel: 1 }, blurb: 'Builds a machine from 2 t of steel and a drum of fuel.' },
+    // logistics (Goal 18): ships leave from here for your other cities
+    port: { name: 'Port', cost: 40000, upkeep: 150, makes: null, out: 0, need: 'coast', blurb: 'Docks for your ships: send goods to other cities by sea. Needs a waterfront plot.' }
   };
   const factory = type => !!TYPES[type].uses;
   const recipe = T => Object.entries(T.uses).map(([g, q]) => `${q} ${GOODS[g].unit} ${GOODS[g].name.toLowerCase()}`).join(' + ');
@@ -47,10 +49,11 @@ window.Biz = (function () {
       soil: Math.round((0.6 + h(p.i, p.j, 1) * 0.9) * 100) / 100,
       ore: h(p.i, p.j, 2) < 0.18 ? Math.round((0.7 + h(p.i, p.j, 3) * 0.8) * 100) / 100 : 0,
       oil: h(p.i, p.j, 4) < 0.08 ? Math.round((0.7 + h(p.i, p.j, 5) * 0.9) * 100) / 100 : 0,
-      town: d < 5500 ? Math.round((1.4 - d / 5500 * 0.8) * 100) / 100 : 0
+      town: d < 5500 ? Math.round((1.4 - d / 5500 * 0.8) * 100) / 100 : 0,
+      coast: [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => !Land.plots.has((p.i + a) + ',' + (p.j + b))) ? 1 : 0 // at the edge of the land: the waterfront
     };
   }
-  const richFor = (type, g) => factory(type) ? 1 : type === 'farm' ? g.soil : type === 'mine' ? g.ore : type === 'oil' ? g.oil : g.town;
+  const richFor = (type, g) => factory(type) ? 1 : type === 'farm' ? g.soil : type === 'mine' ? g.ore : type === 'oil' ? g.oil : type === 'port' ? g.coast : g.town;
 
   // ---------- state ----------
   const fill = (o, v) => { for (const g of Object.keys(GOODS)) if (o[g] == null) o[g] = v; return o; }; // goods added since the save was made
@@ -121,7 +124,7 @@ window.Biz = (function () {
         for (const [g, q] of Object.entries(T.uses)) goods[g] -= n * q;
         goods[T.makes] += n; b.made += n; built += n; b.last = n;
       } else if (T.makes) { const before = b.stock; b.stock = Math.min(cap(b), b.stock + output(b)); made += b.stock - before; b.made += b.stock - before; if (b.stock >= cap(b)) full++; }
-      else { // a shop: sells crates from your warehouse, more in busier spots
+      else if (b.type === 'shop') { // a shop: sells crates from your warehouse, more in busier spots
         const sold = Math.min(goods.crates, Math.floor(output(b))), cash = sold * 18 * Math.sqrt(S.reIndex) + 60 * b.rich;
         goods.crates -= sold; S.cash = +(S.cash + cash).toFixed(2); b.earned += cash; takings += cash;
       }
@@ -167,15 +170,15 @@ window.Biz = (function () {
   function section(p) {
     const o = Land.mine(p); if (!o) return '';
     const g = ground(p), b = o.biz;
-    const facts = `<div class="ground"><span>Soil <b>${Math.round(g.soil * 100)}%</b></span><span>Ore <b>${g.ore ? Math.round(g.ore * 100) + '%' : 'none'}</b></span><span>Oil <b>${g.oil ? Math.round(g.oil * 100) + '%' : 'none'}</b></span><span>Town <b>${g.town ? 'near' : 'far'}</b></span></div>`;
+    const facts = `<div class="ground"><span>Soil <b>${Math.round(g.soil * 100)}%</b></span><span>Ore <b>${g.ore ? Math.round(g.ore * 100) + '%' : 'none'}</b></span><span>Oil <b>${g.oil ? Math.round(g.oil * 100) + '%' : 'none'}</b></span><span>Town <b>${g.town ? 'near' : 'far'}</b></span><span>Waterfront <b>${g.coast ? 'yes' : 'no'}</b></span></div>`;
     if (!b) return `<div class="biz"><small>BUILD A BUSINESS</small>${facts}<div class="bopts">${Object.entries(TYPES).map(([k, T]) => {
       const r = richFor(k, g), no = T.need && !r;
-      return `<button class="bopt ${k}" data-build="${k}" ${no ? 'disabled' : ''}><i></i><b>${T.name}</b><span>${usd(T.cost)} · ${no ? (T.need === 'town' ? 'too far from town' : 'nothing here') : T.uses ? `up to ${T.out} ${GOODS[T.makes].unit}/day` : T.makes ? `~${Math.round(T.out * r)} ${GOODS[T.makes].unit}/day` : `${Math.round(r * 100)}% footfall`}</span></button>`;
+      return `<button class="bopt ${k}" data-build="${k}" ${no ? 'disabled' : ''}><i></i><b>${T.name}</b><span>${usd(T.cost)} · ${no ? (T.need === 'town' ? 'too far from town' : 'nothing here') : T.uses ? `up to ${T.out} ${GOODS[T.makes].unit}/day` : T.makes ? `~${Math.round(T.out * r)} ${GOODS[T.makes].unit}/day` : k === 'port' ? 'waterfront' : `${Math.round(r * 100)}% footfall`}</span></button>`;
     }).join('')}</div><p class="note">${Object.values(TYPES).map(T => `${T.name}: ${T.blurb}`).join(' ')} Factories take what they need from your warehouse every night.</p></div>`;
     const T = TYPES[b.type], pct = T.makes && !T.uses ? Math.min(100, b.stock / cap(b) * 100) : 0;
     return `<div class="biz own ${b.type}"><small>${T.name.toUpperCase()} · LEVEL ${b.lvl}</small>${T.uses ? '' : facts}
       ${T.uses ? `<p class="note">Every night: ${recipe(T)} → 1 ${GOODS[T.makes].unit} of ${GOODS[T.makes].name.toLowerCase()}, up to ${Math.round(output(b))}. In your warehouse: ${Object.keys(T.uses).map(g => `${inv()[g].toLocaleString('en-US')} ${GOODS[g].unit} ${GOODS[g].name.toLowerCase()}`).join(', ')}. Last night it made ${b.last || 0}.</p>`
-        : T.makes ? `<div class="store"><div class="sbar"><i style="width:${pct}%"></i></div><span>${Math.floor(b.stock)} / ${cap(b)} ${GOODS[T.makes].unit} in storage</span></div>` : `<p class="note">Sells up to ${Math.round(output(b))} crates a night from your warehouse (you have ${inv().crates}). Takings so far ${usd(b.earned)}.</p>`}
+        : T.makes ? `<div class="store"><div class="sbar"><i style="width:${pct}%"></i></div><span>${Math.floor(b.stock)} / ${cap(b)} ${GOODS[T.makes].unit} in storage</span></div>` : b.type === 'port' ? '<p class="note">Your ships leave from here. Send goods to your other cities in Property → Business → Logistics.</p>' : `<p class="note">Sells up to ${Math.round(output(b))} crates a night from your warehouse (you have ${inv().crates}). Takings so far ${usd(b.earned)}.</p>`}
       <div class="stats"><div>Makes<b>${T.makes ? `${T.uses ? 'up to ' : ''}${Math.round(output(b))} ${GOODS[T.makes].unit}/day` : 'shop takings'}</b></div><div>Upkeep<b class="dn">${usd(upkeep(b))}/day</b></div><div>Invested<b>${usd(b.spent)}</b></div><div>${T.makes ? 'Made so far' : 'Earned'}<b>${T.makes ? Math.round(b.made).toLocaleString('en-US') : usd(b.earned)}</b></div></div>
       <div class="lbtns">${T.makes && !T.uses ? `<button class="buy" id="bzCol" ${b.stock < 1 ? 'disabled' : ''}>Collect ${Math.floor(b.stock)} ${GOODS[T.makes].unit}</button>` : ''}
         ${b.lvl < MAXLVL ? `<button class="plain" id="bzUp">Upgrade to level ${b.lvl + 1} · ${usd(upCost(b))}</button>` : ''}
@@ -208,11 +211,13 @@ window.Biz = (function () {
     html += `<small class="ahd">YOUR BUSINESSES${here.length < list.length ? ` (${list.length - here.length} in other cities)` : ''}</small><div class="lbtns"><button class="buy" id="bzAll" ${ready ? '' : 'disabled'}>Collect everything (${ready.toLocaleString('en-US')})</button></div>`;
     html += here.length ? here.map(([k, o]) => { const b = o.biz, T = TYPES[b.type]; return `<button class="bzrow ${b.type}" data-plot="${o.i},${o.j}"><i></i><div><b>${T.name} · level ${b.lvl}</b><span>${esc(o.name)}</span></div><span>${T.makes ? `${Math.floor(b.stock)} / ${cap(b)} ${GOODS[T.makes].unit}` : usd(b.earned)}</span></button>`; }).join('')
       : '<p class="note">No businesses yet. Buy a land plot (Land tab), then build a farm, mine, oil well or shop on it.</p>';
+    if (window.Logistics) html += Logistics.section();
     if (window.Company) html += Company.section();
     if (window.Trade) html += Trade.exchangeHTML();
     body.innerHTML = html;
     body.querySelectorAll('[data-sell]').forEach(b => b.onclick = () => { const g = b.dataset.sell, r = sell(g, Math.max(1, Math.floor(inv()[g] * +b.dataset.f))); if (r.ok) toast('Sold', `${r.q.toLocaleString('en-US')} ${GOODS[g].unit} for ${usd(r.total)}.`); else toast('Can\'t sell', r.why); draw2d(); });
     if ($('bzAll')) $('bzAll').onclick = collectAll;
+    if (window.Logistics) Logistics.bind(body);
     if (window.Company) Company.bind(body);
     if (window.Trade) Trade.bindExchange(body);
     body.querySelectorAll('form[data-ask]').forEach(f => f.onsubmit = e => { e.preventDefault(); const [q, p] = [...f.querySelectorAll('input')].map(i => +i.value), r = ask(f.dataset.ask, q, p); if (!r.ok) toast('Can\'t list', r.why); else toast('Listed', `Buyers pick it up overnight. Closer to the city's price sells faster.`); draw2d(); });
@@ -273,6 +278,12 @@ window.Biz = (function () {
         j.add(beam); g.add(j); jacks.push(beam);
       }
       const tank = new THREE.Mesh(new THREE.CylinderGeometry(10, 10, 12, 18), m(0xe9eef2, 0.5)); tank.position.set(45, 6, 40); g.add(tank);
+    } else if (b.type === 'port') { // a quay, a crane and stacks of containers
+      g.add(box(150, 3, 40, 0x8a8f96, 0, 0, 55));
+      g.add(box(4, 36, 4, 0xff8a1f, -40, 3, 50)); g.add(box(4, 36, 4, 0xff8a1f, -40, 3, 64)); g.add(box(60, 4, 6, 0xff8a1f, -20, 36, 57));
+      const cc = [0xd94c3d, 0x3b6fd8, 0x2fd47a, 0xffd21f, 0xa35cff];
+      for (let k = 0; k < 8 + b.lvl * 4; k++) g.add(box(12, 5, 5, cc[k % cc.length], -10 + (k % 6) * 13, 3 + Math.floor(k / 12) * 5, 20 + Math.floor((k % 12) / 6) * 6));
+      g.add(box(40, 8, 26, 0xe9eef2, 40, 0, -20));
     } else if (TYPES[b.type].uses) { // a factory hall with a saw-tooth roof stripe and chimneys
       const c = { food: 0xf0b35a, steel: 0x8a95a5, refinery: 0xdfe4ea, machines: 0x5b7bd6 }[b.type];
       g.add(box(70 * s, 16, 44, c, -10, 0, -10)); g.add(box(72 * s, 3, 46, 0x3a4048, -10, 16, -10));

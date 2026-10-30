@@ -216,6 +216,17 @@ Cash still lives in each player's own save, so a player who edits their save cou
 | A price that follows your empire | ✅ every night investors reprice it towards its book value plus 20 times what the empire grew; buy shares back on the exchange to own more of it, sell yours to raise cash. The part investors own counts against your net worth, so going public never counts the same buildings twice |
 | Players trading its shares | ⬜ needs the exchange's order book to accept company shares as well as goods (a server change). Waiting on the owner |
 
+## Goal 18: logistics ✅
+
+| Check | Result |
+|---|---|
+| Ports | ✅ a new business ($40,000) for waterfront plots (plots at the edge of the land): a quay with a crane and stacks of containers, more with each level |
+| Ships between cities | ✅ Property → Business → Logistics: send goods from your warehouse to any other city you've opened. Each city pays its own prices (Tokyo +30% for ore, Dubai +40% for crates and +35% for machines, London +20% for produce, Hong Kong +30% for machines…). Ships cost about 2% plus a little per km and take about a game day per 6,000 km (New York → Tokyo: 10,843 km, 1.8 days); they need a port of yours in the city they leave from. The form shows what it will fetch there, the shipping cost and what you'd get selling at home |
+| Air freight | ✅ the same without a port, about ten times faster and five times dearer: worth it for machines, not for ore |
+| On the map | ✅ your ships sail out of your port and away to sea, and incoming ones sail in |
+| Trucks | ✅ hire a truck fleet per city ($40 a night for each farm, mine or well) and it picks up their storage every night, so you don't have to collect by hand |
+| Fits the economy | ✅ each city's price drops as you sell there and recovers overnight; goods at sea still count toward net worth |
+
 ## Roadmap
 
 1. ✅ The New York map
@@ -240,7 +251,7 @@ From the 5 new reference videos (a player-run economy game on the real world map
 15. ✅ **Player-set markets:** an item exchange where players set every price; production chains from raw resources to finished goods; a factory planner
 16. ✅ **Inside buildings:** rooms, furniture, renting rooms to players and NPCs, extensions and basements, temperature (heat from machines, cooling, happy tenants and workers)
 17. ✅ **Companies and the stock market:** start a company, take it public, players trade its shares
-18. **Logistics:** ports, ships and trucks moving goods between cities
+18. ✅ **Logistics:** ports, ships and trucks moving goods between cities
 19. **Wiki, changelog and community**
 20. **Launch on PC:** hosting for a game of any size, then a desktop download (Steam / itch.io)
 

@@ -624,6 +624,7 @@ h1 { -webkit-text-stroke: 3px var(--ol); paint-order: stroke fill; text-shadow: 
 /* ---------- Goal 17: your company ---------- */
 .co { display: grid; gap: 8px; padding: 12px; border-radius: 16px; background: var(--pi); border: 2px solid var(--c-gold); }
 .coh { display: flex; align-items: center; gap: 10px; } .coh b { font: 400 20px/1.1 'Archivo Black', sans-serif; } .tick { padding: 3px 8px; border-radius: 8px; background: var(--c-gold); color: #2a1800; font: 800 12px/1 Inter, sans-serif; letter-spacing: .08em; }
+.logi { display: grid; gap: 8px; } .logi .note b.up { color: var(--c-green); } .logi .note b.dn { color: #ff9aa4; }
 .planout .cards span { display: block; font-size: 10px; color: var(--x-dim); text-transform: none; letter-spacing: 0; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
 </style>
@@ -1570,6 +1571,7 @@ document.getElementById('play').onclick = () => startGame();
 <script src="js/trade.js"></script>
 <script src="js/interior.js"></script>
 <script src="js/company.js"></script>
+<script src="js/logistics.js"></script>
 <script src="js/office.js"></script>
 <script src="js/world.js"></script>
 <script src="js/pc.js"></script>
