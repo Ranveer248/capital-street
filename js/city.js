@@ -43,7 +43,7 @@ function pitchedGeo(list) {
   const { F, G, C, X } = pitched, b = { pos: [], nor: [], col: [], rt: [] };
   for (const i of list) {
     const [x, z, a, L, W, y, rise] = F.subarray(7 * i, 7 * i + 7), gable = G[i];
-    if (pitched.hidden(x, z)) continue; // the roof over your office is lifted off
+    if (pitched.hidden(x, z) || (window.Build && Build.inCleared(x, z))) continue; // the roof over your office is lifted off; knocked-down buildings lose theirs
     const ca = Math.cos(a), sa = Math.sin(a), hl = L / 2, hw = W / 2, r = gable ? hl : Math.max(0, hl - hw);
     const P = (lx, ly, lz) => [x + ca * lx - sa * lz, y + ly, z + sa * lx + ca * lz];
     const A = P(-hl, 0, -hw), B = P(hl, 0, -hw), Cc = P(hl, 0, hw), D = P(-hl, 0, hw), R1 = P(-r, rise, 0), R2 = P(r, rise, 0);

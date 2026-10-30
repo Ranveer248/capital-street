@@ -135,7 +135,7 @@
   const priceOf = t => S.stocks[t].price;
   const holdings = () => Object.entries(S.positions).reduce((sum, [t, p]) => sum + p.shares * priceOf(t), 0);
   // ---------- property: whole buildings or single floors; values follow a citywide property index ----------
-  const PROP_YIELD = 0.004, PROP_FEE = 0.06; // rent per floor per game day as a share of its value; selling costs 6%
+  const PROP_YIELD = 0.008, PROP_FEE = 0.06; // rent per floor per game day as a share of its value (Goal 25: level with the other jobs); selling costs 6%
   const floorValue = p => p.floorPrice * S.reIndex;
   const propValue = () => Object.values(S.props).reduce((sum, p) => sum + p.floors * floorValue(p), 0);
   function buyProperty(id, floors, info, price) { // info: { name, floorPrice, totalFloors, x, z, type, street }; price: a deal or auction price
@@ -167,7 +167,7 @@
   function propertyDay() { // each midnight: the index drifts and your tenants pay rent
     S.reIndex *= Math.exp(gauss() * 0.006 + 0.0006);
     let income = 0;
-    for (const p of Object.values(S.props)) { const r = p.floors * floorValue(p) * PROP_YIELD; p.earned += r; income += r; }
+    for (const p of Object.values(S.props)) { if (p.uc) continue; const r = p.floors * floorValue(p) * PROP_YIELD; p.earned += r; income += r; }
     if (income > 0) { S.cash = +(S.cash + income).toFixed(2); S.rentIncome += income; emit('property', { kind: 'income', income }); }
   }
   const PROP_SHOCK = { crash: 0.95, rally: 1.02, bull: 1.04, recession: 0.95, stimulus: 1.03, bankrun: 0.96, flash: 0.99, plane: 0.92, blackout: 0.99, fed: 0.97, storm: 0.96, hack: 1 };

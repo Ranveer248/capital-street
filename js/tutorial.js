@@ -1,5 +1,5 @@
 // Capital Street tutorial (Goal 22): Penny the piggy bank shows a new player around in a few simple steps, lighting up
-// the one thing to tap each time. It starts the first time you play; "How to play" in the menu shows it again.
+// the one thing to tap each time (Goal 25: jobs, rebuilding and auctions). It starts the first time you play; "How to play" in the menu shows it again.
 'use strict';
 window.Tutorial = (function () {
   const M = window.Market, $ = id => document.getElementById(id);
@@ -10,26 +10,24 @@ window.Tutorial = (function () {
 
   const el = document.createElement('div');
   el.id = 'tut'; el.hidden = true;
-  el.innerHTML = '<div class="thole" id="tHole"></div><div class="tbub" id="tBub"><div class="tpig">🐷</div><div class="ttxt"><small id="tStep"></small><p id="tText"></p><div class="tbtns"><button class="lnk" id="tSkip">Skip tutorial</button><button class="btn pri" id="tNext">Next</button></div></div></div>';
+  el.innerHTML = '<div class="thole" id="tHole"></div><div class="tbub" id="tBub"><div class="tpig">' + IC('penny') + '</div><div class="ttxt"><small id="tStep"></small><p id="tText"></p><div class="tbtns"><button class="lnk" id="tSkip">Skip tutorial</button><button class="btn pri" id="tNext">Next</button></div></div></div>';
   document.body.appendChild(el);
 
   // each step: what Penny says, what to light up, and either a Next button or something you have to do
   const steps = [
-    { say: () => `Hi! I'm <b>Penny</b>. I'll show you how to get rich in New York. It's easy!`, next: "Let's go!" },
-    { at: 'cashV', say: () => `This is your <b>money</b>. You have ${usd(M.state.cash)}. Let's make it grow!` },
-    { at: 'rentBox', say: () => `Don't forget your <b>rent</b>: ${usd(M.RENT)} is due in a few days. Keep enough money to pay it, or you lose your apartment!`, skipIf: () => !$('rentBox') },
-    { at: 'bExchange', say: () => `Tap <b>Exchange</b>. That's where you buy <b>shares</b>: tiny pieces of companies.`, wait: () => !$('ex').hidden, tap: true },
-    { at: 'list', say: () => `Pick any company. <b class="g">Green</b> means its price went up today, <b class="r">red</b> means it went down.`, wait: () => picked, tap: true },
-    { at: 'ticket', say: () => M.status() === 'OPEN' ? 'Now tap <b>BUY</b>. If the price goes up later, your shares are worth more!' : `This is where you <b>BUY</b>. The market is closed right now: it opens at 9:30, so come back and buy then.`, wait: () => bought, tap: true, next: () => M.status() === 'OPEN' ? 'Skip this' : 'Next' },
-    { at: 'exX', say: () => `You're an investor now! Sell when the price is <b>higher</b> than you paid. Close the exchange for now.`, wait: () => $('ex').hidden, tap: true },
-    { at: 'bProps', say: () => `Later you can buy <b>buildings</b> in Property. Tenants pay you rent every night, even while you sleep!` },
-    { at: 'earnG', say: () => `Tap the gold <b>EARN</b> button any time to see <b>every way to make money</b>: buildings, land, farms, shipping, your own company and more.` },
-    { say: () => `Watch out for <b>BREAKING NEWS</b>! Markets can crash 📉 or soar 📈 at any moment. Even a plane can crash into a tower!` },
-    { say: () => `That's it! Pay your rent, grow your money, buy buildings and become a <b>Wall Street Legend</b>. Good luck!`, next: 'Play!' }
+    { say: () => `Hi! I'm <b>Penny</b>. In Capital Street you own a real city, one building at a time, alongside real players. Let me show you around!`, next: "Let's go!" },
+    { at: 'cashV', say: () => `This is your <b>money</b>: ${usd(M.state.cash)}. Let's make it grow!` },
+    { at: 'rentBox', say: () => `This is your <b>rent</b>: ${usd(M.RENT)} is due soon. Keep enough money to pay it, or you lose your apartment!`, skipIf: () => !$('rentBox') || !$('rentBox').offsetWidth },
+    { at: 'earnG', say: () => `Tap <b>JOBS</b>. There are twelve ways to make money, and they all pay about the same. Pick the ones you like!`, wait: () => !$('earn').hidden, tap: true },
+    { at: 'earn', say: () => `Landlord, farmer, developer, trader, shipper, boss... Tap any job and I'll take you there. Close this for now.`, wait: () => $('earn').hidden, tap: true, next: 'Next' },
+    { at: 'bProps', say: () => `<b>Property</b> is where you buy buildings. Tenants pay you rent every night, even while you sleep!` },
+    { say: () => `Own a whole building? Tap it and press <b>Rebuild</b>: knock it down and build something bigger, in your own colours.` },
+    { say: () => `Other players want your building? <b>Auction it</b> and sell it for more than you paid!` },
+    { at: 'bExchange', say: () => `Like trading? The <b>Exchange</b> is where you buy and sell shares. <b class="g">Green</b> means up, <b class="r">red</b> means down.` },
+    { say: () => `Watch out for <b>BREAKING NEWS</b>! Prices can jump or drop at any moment.` },
+    { say: () => `That's it! Pick a job, grow your money and become a <b>Wall Street Legend</b>. Good luck!`, next: 'Play!' }
   ];
-  let i = -1, picked = false, bought = false;
-  M.on((type, d) => { if (type === 'fill' && d.side === 'buy') bought = true; if (type === 'order') bought = true; });
-  document.addEventListener('click', e => { if (i >= 0 && e.target.closest && e.target.closest('#list')) picked = true; }, true);
+  let i = -1;
 
   function show(n) {
     i = n;
@@ -76,7 +74,6 @@ window.Tutorial = (function () {
   })();
 
   function start() {
-    picked = bought = false;
     if (!M.state.started) M.start();
     show(0);
   }

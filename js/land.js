@@ -6,7 +6,7 @@
 window.Land = (function () {
   const M = window.Market, $ = id => document.getElementById(id);
   const usd = (v, dp = 0) => (v < 0 ? '-$' : '$') + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp });
-  const SIZE = 160, R = 9000, LEASE = 0.002; // lease: a share of the plot's value each game day (buildings earn 0.4%)
+  const SIZE = 160, R = 9000, LEASE = 0.006; // lease: a share of the plot's value each game day (buildings earn 0.8%)
   const plots = new Map(); // "i,j" -> { i, j, x, z, ppm, area, name, lot }
   const S = () => { if (!M.state.land) M.state.land = {}; return M.state.land; };
   const keyOf = p => `${CITY.id}:plot:${p.i}:${p.j}`; // in the save

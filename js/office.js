@@ -10,20 +10,20 @@ window.Office = (function () {
   // ---------- what you can put in an office ----------
   // w x d in grid squares; seat: which staff can work there; vibe: how much nicer the office gets (up to cap of each)
   const ITEMS = {
-    desk: { name: 'Desk', cat: 'Desks', w: 2, d: 1, cost: 400, seat: 'work', icon: '🖥️' },
-    tdesk: { name: 'Trading desk', cat: 'Desks', w: 2, d: 1, cost: 1500, seat: 'trade', icon: '📈' },
-    meeting: { name: 'Meeting table', cat: 'Desks', w: 2, d: 2, cost: 900, vibe: 6, cap: 2, icon: '🪑' },
-    plant: { name: 'Plant', cat: 'Comfort', w: 1, d: 1, cost: 60, vibe: 3, cap: 12, icon: '🪴' },
-    coffee: { name: 'Coffee machine', cat: 'Comfort', w: 1, d: 1, cost: 350, vibe: 8, cap: 1, icon: '☕' },
-    cooler: { name: 'Water cooler', cat: 'Comfort', w: 1, d: 1, cost: 120, vibe: 4, cap: 1, icon: '🚰' },
-    sofa: { name: 'Sofa', cat: 'Comfort', w: 2, d: 1, cost: 500, vibe: 5, cap: 3, icon: '🛋️' },
-    pingpong: { name: 'Ping-pong table', cat: 'Comfort', w: 3, d: 2, cost: 1200, vibe: 10, cap: 1, icon: '🏓' },
-    rug: { name: 'Rug', cat: 'Decor', w: 2, d: 2, cost: 150, vibe: 2, cap: 4, icon: '🟥' },
-    shelf: { name: 'Bookshelf', cat: 'Decor', w: 1, d: 1, cost: 250, vibe: 2, cap: 5, icon: '📚' },
-    wall: { name: 'Wall', cat: 'Decor', w: 1, d: 1, cost: 80, icon: '🧱' },
-    server: { name: 'Server rack', cat: 'Tech', w: 1, d: 1, cost: 2000, icon: '🗄️', note: 'Brokers earn 10% more (up to 3)' },
-    tv: { name: 'News screen', cat: 'Tech', w: 2, d: 1, cost: 800, vibe: 3, cap: 2, icon: '📺' },
-    ac: { name: 'Air conditioner', cat: 'Tech', w: 1, d: 1, cost: 1500, icon: '❄️', note: 'Takes away the heat of 2 server racks or a summer day' }
+    desk: { name: 'Desk', cat: 'Desks', w: 2, d: 1, cost: 400, seat: 'work', icon: 'desk' },
+    tdesk: { name: 'Trading desk', cat: 'Desks', w: 2, d: 1, cost: 1500, seat: 'trade', icon: 'tdesk' },
+    meeting: { name: 'Meeting table', cat: 'Desks', w: 2, d: 2, cost: 900, vibe: 6, cap: 2, icon: 'table' },
+    plant: { name: 'Plant', cat: 'Comfort', w: 1, d: 1, cost: 60, vibe: 3, cap: 12, icon: 'plant' },
+    coffee: { name: 'Coffee machine', cat: 'Comfort', w: 1, d: 1, cost: 350, vibe: 8, cap: 1, icon: 'coffee' },
+    cooler: { name: 'Water cooler', cat: 'Comfort', w: 1, d: 1, cost: 120, vibe: 4, cap: 1, icon: 'cooler' },
+    sofa: { name: 'Sofa', cat: 'Comfort', w: 2, d: 1, cost: 500, vibe: 5, cap: 3, icon: 'sofa' },
+    pingpong: { name: 'Ping-pong table', cat: 'Comfort', w: 3, d: 2, cost: 1200, vibe: 10, cap: 1, icon: 'pingpong' },
+    rug: { name: 'Rug', cat: 'Decor', w: 2, d: 2, cost: 150, vibe: 2, cap: 4, icon: 'rug' },
+    shelf: { name: 'Bookshelf', cat: 'Decor', w: 1, d: 1, cost: 250, vibe: 2, cap: 5, icon: 'books' },
+    wall: { name: 'Wall', cat: 'Decor', w: 1, d: 1, cost: 80, icon: 'bricks' },
+    server: { name: 'Server rack', cat: 'Tech', w: 1, d: 1, cost: 2000, icon: 'server', note: 'Brokers earn 10% more (up to 3)' },
+    tv: { name: 'News screen', cat: 'Tech', w: 2, d: 1, cost: 800, vibe: 3, cap: 2, icon: 'tv' },
+    ac: { name: 'Air conditioner', cat: 'Tech', w: 1, d: 1, cost: 1500, icon: 'snow', note: 'Takes away the heat of 2 server racks or a summer day' }
   };
   const CATS = ['Desks', 'Comfort', 'Decor', 'Tech'];
   // fee to hire, salary a day, what they earn a day before skill and vibe
@@ -310,8 +310,8 @@ window.Office = (function () {
   }
   function openTray(cat = 'Desks') {
     $('otray').hidden = false; gridLines && (gridLines.visible = true);
-    $('otray').innerHTML = `<div class="ocats">${CATS.map(c => `<button data-c="${c}" class="${c === cat ? 'on' : ''}">${c}</button>`).join('')}<button data-t="remove" class="rm ${tool === 'remove' ? 'on' : ''}">🗑 Remove</button><button id="oRot">⟳ Rotate</button></div>
-      <div class="oitems">${Object.entries(ITEMS).filter(([, I]) => I.cat === cat).map(([t, I]) => `<button data-t="${t}" class="${tool === t ? 'on' : ''}"><i>${I.icon}</i><b>${I.name}</b><span>${usd(I.cost)}</span>${I.vibe ? `<em>+${I.vibe} vibe</em>` : I.seat ? `<em>${I.seat === 'trade' ? 'for brokers' : 'a workstation'}</em>` : I.note ? `<em>${I.note}</em>` : ''}</button>`).join('')}</div>
+    $('otray').innerHTML = `<div class="ocats">${CATS.map(c => `<button data-c="${c}" class="${c === cat ? 'on' : ''}">${c}</button>`).join('')}<button data-t="remove" class="rm ${tool === 'remove' ? 'on' : ''}">${IC('trash')} Remove</button><button id="oRot">⟳ Rotate</button></div>
+      <div class="oitems">${Object.entries(ITEMS).filter(([, I]) => I.cat === cat).map(([t, I]) => `<button data-t="${t}" class="${tool === t ? 'on' : ''}"><i>${IC(I.icon)}</i><b>${I.name}</b><span>${usd(I.cost)}</span>${I.vibe ? `<em>+${I.vibe} vibe</em>` : I.seat ? `<em>${I.seat === 'trade' ? 'for brokers' : 'a workstation'}</em>` : I.note ? `<em>${I.note}</em>` : ''}</button>`).join('')}</div>
       <p class="note">${tool === 'remove' ? 'Tap something to remove it (you get half back).' : tool ? `Tap the floor to place a ${ITEMS[tool].name.toLowerCase()}.` : 'Pick something, then tap the floor.'}</p>`;
     $('otray').querySelectorAll('[data-c]').forEach(b => b.onclick = () => openTray(b.dataset.c));
     $('otray').querySelectorAll('[data-t]').forEach(b => b.onclick = () => { tool = tool === b.dataset.t ? null : b.dataset.t; openTray(cat); });

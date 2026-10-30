@@ -333,7 +333,7 @@
       return `<div class="lcard${why && why !== 'Repay your current loan first' ? ' locked' : ''}">
         <div class="row1"><b>${o.name}</b><strong>${usd(o.amount, 0)}</strong></div>
         <div class="terms"><div>Term<b>${o.days} days</b></div><div>Rate<b>${rateTxt(rate)}</b></div><div>Interest if held<b>~${usd(cost, 0)}</b></div></div>
-        ${why ? `<p class="why">🔒 ${why}</p>` : ''}
+        ${why ? `<p class="why">${IC('lock')} ${why}</p>` : ''}
         <button class="main" data-borrow="${o.id}" ${why ? 'disabled' : ''}>Borrow ${usd(o.amount, 0)}</button></div>`;
     }).join('') + `<p class="note">Better credit means bigger loans and lower rates. Repay on time to raise your score.</p>`;
     $('bankBody').innerHTML = html;

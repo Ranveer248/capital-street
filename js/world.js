@@ -11,7 +11,7 @@ window.World = (function () {
     for (const l of cityMarkers) {
       const here = l.city === CITY.id, ok = open(l.city);
       l.el.classList.toggle('here', here); l.el.classList.toggle('locked', !ok);
-      l.el.querySelector('.badge').textContent = here ? '●' : ok ? '✓' : '🔒';
+      l.el.querySelector('.badge').innerHTML = here ? '●' : ok ? '✓' : IC('lock');
       l.el.onclick = () => { if (!fly && $('title').hidden) card(l.city); };
     }
   }

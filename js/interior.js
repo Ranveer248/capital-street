@@ -19,7 +19,7 @@ window.Interior = (function () {
     const t = 14 + 14 * Math.sin(2 * Math.PI * (day - 7) / YEAR), wobble = Math.sin(day * 12.9898) * 3;
     return Math.round(t + wobble);
   }
-  const season = d => { const t = temp(d); return t <= 4 ? ['Winter', '❄'] : t >= 25 ? ['Heatwave', '☀'] : t >= 18 ? ['Summer', '☀'] : t <= 11 ? ['Autumn', '🍂'] : ['Spring', '🌱']; };
+  const season = d => { const t = temp(d); return t <= 4 ? ['Winter', IC('snow')] : t >= 25 ? ['Heatwave', IC('sun')] : t >= 18 ? ['Summer', IC('sun')] : t <= 11 ? ['Autumn', IC('leaf')] : ['Spring', IC('sprout')]; };
   // how comfortable rooms are: heating covers the cold, cooling the heat
   function comfort(t, cover) {
     const cold = Math.max(0, 12 - t), hot = Math.max(0, t - 24);
@@ -60,7 +60,7 @@ window.Interior = (function () {
   M.on((type, d) => {
     if (type === 'interior' && d.kind === 'night' && Math.abs(d.extra) >= 1) {
       const [sn, ic] = season();
-      toast(`${ic} ${sn}, ${temp()}°C`, `Your tenants ${d.extra >= 0 ? 'paid an extra' : 'cost you'} ${usd(Math.abs(d.extra))} tonight${d.moved > 0 ? `; ${d.moved} moved in` : d.moved < 0 ? `; ${-d.moved} moved out` : ''}.`);
+      toast(`${sn}, ${temp()}°C`, `Your tenants ${d.extra >= 0 ? 'paid an extra' : 'cost you'} ${usd(Math.abs(d.extra))} tonight${d.moved > 0 ? `; ${d.moved} moved in` : d.moved < 0 ? `; ${-d.moved} moved out` : ''}.`);
     }
   });
   M.addWorth(S => { // extensions add floors, basements add a little; fit-outs and HVAC are worth a third of what they cost
@@ -107,7 +107,7 @@ window.Interior = (function () {
   const chip = document.createElement('span');
   chip.id = 'wx'; chip.title = 'The weather: heating keeps tenants in winter, cooling in a heatwave';
   const place = setInterval(() => { const c = $('clock'); if (!c) return; clearInterval(place); c.after(chip); }, 300);
-  setInterval(() => { const [sn, ic] = season(); chip.textContent = `${ic} ${temp()}°C`; chip.title = `${sn}: day ${((M.day() - 1) % YEAR) + 1} of ${YEAR} in the year`; }, 1000);
+  setInterval(() => { const [sn, ic] = season(); chip.innerHTML = `${ic} ${temp()}°C`; chip.title = `${sn}: day ${((M.day() - 1) % YEAR) + 1} of ${YEAR} in the year`; }, 1000);
 
   return { temp, season, comfort, section, bind, nightly, rooms, YEAR };
 })();

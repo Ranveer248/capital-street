@@ -42,8 +42,9 @@ window.Property = (function () {
     const num = 1 + (g * 2654435761 >>> 0) % 140;
     const name = street ? `${num} ${street}` : `Building ${g}`;
     const it = { g, type, kind, floors, footprint, maxH, x, z, floorPrice, street, name, color: big.col, wallSt };
-    info$.set(g, it);
-    return it;
+    const out = window.Build ? Build.adjust(it) : it; // a building you rebuilt (js/build.js)
+    info$.set(g, out);
+    return out;
   }
   // building numbers are per city: New York keeps plain numbers (older saves), other cities are "london:123"
   const key = g => CITY.id === 'nyc' ? String(g) : CITY.id + ':' + g;
@@ -89,7 +90,7 @@ window.Property = (function () {
   const ownMeshes = new Map(), ownLabels = new Map();
   function highlight(g) {
     if (pickMesh) { scene.remove(pickMesh); pickMesh.geometry.dispose(); pickMesh = null; }
-    if (g == null) return;
+    if (g == null || (info(g) || {}).rebuilt) return;
     pickMesh = new THREE.Mesh(shellGeo(g, 0.35), pickMat);
     pickMesh.renderOrder = 12; // no shadow casting: an extra caster here made every frame several times slower
     scene.add(pickMesh);
@@ -97,12 +98,13 @@ window.Property = (function () {
   function drawOwned() {
     const have = new Set(Object.keys(M.state.props).filter(isHere).map(gOf));
     const hq = window.Office ? Office.hq() : null; // no green tint over your office: you look into it from above
-    for (const [g, m] of ownMeshes) if (!have.has(g) || g === hq) { scene.remove(m); m.geometry.dispose(); ownMeshes.delete(g); }
+    const rebuilt = g => window.Build && info(g) && info(g).rebuilt; // a rebuilt building has a new shape: no tint over the old one
+    for (const [g, m] of ownMeshes) if (!have.has(g) || g === hq || rebuilt(g)) { scene.remove(m); m.geometry.dispose(); ownMeshes.delete(g); }
     for (const [g, l] of ownLabels) if (!have.has(g)) { l.el.remove(); labels.splice(labels.indexOf(l), 1); ownLabels.delete(g); }
     for (const g of have) {
       if (!groups.has(g)) continue;
       const it = info(g), p = owned(g);
-      if (!ownMeshes.has(g) && g !== hq) { const m = new THREE.Mesh(shellGeo(g, 0.25), ownMat); m.renderOrder = 11; scene.add(m); ownMeshes.set(g, m); }
+      if (!ownMeshes.has(g) && g !== hq && !rebuilt(g)) { const m = new THREE.Mesh(shellGeo(g, 0.25), ownMat); m.renderOrder = 11; scene.add(m); ownMeshes.set(g, m); }
       const txt = (g === hq ? 'YOUR OFFICE' : 'YOURS') + (p.floors >= it.floors ? '' : ` · ${p.floors}/${it.floors} floors`);
       if (!ownLabels.has(g)) { const l = label(txt, 'place mine', [it.x, it.z], it.maxH + 6, 0, 9000); l.el.onclick = () => select(g, true); ownLabels.set(g, l); }
       else ownLabels.get(g).el.textContent = txt;
@@ -205,6 +207,7 @@ window.Property = (function () {
           ${left > 0 && !auc ? `<button class="buy" data-buy="${left}">${mine ? `Buy the other ${left} floors` : it.floors > 1 ? 'Buy the whole building' : 'Buy it'} · ${usd(mine ? left * perFloor(it) : disc ? dealPrice : wholePrice(it))}</button>` : ''}
           ${p && p.floors > 1 ? `<button class="sell" data-sell="1">Sell 1 floor · ${usd(M.floorValue(p) * (1 - M.PROP_FEE))}</button>` : ''}
           ${p ? `<button class="sell" data-sell="${p.floors}">Sell ${p.floors > 1 ? 'everything' : 'it'} · ${usd(p.floors * M.floorValue(p) * (1 - M.PROP_FEE))}</button>` : ''}
+          ${p && window.Build ? Build.section(it.g) : ''}
           ${p && window.Office ? (Office.hq() === it.g ? '<button class="buy" id="lsOffice">Enter your office</button>' : '<button class="plain" id="lsOffice">Make this my office</button>') : ''}
           <button class="plain" id="lsFly">Fly there</button>
         </div>
@@ -217,6 +220,7 @@ window.Property = (function () {
     $('lsX').onclick = deselect;
     $('lsFly').onclick = () => select(selected, true);
     if ($('lsAuc')) $('lsAuc').onclick = () => open('auctions');
+    if (window.Build) Build.bind(sheet, it.g);
     if (p && window.Interior) Interior.bind(sheet, key(selected), p, () => drawListing(false));
     if (window.Trade) Trade.bind(sheet, { kind: 'b', key: key(selected), it, floors: p ? p.floors : 0, name: it.name, value: p ? p.floors * M.floorValue(p) : wholePrice(it), redraw: () => drawListing(false) });
     if ($('lsOffice')) $('lsOffice').onclick = () => { if (Office.hq() !== it.g) { Office.setHQ(it.g); drawListing(false); } else Office.enter(); };
@@ -235,6 +239,8 @@ window.Property = (function () {
   }
   function tap(ray) {
     const meshes = tiles.filter(t => t.mesh.visible).map(t => t.mesh);
+    const nb = window.Build ? ray.intersectObjects(Build.tapMeshes(), true)[0] : null; // a building you rebuilt
+    if (nb) { let o = nb.object; while (o && o.userData.g == null) o = o.parent; if (o) { select(o.userData.g, false); setTimeout(() => { if (selected === o.userData.g) drawListing(true); }, 30); return true; } }
     const hit = ray.intersectObjects(meshes, false)[0];
     if (!hit) { if (selected != null) { deselect(); return true; } return false; }
     const t = tiles.find(t => t.mesh === hit.object), i = t.pid[hit.face.a];
@@ -347,5 +353,5 @@ window.Property = (function () {
     }
     drawOwned();
   }
-  return { init, loaded: () => !!NYC, tap, select, open, info, goal, deselect, merged, card, wholePrice, perFloor, redraw: () => { if (!panel.hidden) drawPanel(); if (!sheet.hidden && selected != null) drawListing(false); }, get tab() { return panel.hidden ? null : tab; }, refreshOwned: drawOwned, key, isHere, gOf, cityOf, debug: () => ({ meshes: ownMeshes.size, labels: [...ownLabels.values()].map(l => [l.el.textContent, l.on, l.p.y]) }) };
+  return { init, data: () => NYC, forget: g => info$.delete(g), loaded: () => !!NYC, tap, select, open, info, goal, deselect, merged, card, wholePrice, perFloor, redraw: () => { if (!panel.hidden) drawPanel(); if (!sheet.hidden && selected != null) drawListing(false); }, get tab() { return panel.hidden ? null : tab; }, refreshOwned: drawOwned, key, isHere, gOf, cityOf, debug: () => ({ meshes: ownMeshes.size, labels: [...ownLabels.values()].map(l => [l.el.textContent, l.on, l.p.y]) }) };
 })();

@@ -794,6 +794,32 @@ h1 { -webkit-text-stroke: 3px var(--ol); paint-order: stroke fill; text-shadow: 
 .tk.easy .bs .buy { background: linear-gradient(#45f08f, #17b257); } .tk.easy .bs .sell { background: linear-gradient(#ff7a7a, #d93a3a); }
 .tk.easy .bs button:disabled { opacity: .4; cursor: default; }
 .tk .lnk { justify-self: center; padding: 4px; background: none; border: 0; color: var(--soft); font: 700 12px/1 Inter, sans-serif; text-decoration: underline; cursor: pointer; }
+/* ---------- Goal 25: our own icons, the Jobs button, the builder ---------- */
+.ic { width: 1.25em; height: 1.25em; vertical-align: -0.28em; flex: none; display: inline-block; }
+.earnb .ic { width: 34px; height: 34px; filter: drop-shadow(0 2px 0 rgba(10, 15, 46, .35)); }
+@media (min-width: 900px) { .earnb .ic { width: 40px; height: 40px; } }
+.egrid i { background: linear-gradient(#ffffff, #e6edff) !important; } .egrid i .ic { width: 32px; height: 32px; }
+.egrid em { color: var(--c-gold) !important; }
+.ebox .ex, #earnX { position: absolute; right: 12px; top: 12px; width: 40px; height: 40px; display: grid; place-items: center; padding: 0; border-radius: 50%; border: 3px solid var(--ol); background: var(--c-red, #e05d5d); box-shadow: 0 3px 0 var(--ol); cursor: pointer; }
+.ebox .ex .ic, #earnX .ic { width: 22px; height: 22px; }
+.jlogo .ic { width: 50px; height: 50px; } .jx .ic { width: 18px; height: 18px; vertical-align: middle; }
+.tpig { font-size: 0; animation: tbob 1.8s ease-in-out infinite; } .tpig .ic { width: 64px; height: 64px; }
+.good .gi .ic, .chips .ic, .oitems i .ic { width: 1.5em; height: 1.5em; }
+#builder { position: fixed; inset: 0; z-index: 8; display: grid; place-items: center; padding: 16px; background: rgba(10, 15, 46, .55); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+#builder[hidden] { display: none; }
+.bdgrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.bdgrid button { display: grid; justify-items: center; gap: 2px; padding: 6px 4px 8px; border-radius: 16px; background: var(--pi); border: 3px solid var(--ol); box-shadow: 0 4px 0 var(--ol); color: #fff; cursor: pointer; }
+.bdgrid button.on { background: var(--c-gold); color: var(--ol); } .bdgrid button:disabled { opacity: .4; cursor: default; }
+.bdgrid svg { width: 100%; max-width: 96px; height: auto; } .bdgrid b { font: 800 13px/1.1 Inter, sans-serif; } .bdgrid small { font: 700 11px/1.2 Inter, sans-serif; opacity: .8; }
+.bdcols { display: flex; align-items: center; justify-content: center; gap: 10px; font: 800 12px/1 Inter, sans-serif; text-transform: uppercase; letter-spacing: .08em; color: var(--soft); }
+.bdcols button { width: 34px; height: 34px; padding: 0; border-radius: 50%; border: 3px solid var(--ol); box-shadow: 0 3px 0 var(--ol); cursor: pointer; } .bdcols button.on { outline: 3px solid #fff; outline-offset: 2px; }
+.bdsum { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.bdsum div { display: grid; gap: 3px; padding: 8px 10px; border-radius: 12px; background: var(--pi); border: 2px solid var(--ol); font: 700 11px/1.2 Inter, sans-serif; color: var(--soft); }
+.bdsum b { font: 800 15px/1.2 Inter, sans-serif; color: #fff; } .bdsum b.up { color: var(--c-green); }
+.ebox .btn.big { justify-self: center; min-width: min(320px, 100%); padding: 15px 22px; font: 400 20px/1 'Archivo Black', sans-serif; }
+.bdprog { display: grid; gap: 6px; width: 100%; font: 800 13px/1.2 Inter, sans-serif; } .bdprog i { height: 12px; border-radius: 6px; background: var(--pi); border: 2px solid var(--ol); overflow: hidden; } .bdprog i b { display: block; height: 100%; background: linear-gradient(90deg, var(--c-gold), var(--c-orange, #ff8a3d)); }
+.bdprog small { color: var(--soft); font-weight: 700; }
+@media (max-width: 600px) { .bdgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .bdsum { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>
 </head>
 <body>
@@ -830,7 +856,7 @@ h1 { -webkit-text-stroke: 3px var(--ol); paint-order: stroke fill; text-shadow: 
     <button id="bOffice" class="dk" aria-label="Your office"><svg class="i"><use href="#i-brief"/></svg><span class="dl">Office<kbd>O</kbd></span></button>
     <button id="bWorld" class="dk" aria-label="World map"><svg class="i"><use href="#i-globe"/></svg><span class="dl">World<kbd>M</kbd></span></button>
   </div>
-  <button id="earnG" class="earnb" aria-label="Ways to make money"><span>$</span><b>EARN</b></button>
+  <button id="earnG" class="earnb" aria-label="Jobs"><svg class="ic"><use href="#ic-coin"/></svg><b>JOBS</b></button>
   <div id="ticker"><div id="tape"></div></div>
   <div id="hint" class="glass"></div>
   <div id="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move <kbd>Q</kbd><kbd>E</kbd> turn <kbd>R</kbd><kbd>F</kbd> zoom <kbd>Space</kbd> pause time <kbd>?</kbd> all keys</div>
@@ -901,12 +927,13 @@ h1 { -webkit-text-stroke: 3px var(--ol); paint-order: stroke fill; text-shadow: 
     <button class="dk" data-go="bOffice" style="--dc:var(--c-purple);--dc2:var(--c-purple2)"><svg class="i"><use href="#i-brief"/></svg><span class="dl">Office</span></button>
     <button class="dk" data-go="mWorld" style="--dc:var(--c-green);--dc2:var(--c-green2)"><svg class="i"><use href="#i-globe"/></svg><span class="dl">World</span></button>
   </nav>
-  <button id="earnM" class="earnb" aria-label="Ways to make money"><span>$</span><b>EARN</b></button>
+  <button id="earnM" class="earnb" aria-label="Jobs"><svg class="ic"><use href="#ic-coin"/></svg><b>JOBS</b></button>
 </div>
 <div id="load">Loading New York…<small id="loadMsg">Fetching 56,000 real buildings</small></div>
 
 <script src="lib/three.min.js"></script>
 <script src="lib/OrbitControls.js"></script>
+<script src="js/icons.js"></script>
 <script src="js/cities.js"></script>
 <script src="js/market.js"></script>
 <script>
@@ -1001,7 +1028,7 @@ scene.add(new THREE.HemisphereLight(lin(0xdfeaff), lin(0x4d463e), 0.3));
 const SUN_DIR = new THREE.Vector3(-0.6, 0.5, 0.55).normalize(); // a lower, warmer sun for long shadows
 const sunLight = new THREE.DirectionalLight(lin(0xffeccc), 3.0);
 sunLight.castShadow = true;
-sunLight.shadow.mapSize.setScalar(GFX.shadows === 'low' ? 2048 : 4096);
+sunLight.shadow.mapSize.setScalar(GFX.shadows === 'low' ? 1024 : 2048); // Goal 25: lighter on phones
 sunLight.shadow.bias = -0.0004;
 sunLight.shadow.camera.near = 10; sunLight.shadow.camera.far = 12000;
 scene.add(sunLight, sunLight.target);
@@ -1088,14 +1115,14 @@ buildingMat.onBeforeCompile = sh => {
       float gMask = 0.0;
       vec3 c = base;
       if (abs(wn.y) > 0.6) {
-        c = y > top - 0.6 ? mix(base, vec3(0.74, 0.73, 0.70), 0.7) : mix(vec3(0.016, 0.017, 0.02), base * 0.1, 0.1); // dark roofs, light parapet caps
+        c = y > top - 0.6 ? mix(base, vec3(0.86, 0.85, 0.82), 0.7) : mix(vec3(0.36, 0.42, 0.5), base, 0.3); // light roofs and parapet caps, like a toy city (Goal 25)
       } else if (y > top - 1.25 && top > 9.0 && typ != 6.0) {
         c = mix(base, vec3(0.8, 0.79, 0.76), mat == 9.0 ? 0.85 : 0.55); // cornice
         c *= 1.0 - 0.25 * boxAA(y, top - 1.25, top - 1.05, fwidth(y));
       } else {
         // ---- the wall's own surface, only up close ----
         float px = max(fwidth(u), fwidth(y));
-        float near = 1.0 - smoothstep(0.03, 0.09, px);
+        float near = 0.0 * px; // Goal 25: clean walls without brick and stone detail (cleaner, and lighter on phones)
         if (near <= 0.0) {} // too far to see the surface
         else if (mat < 2.5) { // brick courses and stretcher joints
           float r = y / 0.3, rr = fract(r), cc = fract(u / 0.6 + mod(floor(r), 2.0) * 0.5);
@@ -1156,7 +1183,7 @@ buildingMat.onBeforeCompile = sh => {
         c = mix(c, gl, win);
         c *= mix(0.62, 1.0, smoothstep(0.0, 16.0, y)); // a little ambient occlusion near the street
       }
-      c = max(mix(vec3(dot(c, vec3(0.299, 0.587, 0.114))), c, 1.08), 0.0); // a touch of extra colour
+      c = max(mix(vec3(dot(c, vec3(0.299, 0.587, 0.114))), c, 1.25), 0.0) * 1.08; // brighter, more colourful walls
       diffuseColor.rgb = c;`)
     .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.3, gMask);')
     .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = mix(metalnessFactor, 0.25, gMask);');
@@ -1427,7 +1454,7 @@ function cityLabels() {
   CITY.water.forEach(([t, a, b]) => label(t, 'water', ll(a, b), 0, 1200, 30000));
   CITY.places.forEach(([t, a, b, y]) => label(t, 'place', ll(a, b), y, 0, 7000));
   if (CITY.id === 'nyc') { // the bank, like your apartment, is in New York
-    bankLabel = label('🏦 Big Apple Bank', 'place bank', PLACE.bank, 45, 0, 9000);
+    bankLabel = label('Big Apple Bank', 'place bank', PLACE.bank, 45, 0, 9000);
     bankLabel.el.onclick = () => window.CSUI && CSUI.openBank();
   }
 }
@@ -1766,6 +1793,7 @@ document.getElementById('play').onclick = () => window.HUD ? HUD.play() : startG
 <script src="js/hud.js"></script>
 <script src="js/tutorial.js"></script>
 <script src="js/life.js"></script>
+<script src="js/build.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 // Capital Street menus and screen (Goal 22): one shared online world, a simpler screen and a clean map.
 // Play takes you online: the first time you pick a name and a colour and you're in, as a guest (an email can be added
-// later to keep the account). Only if the server can't be reached can you play offline for now.
+// later to keep the account). There is no offline game (Goal 25): if the server can't be reached, you can try again.
 // In the game, the map only shows your apartment and your own buildings and land; buildings for sale, deals, auctions,
 // other players' buildings, plot outlines and street names appear while you browse property, or up close.
 'use strict';
@@ -60,8 +60,8 @@ window.HUD = (function () {
     let body;
     if (st === 'connecting') body = '<div class="jspin"></div><p>Connecting to New York…</p>';
     else if (st === 'error' || st === 'off') {
-      body = `<p>We can't reach the game server right now. Check your connection and try again.</p>
-        <div class="jrow"><button class="btn pri" id="jRetry">TRY AGAIN</button><button class="btn" id="jOff">PLAY OFFLINE FOR NOW</button></div>`;
+      body = `<p>Capital Street is online only, and we can't reach the game server right now. Check your connection and try again.</p>
+        <div class="jrow"><button class="btn pri" id="jRetry">TRY AGAIN</button></div>`;
     } else {
       body = `<p>Everyone plays in the same city. Pick the name other players will see.</p>
         <form id="jForm"><input id="jName" maxlength="20" placeholder="Your name" aria-label="Your name" autocomplete="nickname" value="${esc(name)}" required>
@@ -70,11 +70,10 @@ window.HUD = (function () {
         <button class="btn pri big" ${busy ? 'disabled' : ''}>${busy ? 'JOINING…' : 'PLAY'}</button></form>
         <button class="lnk" id="jAcc">I already have an account</button>`;
     }
-    join.innerHTML = `<div class="jbox"><button class="jx" id="jX" aria-label="Close">✕</button><div class="jlogo">🏙️</div><b>Join New York</b>${body}
+    join.innerHTML = `<div class="jbox"><button class="jx" id="jX" aria-label="Close">${IC('close')}</button><div class="jlogo">${IC('skyline')}</div><b>Join New York</b>${body}
       <small>By playing you agree to the <a href="terms.html" target="_blank" rel="noopener">Terms</a> and <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a>.</small></div>`;
     $('jX').onclick = () => { join.hidden = true; after = null; };
     if ($('jRetry')) $('jRetry').onclick = () => location.reload();
-    if ($('jOff')) $('jOff').onclick = go;
     if ($('jAcc')) $('jAcc').onclick = () => { join.hidden = true; Net.open('account'); };
     join.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { color = b.dataset.c; join.querySelectorAll('[data-c]').forEach(x => x.classList.toggle('on', x === b)); });
     if ($('jForm')) {
@@ -107,37 +106,38 @@ window.HUD = (function () {
     play(id === 'bHome' ? null : () => { if (id === 'bOffice' ? !Office.active() : id === 'bExchange' ? $('ex').hidden : id === 'bBank' ? $('bank').hidden : $('props').hidden) $(id).click(); });
   });
 
-  // ---------- Earn: every way to make money in one place ----------
+  // ---------- Jobs (Goal 25): every way to make money, each paying about the same for the money and time you put in ----------
   const S = () => M.state, usd = v => '$' + Math.round(v).toLocaleString('en-US');
   const owned = () => Object.keys(S().props || {}).length;
-  const WAYS = [
-    ['📈', 'Shares', 'Buy shares cheap, sell them for more', () => { if ($('ex').hidden) $('bExchange').click(); }, () => { const n = Object.keys(S().positions).length; return n ? n + ' compan' + (n === 1 ? 'y' : 'ies') + ' in your portfolio' : ''; }],
-    ['🏢', 'Buildings', 'Tenants pay you rent every night', () => Property.open('sale'), () => owned() ? 'You own ' + owned() : ''],
-    ['🏷️', 'Deals', 'Buildings on sale below their value', () => Property.open('deals')],
-    ['🔨', 'Auctions', 'Bid on buildings and land', () => Property.open('auctions')],
-    ['🌳', 'Land', 'Plots that pay you a lease', () => Property.open('land')],
-    ['🚜', 'Businesses', 'Farms, mines, oil wells and shops', () => Property.open('business')],
-    ['🚢', 'Shipping', 'Sell your goods in other cities', () => Property.open('business')],
-    ['🏛️', 'Your company', 'Start one and sell shares in it', () => Property.open('business')],
-    ['💼', 'Office', 'Hire brokers who trade for you', () => { if (!Office.active()) Office.enter(); }],
-    ['🏦', 'Bank', 'Borrow money to grow faster', () => { if ($('bank').hidden) $('bBank').click(); }],
-    ['🔑', 'Your property', 'Collect rent and see what you own', () => Property.open('mine')],
-    ['📰', 'The news', 'Big news moves prices: be first', () => { if ($('ex').hidden) $('bExchange').click(); const t = document.querySelector('#ex .tabs [data-tab=news]'); if (t) t.click(); }]
+  const ex = () => { if ($('ex').hidden) $('bExchange').click(); };
+  const JOBS = [
+    ['chart', 'Trader', 'Buy shares cheap, sell them for more', 'When you sell', ex, () => { const n = Object.keys(S().positions).length; return n ? n + ' compan' + (n === 1 ? 'y' : 'ies') + ' owned' : ''; }],
+    ['building', 'Landlord', 'Buy buildings: tenants pay rent', 'Every night', () => Property.open('sale'), () => owned() ? owned() + ' building' + (owned() === 1 ? '' : 's') : ''],
+    ['crane', 'Developer', 'Knock down a building you own and build a new one', 'More rent, worth more', () => { Property.open('mine'); toast('Developer', 'Pick one of your buildings, then tap Rebuild.'); }],
+    ['gavel', 'Auctioneer', 'Auction your buildings to other players', 'When it sells', () => { Property.open('mine'); toast('Auctioneer', 'Pick one of your buildings, then put it up for auction.'); }],
+    ['tag', 'Bargain hunter', 'Grab deals and city auctions below value', 'When you resell', () => Property.open('deals')],
+    ['farm', 'Farmer', 'Buy land and grow produce', 'Every day you collect', () => Property.open('land')],
+    ['mine', 'Miner', 'Dig ore and pump oil on your land', 'Every day you collect', () => Property.open('land')],
+    ['shop', 'Shopkeeper', 'Run shops and factories that turn goods into more money', 'Every night', () => Property.open('business')],
+    ['ship', 'Shipper', 'Ship your goods to cities that pay more', 'When it arrives', () => Property.open('business')],
+    ['trade', 'Merchant', 'Buy and sell goods with other players', 'When you sell', () => Property.open('business')],
+    ['hire', 'Boss', 'Hire staff in your office who earn for you', 'Every day', () => { if (!Office.active()) Office.enter(); }],
+    ['company', 'Tycoon', 'Start your own company and sell its shares', 'When you float it', () => Property.open('business')]
   ];
   const earn = document.createElement('div');
   earn.id = 'earn'; earn.className = 'ov2'; earn.hidden = true;
   document.body.appendChild(earn);
   function openEarn() {
     const inGame = $('title').hidden;
-    earn.innerHTML = `<div class="ebox"><button id="earnX" aria-label="Close">✕</button><b>Ways to make money</b><p>You have ${usd(S().cash)}. Tap one to go there.</p>
-      <div class="egrid">${WAYS.map(([ic, n, d, , st], i) => { const x = st && st(); return `<button data-w="${i}"><i>${ic}</i><span><b>${n}</b><small>${d}</small>${x ? `<em>${esc(x)}</em>` : ''}</span></button>`; }).join('')}</div></div>`;
+    earn.innerHTML = `<div class="ebox"><button id="earnX" class="ex" aria-label="Close">${IC('close')}</button><b>Jobs</b><p>You have ${usd(S().cash)}. Every job pays about the same for the money and time you put in: pick the ones you enjoy.</p>
+      <div class="egrid">${JOBS.map(([ic, n, d, pay, , st], i) => { const x = st && st(); return `<button data-w="${i}"><i>${IC(ic)}</i><span><b>${n}</b><small>${d}</small><em>${x ? esc(x) : 'Pays: ' + pay.toLowerCase()}</em></span></button>`; }).join('')}</div></div>`;
     earn.hidden = false;
     $('earnX').onclick = () => { earn.hidden = true; };
     earn.onclick = e => { if (e.target === earn) earn.hidden = true; };
     earn.querySelectorAll('[data-w]').forEach(b => b.onclick = () => {
-      const go = WAYS[+b.dataset.w][3];
+      const go = JOBS[+b.dataset.w][4];
       earn.hidden = true;
-      if (inGame) { if ($('ex').hidden === false && go !== WAYS[0][3]) $('ex').hidden = true; go(); } else play(go);
+      if (inGame) { if ($('ex').hidden === false && go !== ex) $('ex').hidden = true; go(); } else play(go);
     });
   }
   $('earnG').onclick = openEarn; $('earnM').onclick = openEarn;

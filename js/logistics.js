@@ -14,7 +14,7 @@ window.Logistics = (function () {
     hongkong: { steel: 1.2, food: 1.25, machines: 1.3, fuel: 1.15, crates: 0.9 },
     dubai: { crates: 1.4, food: 1.3, machines: 1.35, oil: 0.75, fuel: 0.85 }
   };
-  const MODES = { ship: { name: 'Ship', icon: '🚢', fix: 0.02, perKm: 0.000008, kmDay: 6000 }, air: { name: 'Air freight', icon: '✈', fix: 0.08, perKm: 0.00004, kmDay: 60000 } };
+  const MODES = { ship: { name: 'Ship', icon: IC('ship'), fix: 0.02, perKm: 0.000008, kmDay: 6000 }, air: { name: 'Air freight', icon: IC('plane'), fix: 0.08, perKm: 0.00004, kmDay: 60000 } };
   const TRUCK = 40; // a night, for each farm, mine or well a fleet picks up from
   const S = () => M.state;
   const ships = () => S().ships || (S().ships = []);
@@ -55,7 +55,7 @@ window.Logistics = (function () {
       const total = G.price * ((PRICE[sh.to] || {})[sh.good] || 1) * Math.sqrt(S().reIndex) * (m0 - m1) / k;
       S().cmult[sh.to][sh.good] = m1; S().cash = +(S().cash + total).toFixed(2);
       M.emit('biz', { kind: 'sold', good: sh.good, q: sh.qty, total });
-      toast(`${MODES[sh.mode].icon} Arrived in ${CITIES[sh.to].name}`, `${sh.qty.toLocaleString('en-US')} ${G.unit} of ${G.name.toLowerCase()} sold for ${usd(total)}.`);
+      toast(`Arrived in ${CITIES[sh.to].name}`, `${sh.qty.toLocaleString('en-US')} ${G.unit} of ${G.name.toLowerCase()} sold for ${usd(total)}.`);
     }
     M.save(); if (window.Property) Property.redraw();
   }
@@ -74,7 +74,7 @@ window.Logistics = (function () {
     if (fee) M.emit('ship', { kind: 'trucks', n, fee });
   });
   M.addWorth(St => (St.ships || []).reduce((s, sh) => s + sh.qty * Biz.GOODS[sh.good].price * 0.9, 0)); // goods at sea still count
-  M.on((type, d) => { if (type === 'ship' && d.kind === 'trucks' && d.n) toast('🚚 Trucks', `Picked up ${d.n.toLocaleString('en-US')} units overnight for ${usd(d.fee)}.`); });
+  M.on((type, d) => { if (type === 'ship' && d.kind === 'trucks' && d.n) toast('Trucks', `Picked up ${d.n.toLocaleString('en-US')} units overnight for ${usd(d.fee)}.`); });
 
   // ---------- in the Business tab ----------
   let form = { g: 'crates', to: '', mode: 'ship', qty: 100 };
@@ -88,7 +88,7 @@ window.Logistics = (function () {
       const q = form.to && inv[form.g] >= 1 ? quote(form.to, form.g, Math.min(form.qty, inv[form.g]), form.mode) : null;
       html += `<form class="askf xform" id="lgForm">Send <input type="number" min="1" value="${form.qty}" aria-label="How many"> <select id="lgG" aria-label="Goods">${Object.keys(G).map(g => `<option value="${g}" ${g === form.g ? 'selected' : ''}>${G[g].name} (${inv[g].toLocaleString('en-US')})</option>`).join('')}</select>
         to <select id="lgTo" aria-label="City">${open.map(c => `<option value="${c}" ${c === form.to ? 'selected' : ''}>${CITIES[c].flag} ${CITIES[c].name}</option>`).join('')}</select>
-        by <select id="lgMode" aria-label="How">${Object.entries(MODES).map(([k, Md]) => `<option value="${k}" ${k === form.mode ? 'selected' : ''}>${Md.icon} ${Md.name}</option>`).join('')}</select><button class="btn pri">Send</button></form>`;
+        by <select id="lgMode" aria-label="How">${Object.entries(MODES).map(([k, Md]) => `<option value="${k}" ${k === form.mode ? 'selected' : ''}>${Md.name}</option>`).join('')}</select><button class="btn pri">Send</button></form>`;
       html += q ? `<p class="note">${CITIES[form.to].name} pays ${usd(priceIn(form.to, form.g), 2)} each (here ${usd(Biz.priceOf(form.g), 2)}). ${Math.round(q.km).toLocaleString('en-US')} km, ${fmtDays(q.days)} game time. Sells for about ${usd(q.gross)}, shipping ${usd(q.cost)}: <b class="${q.net > q.here ? 'up' : 'dn'}">${usd(q.net)}</b> against ${usd(q.here)} selling here.${form.mode === 'ship' && !myPorts().length ? ' Ships need a port: build one on a waterfront plot.' : ''}</p>` : '<p class="note">Nothing of that in your warehouse yet.</p>';
     }
     const list = ships();

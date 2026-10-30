@@ -11,19 +11,19 @@ window.Biz = (function () {
   const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   // goods: base price and how much the city buys in a day before the price halves
   const GOODS = {
-    crates: { name: 'Crates of produce', unit: 'crate', price: 10, demand: 600, icon: '🌾' },
-    ore: { name: 'Iron ore', unit: 't', price: 40, demand: 400, icon: '⛏' },
-    oil: { name: 'Crude oil', unit: 'bbl', price: 160, demand: 250, icon: '🛢' },
+    crates: { name: 'Crates of produce', unit: 'crate', price: 10, demand: 600, icon: IC('wheat') },
+    ore: { name: 'Iron ore', unit: 't', price: 40, demand: 400, icon: IC('ore') },
+    oil: { name: 'Crude oil', unit: 'bbl', price: 160, demand: 250, icon: IC('barrel') },
     // made in factories (Goal 15)
-    food: { name: 'Packaged food', unit: 'box', price: 58, demand: 300, icon: '📦' },
-    steel: { name: 'Steel', unit: 't', price: 210, demand: 150, icon: '🔩' },
-    fuel: { name: 'Fuel', unit: 'drum', price: 430, demand: 120, icon: '⛽' },
-    machines: { name: 'Machinery', unit: 'machine', price: 1500, demand: 40, icon: '⚙' }
+    food: { name: 'Packaged food', unit: 'box', price: 58, demand: 300, icon: IC('box') },
+    steel: { name: 'Steel', unit: 't', price: 210, demand: 150, icon: IC('beam') },
+    fuel: { name: 'Fuel', unit: 'drum', price: 430, demand: 120, icon: IC('fuel') },
+    machines: { name: 'Machinery', unit: 'machine', price: 1500, demand: 40, icon: IC('gear') }
   };
   const TYPES = {
-    farm: { name: 'Farm', cost: 6000, upkeep: 30, makes: 'crates', out: 24, need: null, blurb: 'Grows produce. Rich soil grows more.' },
-    mine: { name: 'Iron mine', cost: 28000, upkeep: 150, makes: 'ore', out: 30, need: 'ore', blurb: 'Digs iron ore. Needs an ore deposit.' },
-    oil: { name: 'Oil well', cost: 70000, upkeep: 350, makes: 'oil', out: 20, need: 'oil', blurb: 'Pumps crude oil. Needs an oil field.' },
+    farm: { name: 'Farm', cost: 6000, upkeep: 30, makes: 'crates', out: 18, need: null, blurb: 'Grows produce. Rich soil grows more.' },
+    mine: { name: 'Iron mine', cost: 28000, upkeep: 150, makes: 'ore', out: 22, need: 'ore', blurb: 'Digs iron ore. Needs an ore deposit.' },
+    oil: { name: 'Oil well', cost: 70000, upkeep: 350, makes: 'oil', out: 15, need: 'oil', blurb: 'Pumps crude oil. Needs an oil field.' },
     shop: { name: 'Shop', cost: 15000, upkeep: 90, makes: null, out: 40, need: 'town', blurb: 'Sells crates from your farms at $18 each, up to 40 a day; a little income without stock. Needs to be near town.' },
     // factories (Goal 15): take goods from your warehouse every night and ship what they make back to it
     food: { name: 'Food factory', cost: 20000, upkeep: 120, makes: 'food', out: 40, uses: { crates: 4 }, blurb: 'Packs 4 crates into a box of food.' },

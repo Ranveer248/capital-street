@@ -291,6 +291,20 @@ Menus modelled on the city builders (SimCity BuildIt, Clash of Clans, Hay Day): 
 | Real city life | ✅ cars switch on head and tail lights at night and can be seen from further out; the Staten Island ferry, harbour tour boats, river boats and a container ship sail their real routes; a tour helicopter flies up the Hudson and a news helicopter circles the city; planes come every 15-40 seconds, on the menu too |
 | Bigger map | not yet: the map is all of Manhattan; adding Brooklyn, Queens and Jersey City needs the map data rebuilt and makes the download about twice as big |
 
+## Goal 25: a city builder in a real city ✅
+
+The sunny, toy-like style of the mobile city builders, on real cities: you don't make land, you buy what's there, knock it down and build something new. Our own art and icons throughout.
+
+| Check | Result |
+|---|---|
+| Bright and light | ✅ always a sunny afternoon, bright clean colours, light roofs, no bloom and smaller shadow maps, so it runs smoothly on phones. No slow-device warning anywhere |
+| Rebuild | ✅ own a whole building, tap Rebuild: pick one of 8 designs (cottage, corner shop, townhouses, apartments, offices, glass tower, skyscraper, factory) and a colour. The old building is knocked down, a construction site with a crane goes up over a few game hours to days, then the new building stands there with its own floors, value and rent. Bigger designs need bigger plots. You pay for what the new building adds |
+| Jobs | ✅ the JOBS button lists 12 jobs: trader, landlord, developer, auctioneer, bargain hunter, farmer, miner, shopkeeper, shipper, merchant, boss and tycoon. Pay is balanced: rent 0.8% a day (was 0.4%), land 0.6% (was 0.2%), farms, mines and oil wells produce a quarter less |
+| Online only | ✅ no offline game: if the server can't be reached, Try again |
+| Our own icons | ✅ 52 hand-drawn icons and Penny the piggy bank as SVG (js/icons.js), replacing every emoji; also in Figma on the "Icons" page of Capital Street — Game UI |
+| Tutorial | ✅ Penny shows the money, rent, Jobs, Property, rebuilding, auctions to players, the Exchange and the news |
+| Other players see rebuilds | not yet: needs a design column on the server's buildings table |
+
 ## Roadmap
 
 1. ✅ The New York map
@@ -321,6 +335,7 @@ From the 5 new reference videos (a player-run economy game on the real world map
 21. ✅ **High-end graphics:** bloom, grading, a sun that follows the clock, clouds, glass, water, night lights
 22. ✅ **Simpler:** a new menu, online-only play, a clean map and screen, a tutorial
 23. ✅ **Surprises:** more market events, planes in the sky, plane crashes
+25. ✅ **City builder:** a bright toy-city look, rebuild what you own, 12 balanced jobs, online only, our own icons
 24. ✅ **Easier, livelier:** one game bar in and out of the game, an Earn button, simple trading, fewer crashes, boats, helicopters and car lights
 
 ## Legal

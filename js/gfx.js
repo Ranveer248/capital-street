@@ -1,4 +1,7 @@
-// Capital Street graphics (Goal 21): made for recent phones, tablets and computers.
+// Capital Street graphics (Goal 21, made bright and light in Goal 25): the sunny, toy-like look of the city builders.
+// The city is always on a sunny afternoon, colours are bright and clean, and there is no bloom, so it runs smoothly
+// on phones. The clock still runs the market; it just doesn't get dark.
+// (Goal 21:)
 // Every frame is drawn in high dynamic range and finished like a film: bright things glow (bloom), colours are graded
 // (cool shadows, warm highlights), the edges darken a little and distance fades into haze. The sun follows the game
 // clock, so mornings are pale, evenings golden and nights dark blue with lit windows, glowing streets and stars.
@@ -168,7 +171,7 @@ window.Post = (function () {
   // ---------- the sun follows the clock ----------
   const C = hex => lin(hex);
   const SKY = {
-    dayTop: C(0x2f7fe0), dayBot: C(0xc9e3f8), goldTop: C(0x3a5fbf), goldBot: C(0xffb27a), nightTop: C(0x040817), nightBot: C(0x16203d),
+    dayTop: C(0x3aa6ff), dayBot: C(0xd6f0ff), goldTop: C(0x3a5fbf), goldBot: C(0xffb27a), nightTop: C(0x040817), nightBot: C(0x16203d),
     sunDay: new THREE.Color(1, 0.95, 0.88), sunGold: new THREE.Color(1, 0.56, 0.26), moon: new THREE.Color(0.5, 0.62, 1)
   };
   let hemi = null, envKey = -1;
@@ -191,20 +194,19 @@ window.Post = (function () {
     scene.fog.color.copy(t2);
     if (!hemi) scene.traverse(o => { if (o.isHemisphereLight) hemi = o; });
     if (hemi) { hemi.intensity = 0.12 + 0.36 * day; hemi.color.copy(t2).lerp(SKY.dayBot, 0.5); }
-    exposure = 1.0 + 0.7 * night - 0.08 * gold;
+    exposure = 1.12 + 0.7 * night - 0.08 * gold;
     U.amb.value.setRGB(0.82, 0.84, 0.8).lerp(SKY.sunGold, gold * day * 0.35).multiplyScalar(0.14 + 0.86 * day).add(t1.setRGB(0.02, 0.03, 0.06).multiplyScalar(night));
     for (const m of streets) m.emissive.setRGB(0.07, 0.036, 0.012).multiplyScalar(night); // street lights
     const key = Math.round(hour * 4);
     if (key !== envKey) { envKey = key; bakeEnv(); }
   }
   let exposure = 1, force = null; // force: an hour to show, for trying the lighting out
-  const MENU_HOUR = 18.95; // the menu is always at golden hour
+  const DAY_HOUR = 14.5; // always a sunny afternoon, in the game and on the menu
   frameHooks.push((dt, dist) => {
     U.time.value += dt;
     if (!window.CS) return;
     if (!upgraded) upgradeWorld();
-    const inMenu = !$('title').hidden || !window.Market;
-    light(force != null ? force : inMenu ? MENU_HOUR : (Market.state.time % 1440 + 1440) % 1440 / 60);
+    light(force != null ? force : DAY_HOUR);
     scene.fog.near = dist * 1.1 + 900; scene.fog.far = dist * 9 + 26000; // haze: frame() set it a moment ago, this wins
   });
 
@@ -238,16 +240,16 @@ window.Post = (function () {
       vec3 c = texture2D(tS, vUv).rgb + texture2D(tB, vUv).rgb * bloom;
       c = aces(c * exposure);
       float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
-      c = mix(c, c * c * (3.0 - 2.0 * c), 0.35); // a gentle S-curve for depth
+      c = mix(c, c * c * (3.0 - 2.0 * c), 0.15); // a gentle S-curve
       l = dot(c, vec3(0.2126, 0.7152, 0.0722));
-      c = mix(vec3(l), c, 1.18);
+      c = mix(vec3(l), c, 1.32); // bright, toy-like colour
       c *= mix(vec3(0.95, 0.99, 1.06), vec3(1.05, 1.0, 0.93), smoothstep(0.05, 0.75, l));
       vec2 q = vUv - 0.5; c *= 1.0 - vig * dot(q, q) * 1.5;
       c = max(c, 0.0);
       c = mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c));
       c += (fract(sin(dot(gl_FragCoord.xy + fract(time) * 61.0, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;
       gl_FragColor = vec4(c, 1.0);
-    }`, { tS: { value: null }, tB: { value: null }, exposure: { value: 1 }, bloom: { value: 0.2 }, vig: { value: 0.55 }, time: U.time });
+    }`, { tS: { value: null }, tB: { value: null }, exposure: { value: 1 }, bloom: { value: 0 }, vig: { value: 0.18 }, time: U.time });
 
   const opts = { type: hdr ? THREE.HalfFloatType : THREE.UnsignedByteType, format: THREE.RGBAFormat, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, depthBuffer: false, stencilBuffer: false };
   let main = null, w = 0, h = 0;
@@ -262,10 +264,11 @@ window.Post = (function () {
     const o = Object.assign({}, opts, { depthBuffer: true });
     if (caps.isWebGL2 && GFX.aa && THREE.WebGLMultisampleRenderTarget) { main = new THREE.WebGLMultisampleRenderTarget(w, h, o); main.samples = 4; } else main = new THREE.WebGLRenderTarget(w, h, o);
     let bw = w >> 1, bh = h >> 1;
-    for (let i = 0; i < 6 && bw > 8 && bh > 8; i++) { chain.push(new THREE.WebGLRenderTarget(bw, bh, opts)); bw >>= 1; bh >>= 1; }
+    for (let i = 0; i < 6 && bw > 8 && bh > 8 && comp.uniforms.bloom.value > 0; i++) { chain.push(new THREE.WebGLRenderTarget(bw, bh, opts)); bw >>= 1; bh >>= 1; }
   }
   function blit(mat, target) { quad.material = mat; renderer.setRenderTarget(target); renderer.render(quadScene, quadCam); }
   function finish() {
+    if (!chain.length) { comp.uniforms.tS.value = comp.uniforms.tB.value = main.texture; comp.uniforms.exposure.value = exposure * renderer.toneMappingExposure; blit(comp, null); return; } // no bloom: one pass
     pre.uniforms.t.value = main.texture; blit(pre, chain[0]);
     for (let i = 1; i < chain.length; i++) { down.uniforms.t.value = chain[i - 1].texture; down.uniforms.px.value.set(1 / chain[i - 1].width, 1 / chain[i - 1].height); blit(down, chain[i]); }
     for (let i = chain.length - 2; i >= 0; i--) { up.uniforms.t.value = chain[i + 1].texture; up.uniforms.px.value.set(0.5 / chain[i + 1].width, 0.5 / chain[i + 1].height); up.uniforms.k.value = 1; blit(up, chain[i]); }
