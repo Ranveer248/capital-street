@@ -35,7 +35,7 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false' # unsigned until there's a code-signing certificate
       - name: Check the game starts (opens hidden, waits for the city to load)
         if: ${{ matrix.name == 'linux' }}
-        run: xvfb-run -a npx electron . --smoke --no-sandbox
+        run: xvfb-run -a npx electron . --smoke --no-sandbox --enable-unsafe-swiftshader --use-angle=swiftshader # no graphics card on the build machine: software WebGL
       - uses: actions/upload-artifact@v4
         with:
           name: capital-street-${{ matrix.name }}

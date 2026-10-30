@@ -16,13 +16,18 @@ function open() {
     webPreferences: { contextIsolation: true, sandbox: true }
   });
   win.loadURL('app://game/index.html');
+  const errors = [];
+  if (SMOKE) win.webContents.on('console-message', e => { if (e.level === 'error' || e.level === 3) errors.push(String(e.message).slice(0, 160)); });
   if (SMOKE) win.webContents.once('did-finish-load', async () => {
     for (let i = 0; i < 90; i++) {
       const ok = await win.webContents.executeJavaScript("!!(window.CS && document.getElementById('load').hidden && window.Land && Land.plots.size)").catch(() => false);
       if (ok) { console.log('SMOKE OK: the city loaded'); app.exit(0); return; }
       await new Promise(r => setTimeout(r, 1000));
     }
-    console.log('SMOKE FAIL: the city did not load in 90 s'); app.exit(1);
+    const load = await win.webContents.executeJavaScript("(document.getElementById('load') || {}).innerText || ''").catch(() => '?');
+    // ::error:: lines become annotations on the GitHub run, readable without opening the log
+    console.log(`::error::SMOKE FAIL: the city did not load in 90 s. Loading screen: ${load.replace(/\s+/g, ' ').slice(0, 120)}. Errors: ${errors.slice(0, 3).join(' | ') || 'none'}`);
+    app.exit(1);
   });
   // the Terms, Wiki and so on open in their own window; links to anywhere else open in the player's browser
   win.webContents.setWindowOpenHandler(({ url }) => {
