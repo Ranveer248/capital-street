@@ -175,6 +175,16 @@ Deals and auctions are worked out from the city and the day, so the save only ke
 | Business tab | ✅ Property → Business: your warehouse with live prices and Sell ¼ / Sell all (showing what you'll get), every business with its storage, and Collect everything |
 | Fits the rest of the game | ✅ XP for building, upgrading and selling; hurricanes flatten crops; crashes and rate hikes knock the oil price; businesses count toward net worth (a third of what went in, plus goods at today's price); a plot with a business stops collecting the farmer's lease; selling the plot sells the business with it |
 
+## Goal 15: markets and production chains (part 1 ✅, part 2 waits on the server)
+
+| Check | Result |
+|---|---|
+| Production chains from raw to finished goods | ✅ four factories to build on your land: a food factory (4 crates → a box of packaged food), a steel mill (3 t ore → 1 t steel), a refinery (2 barrels crude → a drum of fuel) and machine works (2 t steel + a drum of fuel → a machine, worth about $1,500). Every night they take what they need from your warehouse, in chain order, so a machine can be built from ore dug the same night |
+| You set the price | ✅ list any goods in your warehouse at your own price: the city's buyers take some each night, more the further below their price you ask and nothing above 1.3× it; take a listing back at any time. Or sell straight away at the going price, which drops as you sell |
+| A factory planner | ✅ Property → Business: pick a product and how many a day; it walks the chain down to farms, mines and wells and shows how many of each to build, the cost, the upkeep, what it sells for at today's price and how long it takes to pay back |
+| On the map | ✅ factories are halls with chimneys (white towers for refineries) and crates in the yard; upgrades add chimneys |
+| An exchange between players | ⬜ needs new server tables (an order book) so one player's sell order can meet another's buy order. Waiting on the owner's go-ahead for the database change |
+
 ## Roadmap
 
 1. ✅ The New York map

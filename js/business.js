@@ -13,14 +13,26 @@ window.Biz = (function () {
   const GOODS = {
     crates: { name: 'Crates of produce', unit: 'crate', price: 10, demand: 600, icon: '🌾' },
     ore: { name: 'Iron ore', unit: 't', price: 40, demand: 400, icon: '⛏' },
-    oil: { name: 'Crude oil', unit: 'bbl', price: 160, demand: 250, icon: '🛢' }
+    oil: { name: 'Crude oil', unit: 'bbl', price: 160, demand: 250, icon: '🛢' },
+    // made in factories (Goal 15)
+    food: { name: 'Packaged food', unit: 'box', price: 58, demand: 300, icon: '📦' },
+    steel: { name: 'Steel', unit: 't', price: 210, demand: 150, icon: '🔩' },
+    fuel: { name: 'Fuel', unit: 'drum', price: 430, demand: 120, icon: '⛽' },
+    machines: { name: 'Machinery', unit: 'machine', price: 1500, demand: 40, icon: '⚙' }
   };
   const TYPES = {
     farm: { name: 'Farm', cost: 6000, upkeep: 30, makes: 'crates', out: 24, need: null, blurb: 'Grows produce. Rich soil grows more.' },
     mine: { name: 'Iron mine', cost: 28000, upkeep: 150, makes: 'ore', out: 30, need: 'ore', blurb: 'Digs iron ore. Needs an ore deposit.' },
     oil: { name: 'Oil well', cost: 70000, upkeep: 350, makes: 'oil', out: 20, need: 'oil', blurb: 'Pumps crude oil. Needs an oil field.' },
-    shop: { name: 'Shop', cost: 15000, upkeep: 90, makes: null, out: 40, need: 'town', blurb: 'Sells crates from your farms at $18 each, up to 40 a day; a little income without stock. Needs to be near town.' }
+    shop: { name: 'Shop', cost: 15000, upkeep: 90, makes: null, out: 40, need: 'town', blurb: 'Sells crates from your farms at $18 each, up to 40 a day; a little income without stock. Needs to be near town.' },
+    // factories (Goal 15): take goods from your warehouse every night and ship what they make back to it
+    food: { name: 'Food factory', cost: 20000, upkeep: 120, makes: 'food', out: 40, uses: { crates: 4 }, blurb: 'Packs 4 crates into a box of food.' },
+    steel: { name: 'Steel mill', cost: 45000, upkeep: 220, makes: 'steel', out: 20, uses: { ore: 3 }, blurb: 'Smelts 3 t of ore into 1 t of steel.' },
+    refinery: { name: 'Refinery', cost: 90000, upkeep: 400, makes: 'fuel', out: 15, uses: { oil: 2 }, blurb: 'Refines 2 barrels of crude into a drum of fuel.' },
+    machines: { name: 'Machine works', cost: 160000, upkeep: 600, makes: 'machines', out: 6, uses: { steel: 2, fuel: 1 }, blurb: 'Builds a machine from 2 t of steel and a drum of fuel.' }
   };
+  const factory = type => !!TYPES[type].uses;
+  const recipe = T => Object.entries(T.uses).map(([g, q]) => `${q} ${GOODS[g].unit} ${GOODS[g].name.toLowerCase()}`).join(' + ');
   const LEVELS = [1, 1.6, 2.5], MAXLVL = 3, STORE_DAYS = 3;
   const upCost = b => Math.round(TYPES[b.type].cost * (b.lvl === 1 ? 1.5 : 2.2));
   const output = b => TYPES[b.type].out * LEVELS[b.lvl - 1] * (b.rich || 1);
@@ -38,11 +50,13 @@ window.Biz = (function () {
       town: d < 5500 ? Math.round((1.4 - d / 5500 * 0.8) * 100) / 100 : 0
     };
   }
-  const richFor = (type, g) => type === 'farm' ? g.soil : type === 'mine' ? g.ore : type === 'oil' ? g.oil : g.town;
+  const richFor = (type, g) => factory(type) ? 1 : type === 'farm' ? g.soil : type === 'mine' ? g.ore : type === 'oil' ? g.oil : g.town;
 
   // ---------- state ----------
-  const inv = () => { if (!M.state.goods) M.state.goods = { crates: 0, ore: 0, oil: 0 }; return M.state.goods; };
-  const mult = () => { if (!M.state.gmult) M.state.gmult = { crates: 1, ore: 1, oil: 1 }; return M.state.gmult; };
+  const fill = (o, v) => { for (const g of Object.keys(GOODS)) if (o[g] == null) o[g] = v; return o; }; // goods added since the save was made
+  const inv = () => fill(M.state.goods || (M.state.goods = {}), 0);
+  const mult = () => fill(M.state.gmult || (M.state.gmult = {}), 1);
+  const asks = () => M.state.asks || (M.state.asks = {}); // your own price lists: good -> { qty, price }
   const all = () => Object.entries(M.state.land || {}).filter(([, o]) => o.biz);
   const priceOf = g => GOODS[g].price * mult()[g] * Math.sqrt(M.state.reIndex);
   function sellValue(g, q) { // selling q units walks the price down: each unit takes a slice off it
@@ -74,7 +88,7 @@ window.Biz = (function () {
   }
   function collect(o) {
     const b = o.biz, T = TYPES[b.type];
-    if (!T.makes || b.stock < 1) return 0;
+    if (!T.makes || T.uses || b.stock < 1) return 0; // factories ship straight to the warehouse
     const q = Math.floor(b.stock); inv()[T.makes] += q; b.stock -= q;
     M.save(); M.emit('biz', { kind: 'collected', good: T.makes, q });
     return q;
@@ -92,23 +106,39 @@ window.Biz = (function () {
 
   // ---------- every night: upkeep, production, shop takings, prices recover ----------
   M.onDay(S => {
-    let made = 0, takings = 0, unpaid = 0, full = 0;
-    const goods = S.goods || (S.goods = { crates: 0, ore: 0, oil: 0 });
-    for (const o of Object.values(S.land || {})) {
-      const b = o.biz; if (!b) continue;
+    let made = 0, takings = 0, unpaid = 0, full = 0, built = 0, listed = 0;
+    const goods = fill(S.goods || (S.goods = {}), 0), ORDER = ['food', 'steel', 'refinery', 'machines'];
+    const list = Object.values(S.land || {}).filter(o => o.biz).sort((a, b) => ORDER.indexOf(a.biz.type) - ORDER.indexOf(b.biz.type)); // raw goods first, then each factory in chain order
+    for (const o of list) {
+      const b = o.biz;
       const up = upkeep(b);
       if (S.cash < up) { unpaid++; continue; } // can't pay the workers: nothing gets made tonight
       S.cash = +(S.cash - up).toFixed(2);
       const T = TYPES[b.type];
-      if (T.makes) { const before = b.stock; b.stock = Math.min(cap(b), b.stock + output(b)); made += b.stock - before; b.made += b.stock - before; if (b.stock >= cap(b)) full++; }
+      if (T.uses) { // a factory: as many as its inputs allow, straight to the warehouse
+        let n = Math.floor(output(b));
+        for (const [g, q] of Object.entries(T.uses)) n = Math.min(n, Math.floor(goods[g] / q));
+        for (const [g, q] of Object.entries(T.uses)) goods[g] -= n * q;
+        goods[T.makes] += n; b.made += n; built += n; b.last = n;
+      } else if (T.makes) { const before = b.stock; b.stock = Math.min(cap(b), b.stock + output(b)); made += b.stock - before; b.made += b.stock - before; if (b.stock >= cap(b)) full++; }
       else { // a shop: sells crates from your warehouse, more in busier spots
         const sold = Math.min(goods.crates, Math.floor(output(b))), cash = sold * 18 * Math.sqrt(S.reIndex) + 60 * b.rich;
         goods.crates -= sold; S.cash = +(S.cash + cash).toFixed(2); b.earned += cash; takings += cash;
       }
     }
-    const gm = S.gmult || (S.gmult = { crates: 1, ore: 1, oil: 1 });
+    const gm = fill(S.gmult || (S.gmult = {}), 1);
+    // your price lists: buyers take more the further below the city's price you ask, and none above 1.3×
+    for (const [g, a] of Object.entries(S.asks || {})) {
+      if (!GOODS[g] || !(a.qty > 0)) continue;
+      const city = GOODS[g].price * gm[g] * Math.sqrt(S.reIndex), keen = Math.min(1, Math.max(0, (1.3 - a.price / city) / 0.6));
+      const q = Math.min(a.qty, Math.floor(GOODS[g].demand * 0.6 * keen));
+      if (q < 1) continue;
+      a.qty -= q; const cash = q * a.price; S.cash = +(S.cash + cash).toFixed(2); listed += cash;
+      gm[g] = Math.max(0.25, gm[g] * Math.exp(-0.5 / GOODS[g].demand * q * 0.5)); // your sales still weigh on the price
+      if (!a.qty) delete S.asks[g];
+    }
     for (const g of Object.keys(GOODS)) gm[g] = Math.min(1.3, Math.max(0.25, gm[g] + (1 - gm[g]) * 0.35 + (Math.random() - 0.5) * 0.08));
-    if (made || takings || unpaid) M.emit('biz', { kind: 'night', made, takings, unpaid, full });
+    if (made || takings || unpaid || built || listed) M.emit('biz', { kind: 'night', made, takings, unpaid, full, built, listed });
   });
   M.on((type, d) => {
     if (type === 'event' && d.kind === 'storm') for (const [, o] of all()) if (o.biz.type === 'farm') o.biz.stock *= 0.5; // a hurricane flattens the crops
@@ -117,6 +147,8 @@ window.Biz = (function () {
       const bits = [];
       if (d.made) bits.push(`made ${Math.round(d.made).toLocaleString('en-US')} units`);
       if (d.takings) bits.push(`your shops took ${usd(d.takings)}`);
+      if (d.built) bits.push(`factories made ${Math.round(d.built).toLocaleString('en-US')} goods`);
+      if (d.listed) bits.push(`buyers paid ${usd(d.listed)} at your prices`);
       if (d.full) bits.push(`${d.full} ${d.full > 1 ? 'are' : 'is'} full: collect!`);
       if (d.unpaid) bits.push(`${d.unpaid} couldn't pay upkeep and stood still`);
       toast('Your businesses overnight', bits.join(', ') + '.');
@@ -126,7 +158,8 @@ window.Biz = (function () {
   M.addWorth(S => { // businesses resell for a third of what went in; goods at today's price
     let w = 0;
     for (const o of Object.values(S.land || {})) if (o.biz) w += o.biz.spent * 0.3;
-    for (const [g, q] of Object.entries(S.goods || {})) w += q * GOODS[g].price * ((S.gmult || {})[g] || 1) * Math.sqrt(S.reIndex) * 0.9;
+    for (const [g, q] of Object.entries(S.goods || {})) if (GOODS[g]) w += q * GOODS[g].price * ((S.gmult || {})[g] || 1) * Math.sqrt(S.reIndex) * 0.9;
+    for (const a of Object.values(S.asks || {})) w += a.qty * a.price * 0.9;
     return w;
   });
 
@@ -137,13 +170,14 @@ window.Biz = (function () {
     const facts = `<div class="ground"><span>Soil <b>${Math.round(g.soil * 100)}%</b></span><span>Ore <b>${g.ore ? Math.round(g.ore * 100) + '%' : 'none'}</b></span><span>Oil <b>${g.oil ? Math.round(g.oil * 100) + '%' : 'none'}</b></span><span>Town <b>${g.town ? 'near' : 'far'}</b></span></div>`;
     if (!b) return `<div class="biz"><small>BUILD A BUSINESS</small>${facts}<div class="bopts">${Object.entries(TYPES).map(([k, T]) => {
       const r = richFor(k, g), no = T.need && !r;
-      return `<button class="bopt ${k}" data-build="${k}" ${no ? 'disabled' : ''}><i></i><b>${T.name}</b><span>${usd(T.cost)} · ${no ? (T.need === 'town' ? 'too far from town' : 'nothing here') : T.makes ? `~${Math.round(T.out * r)} ${GOODS[T.makes].unit}/day` : `${Math.round(r * 100)}% footfall`}</span></button>`;
-    }).join('')}</div><p class="note">${Object.values(TYPES).map(T => `${T.name}: ${T.blurb}`).join(' ')}</p></div>`;
-    const T = TYPES[b.type], pct = T.makes ? Math.min(100, b.stock / cap(b) * 100) : 0;
-    return `<div class="biz own ${b.type}"><small>${T.name.toUpperCase()} · LEVEL ${b.lvl}</small>${facts}
-      ${T.makes ? `<div class="store"><div class="sbar"><i style="width:${pct}%"></i></div><span>${Math.floor(b.stock)} / ${cap(b)} ${GOODS[T.makes].unit} in storage</span></div>` : `<p class="note">Sells up to ${Math.round(output(b))} crates a night from your warehouse (you have ${inv().crates}). Takings so far ${usd(b.earned)}.</p>`}
-      <div class="stats"><div>Makes<b>${T.makes ? `${Math.round(output(b))} ${GOODS[T.makes].unit}/day` : 'shop takings'}</b></div><div>Upkeep<b class="dn">${usd(upkeep(b))}/day</b></div><div>Invested<b>${usd(b.spent)}</b></div><div>${T.makes ? 'Made so far' : 'Earned'}<b>${T.makes ? Math.round(b.made).toLocaleString('en-US') : usd(b.earned)}</b></div></div>
-      <div class="lbtns">${T.makes ? `<button class="buy" id="bzCol" ${b.stock < 1 ? 'disabled' : ''}>Collect ${Math.floor(b.stock)} ${GOODS[T.makes].unit}</button>` : ''}
+      return `<button class="bopt ${k}" data-build="${k}" ${no ? 'disabled' : ''}><i></i><b>${T.name}</b><span>${usd(T.cost)} · ${no ? (T.need === 'town' ? 'too far from town' : 'nothing here') : T.uses ? `up to ${T.out} ${GOODS[T.makes].unit}/day` : T.makes ? `~${Math.round(T.out * r)} ${GOODS[T.makes].unit}/day` : `${Math.round(r * 100)}% footfall`}</span></button>`;
+    }).join('')}</div><p class="note">${Object.values(TYPES).map(T => `${T.name}: ${T.blurb}`).join(' ')} Factories take what they need from your warehouse every night.</p></div>`;
+    const T = TYPES[b.type], pct = T.makes && !T.uses ? Math.min(100, b.stock / cap(b) * 100) : 0;
+    return `<div class="biz own ${b.type}"><small>${T.name.toUpperCase()} · LEVEL ${b.lvl}</small>${T.uses ? '' : facts}
+      ${T.uses ? `<p class="note">Every night: ${recipe(T)} → 1 ${GOODS[T.makes].unit} of ${GOODS[T.makes].name.toLowerCase()}, up to ${Math.round(output(b))}. In your warehouse: ${Object.keys(T.uses).map(g => `${inv()[g].toLocaleString('en-US')} ${GOODS[g].unit} ${GOODS[g].name.toLowerCase()}`).join(', ')}. Last night it made ${b.last || 0}.</p>`
+        : T.makes ? `<div class="store"><div class="sbar"><i style="width:${pct}%"></i></div><span>${Math.floor(b.stock)} / ${cap(b)} ${GOODS[T.makes].unit} in storage</span></div>` : `<p class="note">Sells up to ${Math.round(output(b))} crates a night from your warehouse (you have ${inv().crates}). Takings so far ${usd(b.earned)}.</p>`}
+      <div class="stats"><div>Makes<b>${T.makes ? `${T.uses ? 'up to ' : ''}${Math.round(output(b))} ${GOODS[T.makes].unit}/day` : 'shop takings'}</b></div><div>Upkeep<b class="dn">${usd(upkeep(b))}/day</b></div><div>Invested<b>${usd(b.spent)}</b></div><div>${T.makes ? 'Made so far' : 'Earned'}<b>${T.makes ? Math.round(b.made).toLocaleString('en-US') : usd(b.earned)}</b></div></div>
+      <div class="lbtns">${T.makes && !T.uses ? `<button class="buy" id="bzCol" ${b.stock < 1 ? 'disabled' : ''}>Collect ${Math.floor(b.stock)} ${GOODS[T.makes].unit}</button>` : ''}
         ${b.lvl < MAXLVL ? `<button class="plain" id="bzUp">Upgrade to level ${b.lvl + 1} · ${usd(upCost(b))}</button>` : ''}
         <button class="plain" id="bzDel">Demolish (get ${usd(b.spent * 0.3)} back)</button></div></div>`;
   }
@@ -161,21 +195,55 @@ window.Biz = (function () {
   // ---------- the Business tab in the property screen ----------
   function drawTab(body) {
     const list = all(), here = list.filter(([, o]) => o.city === CITY.id), I = inv();
-    const ready = list.reduce((s, [, o]) => s + (TYPES[o.biz.type].makes ? Math.floor(o.biz.stock) : 0), 0);
+    const ready = list.reduce((s, [, o]) => s + (TYPES[o.biz.type].makes && !TYPES[o.biz.type].uses ? Math.floor(o.biz.stock) : 0), 0);
     let html = `<div class="cards"><div>Businesses<b>${list.length}</b></div><div>Ready to collect<b>${ready.toLocaleString('en-US')}</b></div><div>Upkeep<b class="dn">${usd(list.reduce((s, [, o]) => s + upkeep(o.biz), 0))}/day</b></div></div>`;
-    html += `<small class="ahd">YOUR WAREHOUSE · SELL TO THE CITY</small><div class="goods">${Object.entries(GOODS).map(([g, G]) => {
-      const m = mult()[g], q = I[g];
-      return `<div class="good"><span class="gi">${G.icon}</span><div><b>${G.name}</b><span>${q.toLocaleString('en-US')} ${G.unit} · ${usd(priceOf(g), 2)} each <em class="${m >= 1 ? 'up' : 'dn'}">${m >= 1 ? '▲' : '▼'} ${Math.round((m - 1) * 100)}%</em></span></div>
+    html += `<small class="ahd">YOUR WAREHOUSE · SELL TO THE CITY NOW, OR SET YOUR OWN PRICE</small><div class="goods">${Object.entries(GOODS).filter(([g]) => I[g] >= 1 || asks()[g] || ['crates', 'ore', 'oil'].includes(g)).map(([g, G]) => {
+      const m = mult()[g], q = I[g], a = asks()[g];
+      return `<div class="good"><span class="gi">${G.icon}</span><div><b>${G.name}</b><span>${q.toLocaleString('en-US')} ${G.unit} · ${usd(priceOf(g), 2)} each <em class="${m >= 1 ? 'up' : 'dn'}">${m >= 1 ? '▲' : '▼'} ${Math.round((m - 1) * 100)}%</em></span>
+          ${a ? `<span class="ask">Listed: ${a.qty.toLocaleString('en-US')} at ${usd(a.price, 2)} <button class="lnk" data-unask="${g}">take back</button></span>` : q >= 1 ? `<form class="askf" data-ask="${g}"><input type="number" min="1" max="${q}" value="${q}" aria-label="How many"> at $<input type="number" min="0.01" step="0.01" value="${priceOf(g).toFixed(2)}" aria-label="Your price"><button class="btn">List</button></form>` : ''}</div>
         <div class="gb">${[0.25, 1].map(f => `<button class="btn" data-sell="${g}" data-f="${f}" ${q < 1 ? 'disabled' : ''}>${f === 1 ? 'Sell all' : 'Sell ¼'}<small>${q >= 1 ? usd(sellValue(g, Math.max(1, Math.floor(q * f))).total) : '-'}</small></button>`).join('')}</div></div>`;
-    }).join('')}</div><p class="note">The more anyone sells in a day, the lower the price goes; it recovers overnight. Shops sell your crates for more.</p>`;
+    }).join('')}</div><p class="note">Selling now: the more anyone sells in a day, the lower the price goes; it recovers overnight. Your own price: buyers take a little each night, more the cheaper you ask, and nothing above 1.3× the city's price. Shops sell your crates for more.</p>`;
+    // the factory planner: what it takes to make a product every day, and what it earns at today's prices
+    html += `<small class="ahd">FACTORY PLANNER</small><form class="plan" id="bzPlan"><span>Make</span><input type="number" min="1" value="${plan.n}" aria-label="How many a day"><select aria-label="Product">${['food', 'steel', 'fuel', 'machines'].map(g => `<option value="${g}" ${g === plan.g ? 'selected' : ''}>${GOODS[g].name} (${GOODS[g].unit})</option>`).join('')}</select><span>a day</span></form>${planHTML(plan.g, plan.n)}`;
     html += `<small class="ahd">YOUR BUSINESSES${here.length < list.length ? ` (${list.length - here.length} in other cities)` : ''}</small><div class="lbtns"><button class="buy" id="bzAll" ${ready ? '' : 'disabled'}>Collect everything (${ready.toLocaleString('en-US')})</button></div>`;
     html += here.length ? here.map(([k, o]) => { const b = o.biz, T = TYPES[b.type]; return `<button class="bzrow ${b.type}" data-plot="${o.i},${o.j}"><i></i><div><b>${T.name} · level ${b.lvl}</b><span>${esc(o.name)}</span></div><span>${T.makes ? `${Math.floor(b.stock)} / ${cap(b)} ${GOODS[T.makes].unit}` : usd(b.earned)}</span></button>`; }).join('')
       : '<p class="note">No businesses yet. Buy a land plot (Land tab), then build a farm, mine, oil well or shop on it.</p>';
     body.innerHTML = html;
     body.querySelectorAll('[data-sell]').forEach(b => b.onclick = () => { const g = b.dataset.sell, r = sell(g, Math.max(1, Math.floor(inv()[g] * +b.dataset.f))); if (r.ok) toast('Sold', `${r.q.toLocaleString('en-US')} ${GOODS[g].unit} for ${usd(r.total)}.`); else toast('Can\'t sell', r.why); draw2d(); });
     if ($('bzAll')) $('bzAll').onclick = collectAll;
+    body.querySelectorAll('form[data-ask]').forEach(f => f.onsubmit = e => { e.preventDefault(); const [q, p] = [...f.querySelectorAll('input')].map(i => +i.value), r = ask(f.dataset.ask, q, p); if (!r.ok) toast('Can\'t list', r.why); else toast('Listed', `Buyers pick it up overnight. Closer to the city's price sells faster.`); draw2d(); });
+    body.querySelectorAll('[data-unask]').forEach(b => b.onclick = () => { unask(b.dataset.unask); draw2d(); });
+    if ($('bzPlan')) $('bzPlan').oninput = () => { const f = $('bzPlan'); plan = { n: Math.max(1, Math.min(10000, +f.querySelector('input').value || 1)), g: f.querySelector('select').value }; const out = $('bzPlanOut'); if (out) out.outerHTML = planHTML(plan.g, plan.n); };
     body.querySelectorAll('[data-plot]').forEach(b => b.onclick = () => { $('props').hidden = true; Land.select('x:' + b.dataset.plot.replace(',', ':'), true); });
   }
+  // ---------- your own price lists ----------
+  function ask(g, q, price) {
+    q = Math.min(Math.floor(q), inv()[g]);
+    if (!(q > 0)) return { ok: false, why: 'Nothing to list' };
+    if (!(price > 0)) return { ok: false, why: 'Set a price' };
+    inv()[g] -= q; asks()[g] = { qty: q, price: +price.toFixed(2) }; M.save();
+    return { ok: true };
+  }
+  function unask(g) { const a = asks()[g]; if (!a) return; inv()[g] += a.qty; delete asks()[g]; M.save(); }
+
+  // ---------- the factory planner ----------
+  let plan = { g: 'machines', n: 6 };
+  const MAKER = { crates: 'farm', ore: 'mine', oil: 'oil', food: 'food', steel: 'steel', fuel: 'refinery', machines: 'machines' };
+  function needs(g, n, acc) { // walk the chain down to farms, mines and wells (level 1, an average plot)
+    const t = MAKER[g], T = TYPES[t];
+    acc[t] = (acc[t] || 0) + n / T.out;
+    if (T.uses) for (const [i, q] of Object.entries(T.uses)) needs(i, n * q, acc);
+    return acc;
+  }
+  function planHTML(g, n) {
+    const acc = needs(g, n, {}), rows = Object.entries(acc).map(([t, k]) => [t, Math.ceil(k - 1e-9)]);
+    const cost = rows.reduce((s, [t, k]) => s + k * TYPES[t].cost, 0), up = rows.reduce((s, [t, k]) => s + k * TYPES[t].upkeep, 0);
+    const rev = n * priceOf(g), plots = rows.reduce((s, [, k]) => s + k, 0);
+    return `<div class="planout" id="bzPlanOut">${rows.map(([t, k]) => `<div class="bzrow ${t}"><i></i><div><b>${k} × ${TYPES[t].name}</b><span>${TYPES[t].uses ? recipe(TYPES[t]) + ' → ' + GOODS[TYPES[t].makes].name.toLowerCase() : `${TYPES[t].out} ${GOODS[TYPES[t].makes].unit}/day each${TYPES[t].need ? ` (needs ${TYPES[t].need === 'ore' ? 'an ore deposit' : 'an oil field'})` : ''}`}</span></div><span>${usd(k * TYPES[t].cost)}</span></div>`).join('')}
+      <div class="cards"><div>To build<b>${usd(cost)}</b><span>${plots} plots</span></div><div>Upkeep<b class="dn">${usd(up)}/day</b></div><div>Sells for<b class="up">${usd(rev)}/day</b><span>at today's price</span></div></div>
+      <p class="note">${rev - up > 0 ? `About ${usd(rev - up)} a day before the price drops from selling that much: pays back in ${Math.ceil(cost / (rev - up))} days.` : 'At today\'s price this chain costs more to run than it earns.'} Rich plots and upgrades need fewer buildings.</p></div>`;
+  }
+
   function draw2d() { if (window.Property && Property.tab === 'business') Property.redraw(); if (Land.selected && !$('listing').hidden) Land.redraw(); }
 
   // ---------- on the map: crops, a mine's pit and headframe, nodding pumpjacks, a shop ----------
@@ -201,6 +269,12 @@ window.Biz = (function () {
         j.add(beam); g.add(j); jacks.push(beam);
       }
       const tank = new THREE.Mesh(new THREE.CylinderGeometry(10, 10, 12, 18), m(0xe9eef2, 0.5)); tank.position.set(45, 6, 40); g.add(tank);
+    } else if (TYPES[b.type].uses) { // a factory hall with a saw-tooth roof stripe and chimneys
+      const c = { food: 0xf0b35a, steel: 0x8a95a5, refinery: 0xdfe4ea, machines: 0x5b7bd6 }[b.type];
+      g.add(box(70 * s, 16, 44, c, -10, 0, -10)); g.add(box(72 * s, 3, 46, 0x3a4048, -10, 16, -10));
+      for (let k = 0; k < (b.type === 'refinery' ? 3 : 1) + b.lvl - 1; k++) { const ch = new THREE.Mesh(new THREE.CylinderGeometry(3, 4, 34, 12), m(b.type === 'refinery' ? 0xe9eef2 : 0xa0432c)); ch.position.set(30 + k * 10, 17, -30); g.add(ch); }
+      g.add(box(30, 0.4, 40, 0x3e4046, 40, 0, 40));
+      for (let k = 0; k < 4; k++) g.add(box(8, 6, 8, 0xc8a26b, 30 + (k % 2) * 12, 0, 30 + Math.floor(k / 2) * 12)); // crates and pallets in the yard
     } else {
       g.add(box(40 * s, 9, 26, 0xf3efe6, 0, 0, 0)); g.add(box(42 * s, 2, 6, 0xff5fa2, 0, 7, 15)); g.add(box(24, 0.4, 30, 0x3e4046, 0, 0, 34));
     }
@@ -217,5 +291,5 @@ window.Biz = (function () {
   frameHooks.push((dt, dist) => { if (!group) return; group.visible = dist < 30000; t += dt; jacks.forEach((j, k) => { j.rotation.z = Math.sin(t * 1.6 + k) * 0.28; }); });
   const boot = setInterval(() => { if (window.CS && $('load').hidden && Land.plots.size) { clearInterval(boot); draw3d(); } }, 300);
 
-  return { TYPES, GOODS, ground, build, upgrade, collect, collectAll, sell, sellValue, priceOf, section, bind, drawTab, worth: b => b.spent * 0.3, output, cap, inv };
+  return { TYPES, GOODS, ground, build, upgrade, collect, collectAll, sell, sellValue, priceOf, section, bind, drawTab, worth: b => b.spent * 0.3, output, cap, inv, ask, unask, needs };
 })();

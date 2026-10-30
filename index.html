@@ -594,6 +594,14 @@ h1 { -webkit-text-stroke: 3px var(--ol); paint-order: stroke fill; text-shadow: 
 .bzrow { width: 100%; display: grid; grid-template-columns: 36px 1fr auto; gap: 10px; align-items: center; text-align: left; padding: 8px 10px; margin-bottom: 6px; border-radius: 14px; background: var(--pi); border: 2px solid var(--ol); color: #fff; }
 .bzrow i { grid-row: auto; } .bzrow b { display: block; font: 800 13px/1.2 Inter, sans-serif; } .bzrow span { font-size: 11px; color: var(--x-dim); }
 .stats b.dn { color: #ff9aa4; }
+/* ---------- Goal 15: factories, your own prices, the planner ---------- */
+.bopt.food, .bzrow.food { --bc: #f0b35a; --bc2: #c47f1e; } .bopt.steel, .bzrow.steel { --bc: #9aa5b5; --bc2: #5d6878; } .bopt.refinery, .bzrow.refinery { --bc: #e9eef2; --bc2: #9aa5b0; } .bopt.machines, .bzrow.machines { --bc: var(--c-blue); --bc2: var(--c-blue2); }
+.ask { display: block; margin-top: 4px; color: var(--c-gold) !important; } .ask .lnk { color: #fff; }
+.askf { display: flex; align-items: center; gap: 4px; margin-top: 6px; font-size: 11px; color: var(--x-dim); }
+.askf input, .plan input, .plan select { width: 88px; min-width: 0; user-select: text; -webkit-user-select: text; background: var(--pb); border: 2px solid var(--ol); border-radius: 8px; padding: 4px 6px; color: #fff; font: 700 12px/1.2 Inter, sans-serif; }
+.askf .btn { padding: 4px 10px; font-size: 11px; }
+.plan { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 8px; font: 700 13px/1 Inter, sans-serif; } .plan select { width: auto; }
+.planout .cards span { display: block; font-size: 10px; color: var(--x-dim); text-transform: none; letter-spacing: 0; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
 </style>
 </head>
