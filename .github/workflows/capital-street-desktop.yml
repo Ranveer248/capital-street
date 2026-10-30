@@ -1,0 +1,54 @@
+# Builds Capital Street for Windows, Mac and Linux from the game (the repo root) and capital-street-desktop/ (Electron).
+# Every run: a Windows .exe (runs without installing) and .zip, a Mac .zip and a Linux AppImage and .tar.gz, as artifacts.
+# With the itch.io key added (see capital-street-desktop/README.md): each build is also uploaded to itch.io.
+name: Capital Street desktop
+on:
+  push:
+    paths: ['index.html', '*.html', 'sw.js', 'manifest.webmanifest', 'js/**', 'lib/**', 'data/**', 'fonts/**', 'icons/**', 'capital-street-desktop/**', '.github/workflows/capital-street-desktop.yml']
+  workflow_dispatch:
+defaults:
+  run:
+    shell: bash
+    working-directory: capital-street-desktop
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, name: windows, channel: windows }
+          - { os: macos-latest, name: mac, channel: mac }
+          - { os: ubuntu-latest, name: linux, channel: linux }
+    runs-on: ${{ matrix.os }}
+    env:
+      BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+      ITCH_GAME: ${{ vars.ITCH_GAME }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm install --no-audit --no-fund
+      - name: Build
+        run: npm run dist
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false' # unsigned until there's a code-signing certificate
+      - name: Check the game starts (opens hidden, waits for the city to load)
+        if: ${{ matrix.name == 'linux' }}
+        run: xvfb-run -a npx electron . --smoke --no-sandbox
+      - uses: actions/upload-artifact@v4
+        with:
+          name: capital-street-${{ matrix.name }}
+          path: |
+            capital-street-desktop/dist/*.exe
+            capital-street-desktop/dist/*.zip
+            capital-street-desktop/dist/*.AppImage
+            capital-street-desktop/dist/*.tar.gz
+          if-no-files-found: error
+      - name: Upload to itch.io
+        if: ${{ env.BUTLER_API_KEY != '' && env.ITCH_GAME != '' }}
+        run: |
+          curl -L -o butler.zip "https://broth.itch.zone/butler/${{ matrix.name == 'windows' && 'windows-amd64' || matrix.name == 'mac' && 'darwin-amd64' || 'linux-amd64' }}/LATEST/archive/default"
+          unzip -o butler.zip -d butler && chmod +x butler/butler* || true
+          FILE=$(ls dist/*.zip dist/*.AppImage 2>/dev/null | head -1)
+          ./butler/butler push "$FILE" "$ITCH_GAME:${{ matrix.channel }}" --userversion "1.0.${{ github.run_number }}"

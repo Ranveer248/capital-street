@@ -1,0 +1,29 @@
+{
+  "name": "capital-street-desktop",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Capital Street for Windows, Mac and Linux: the game (the repo root, one folder up) in a desktop window.",
+  "author": "Pocket Rocket Studio",
+  "main": "main.js",
+  "scripts": {
+    "copy": "node copy-web.js",
+    "start": "node copy-web.js && electron .",
+    "dist": "node copy-web.js && electron-builder --publish never"
+  },
+  "devDependencies": {
+    "electron": "44.7.2",
+    "electron-builder": "26.17.0"
+  },
+  "build": {
+    "appId": "com.pocketrocketstudio.capitalstreet",
+    "productName": "Capital Street",
+    "copyright": "© 2026 Pocket Rocket Studio",
+    "files": ["main.js", "www/**/*"],
+    "directories": { "output": "dist", "buildResources": "build" },
+    "win": { "target": ["portable", "zip"] },
+    "portable": { "artifactName": "CapitalStreet-${version}-windows.exe" },
+    "mac": { "target": ["zip"], "category": "public.app-category.simulation-games", "identity": null },
+    "linux": { "target": ["AppImage", "tar.gz"], "category": "Game" },
+    "artifactName": "CapitalStreet-${version}-${os}-${arch}.${ext}"
+  }
+}

@@ -236,6 +236,16 @@ Cash still lives in each player's own save, so a player who edits their save cou
 | Linked from the game | ✅ Wiki and What's new sit next to Terms, Privacy and Credits in the main menu and the pause menu |
 | Community | ✅ in-game chat (World and each city) with the fair-play rules from the Terms. ⬜ A Discord server or social accounts need the owner to create them |
 
+## Goal 20: launch on PC (builds ✅, store pages and big hosting wait on the owner's accounts)
+
+| Check | Result |
+|---|---|
+| A desktop download | ✅ `capital-street-desktop/` wraps the game with Electron for Windows, Mac and Linux. It serves the game from inside the app (an `app://` address, since the map data is loaded with fetch), so it plays offline and online exactly like the website; F11 toggles full screen. Checked on Windows: it opens and the city loads |
+| Built automatically | ✅ GitHub Actions builds every platform on each change: a Windows .exe that runs without installing (and a .zip), a Mac .zip and a Linux AppImage and .tar.gz, as downloads on the run. The Linux build also starts the game and fails if the city doesn't load |
+| itch.io | ✅ ready: add the `BUTLER_API_KEY` secret and the `ITCH_GAME` variable and every build is pushed to itch.io (steps in `capital-street-desktop/README.md`). ⬜ Needs the owner's itch.io account |
+| Steam | ⬜ needs a Steamworks account ($100 per game) for an App ID; the builds are ready to upload with SteamPipe. Code-signing certificates would remove the "unknown publisher" warnings on Windows and Mac |
+| Hosting for a game of any size | ⬜ the plan is under Hosting below (the game on Cloudflare Pages, map data on Cloudflare R2 as cities stream in); it needs the owner's Cloudflare account. GitHub Pages carries the game fine at its current size (about 17 MB) |
+
 ## Roadmap
 
 1. ✅ The New York map
@@ -262,7 +272,7 @@ From the 5 new reference videos (a player-run economy game on the real world map
 17. ✅ **Companies and the stock market:** start a company, take it public, players trade its shares
 18. ✅ **Logistics:** ports, ships and trucks moving goods between cities
 19. ✅ **Wiki, changelog and community**
-20. **Launch on PC:** hosting for a game of any size, then a desktop download (Steam / itch.io)
+20. ✅ **Launch on PC:** hosting for a game of any size, then a desktop download (Steam / itch.io)
 
 ## Legal
 
@@ -288,13 +298,15 @@ Cloud saves: once you have a player, your game is saved to your account (table `
 Who may change what is enforced by the database itself (row-level security plus two checked functions), not by the game, so a modified game can't take someone else's building, post as someone else or rename them.
 
 
+## Hosting
+
 The game is a static website, so it can be hosted anywhere that serves files:
 
 - **GitHub Pages (free, live):** this repo, `Ranveer248/capital-street`, is published from `main` / root at **https://ranveer248.github.io/capital-street/** (Settings → Pages). Every push to `main` updates it in about a minute.
 - **Elsewhere:** Netlify or Cloudflare Pages work too: point them at this repo, no build step.
 - **As an app:** open the site on a phone and choose "Add to Home Screen". It installs full-screen with its own icon.
 - **When it gets big (more cities, the whole world):** GitHub refuses single files over 100 MB and slows down past a few GB. Plan: the game itself on **Cloudflare Pages** (free; files up to 25 MB, 20,000 files) and the big map data on **Cloudflare R2** (10 GB free, then $0.015 per GB a month, and no fee for players downloading it). Cities stream in as you visit them, so a multi-gigabyte world never has to download at once.
-- **On PC as a download:** **Steam** ($100 per game, paid back once the game makes $1,000) or **itch.io** (free; downloads up to 1 GB per file). The same files run in a desktop window.
+- **On PC as a download:** built automatically from `capital-street-desktop/` (Goal 20). **Steam** ($100 per game, paid back once the game makes $1,000) or **itch.io** (free; downloads up to 1 GB per file). The same files run in a desktop window.
 - **App Store / Google Play:** done with Capacitor in `capital-street-app/`. GitHub Actions builds the apps; publishing needs an Apple developer account ($99 a year) and a Google Play account ($25 once). Step-by-step: `capital-street-app/README.md`.
 
 ## Map data
