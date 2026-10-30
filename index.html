@@ -601,6 +601,16 @@ h1 { -webkit-text-stroke: 3px var(--ol); paint-order: stroke fill; text-shadow: 
 .askf input, .plan input, .plan select { width: 88px; min-width: 0; user-select: text; -webkit-user-select: text; background: var(--pb); border: 2px solid var(--ol); border-radius: 8px; padding: 4px 6px; color: #fff; font: 700 12px/1.2 Inter, sans-serif; }
 .askf .btn { padding: 4px 10px; font-size: 11px; }
 .plan { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 8px; font: 700 13px/1 Inter, sans-serif; } .plan select { width: auto; }
+/* ---------- Goal 15 part 2: trading with players ---------- */
+.trade { display: grid; gap: 6px; margin: 10px 0; padding: 12px; border-radius: 16px; background: var(--pi); border: 2px solid var(--c-pink); }
+.trade > small { font: 800 10px/1 Inter, sans-serif; letter-spacing: .12em; color: var(--c-pink); }
+.trade select, .xform select { background: var(--pb); border: 2px solid var(--ol); border-radius: 8px; padding: 4px 6px; color: #fff; font: 700 12px/1.2 Inter, sans-serif; }
+.bzrow.trl { --bc: var(--c-pink); --bc2: var(--c-pink2); }
+.obook { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 6px 0; } .obook > div { padding: 8px; border-radius: 12px; background: var(--pi); border: 2px solid var(--ol); display: grid; gap: 4px; align-content: start; }
+.obook small { font: 800 9px/1 Inter, sans-serif; letter-spacing: .12em; color: var(--x-dim); }
+.obr { display: flex; gap: 8px; align-items: baseline; font-size: 12px; } .obr span { flex: 1; color: var(--x-dim); } .obr i { font-style: normal; font-size: 10px; color: var(--c-gold); }
+.obr.sell b { color: #ff9aa4; } .obr.buy b { color: var(--c-green); }
+.xform { flex-wrap: wrap; } .auc.pa { grid-template-columns: 1fr; border-color: var(--c-pink); } .auc.pa .lnk { justify-self: start; color: var(--c-pink); }
 .planout .cards span { display: block; font-size: 10px; color: var(--x-dim); text-transform: none; letter-spacing: 0; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
 </style>
@@ -1544,6 +1554,7 @@ document.getElementById('play').onclick = () => startGame();
 <script src="js/land.js"></script>
 <script src="js/auctions.js"></script>
 <script src="js/business.js"></script>
+<script src="js/trade.js"></script>
 <script src="js/office.js"></script>
 <script src="js/world.js"></script>
 <script src="js/pc.js"></script>

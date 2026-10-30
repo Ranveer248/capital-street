@@ -175,7 +175,7 @@ Deals and auctions are worked out from the city and the day, so the save only ke
 | Business tab | ✅ Property → Business: your warehouse with live prices and Sell ¼ / Sell all (showing what you'll get), every business with its storage, and Collect everything |
 | Fits the rest of the game | ✅ XP for building, upgrading and selling; hurricanes flatten crops; crashes and rate hikes knock the oil price; businesses count toward net worth (a third of what went in, plus goods at today's price); a plot with a business stops collecting the farmer's lease; selling the plot sells the business with it |
 
-## Goal 15: markets and production chains (part 1 ✅, part 2 waits on the server)
+## Goal 15: markets and production chains ✅
 
 | Check | Result |
 |---|---|
@@ -183,7 +183,19 @@ Deals and auctions are worked out from the city and the day, so the save only ke
 | You set the price | ✅ list any goods in your warehouse at your own price: the city's buyers take some each night, more the further below their price you ask and nothing above 1.3× it; take a listing back at any time. Or sell straight away at the going price, which drops as you sell |
 | A factory planner | ✅ Property → Business: pick a product and how many a day; it walks the chain down to farms, mines and wells and shows how many of each to build, the cost, the upkeep, what it sells for at today's price and how long it takes to pay back |
 | On the map | ✅ factories are halls with chimneys (white towers for refineries) and crates in the yard; upgrades add chimneys |
-| An exchange between players | ⬜ needs new server tables (an order book) so one player's sell order can meet another's buy order. Waiting on the owner's go-ahead for the database change |
+| An exchange between players | ✅ Property → Business → Player exchange: an order book for every good where players set every price. An order trades at once with any waiting order at your price or better (at that order's price) and the rest waits; selling holds the goods and buying holds the cash until it trades or you cancel; the other player's cash or goods arrive in their game even if they're away |
+| Selling property to players | ✅ list any building or plot you own at your price, or auction it to players for 6 hours, a day or 3 days (real time). Buyers see a "Buy from …" button on its card and a From other players list in Deals; player auctions sit above the city's in Auctions. The server bids for you up to your hidden maximum, the winner pays one step above the second-highest maximum, and a bid in the last two minutes extends the auction |
+
+### How trading works on the server
+
+Five tables and nine checked functions in [`server/schema.sql`](server/schema.sql), applied to the Capital Street project and tested on it (inside a rolled-back transaction) with three made-up players: nobody can list, sell or auction what they don't own; a changed price is refused; nobody sees another player's maximum bid; an auction settles once; inboxes are private.
+
+- `cs_inbox`: money and goods owed to each player; their game collects it at sign-in, or at once while online.
+- `cs_listings`: buildings and plots for sale to players at a fixed price.
+- `cs_pauctions` and `cs_pbids`: auctions between players and the hidden maximum bids.
+- `cs_orders`: the goods exchange's order book.
+
+Cash still lives in each player's own save, so a player who edits their save could promise money they don't have; moving cash to the server is the cheat-proof next step.
 
 ## Roadmap
 
@@ -206,7 +218,7 @@ From the 5 new reference videos (a player-run economy game on the real world map
 12. ✅ **Bright, smooth, with levels:** a vivid simulator-style UI designed in Figma, spring animations everywhere, smooth zoom, brighter daylight, XP and levels with a level-up screen
 13. ✅ **Real land and buildings for everyone:** land plots on the map; a Zillow-style property market with photos, filters and auctions with max bids; everything for sale lights up
 14. ✅ **Businesses:** farms, mines, oil rigs and shops on your land; NPC income that rewards setup cost and effort without inflating the economy
-15. **Player-set markets:** an item exchange where players set every price; production chains from raw resources to finished goods; a factory planner
+15. ✅ **Player-set markets:** an item exchange where players set every price; production chains from raw resources to finished goods; a factory planner
 16. **Inside buildings:** rooms, furniture, renting rooms to players and NPCs, extensions and basements, temperature (heat from machines, cooling, happy tenants and workers)
 17. **Companies and the stock market:** start a company, take it public, players trade its shares
 18. **Logistics:** ports, ships and trucks moving goods between cities

@@ -97,6 +97,7 @@ window.Net = (function () {
   // building first, you get your money back in full
   async function syncSave() {
     if (!me) return;
+    if (window.Trade) await Trade.collect(); // things sold to other players while you were away leave your save first
     const here = Object.entries(M.state.props).filter(([k]) => window.Property ? Property.isHere(k) : true);
     for (const [k, p] of here) {
       const o = owners.get(k);
@@ -304,7 +305,7 @@ window.Net = (function () {
   const ready = setInterval(() => { if (window.CS && $('load').hidden) { clearInterval(ready); boot().catch(e => { status = 'error'; console.error(e); emit('me'); }); } }, 200);
 
   return {
-    get status() { return status; }, get me() { return me; }, get online() { return online; }, configured,
+    get status() { return status; }, get me() { return me; }, get online() { return online; }, get sb() { return sb; }, get user() { return user; }, configured, playerOf,
     on: f => listeners.push(f), ownerOf, owners, claim, release, open, send, guest, signIn, signUp, signOut, createPlayer, deleteMe,
   };
 })();

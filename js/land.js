@@ -134,6 +134,7 @@ window.Land = (function () {
           <div>Your cash<b>${usd(s.cash, 2)}</b></div>${o ? `<div>You paid<b>${usd(o.paid)}</b></div>${o.biz ? '' : `<div>Lease earned<b class="up">${usd(o.earned, 2)}</b></div>`}` : ''}
         </div>
         ${o && window.Biz ? Biz.section(p) : ''}
+        ${window.Trade ? Trade.block({ kind: 'p', key: netKey(p), mine: !!o, value: v, floors: 1, name: p.name, hasBiz: !!(o && o.biz) }) : ''}
         <div class="lbtns">
           ${!o && !t && !marks.auction.has(k) ? `<button class="buy" id="ldBuy">Buy this plot · ${usd(price)}</button>` : ''}
           ${o ? `<button class="sell" id="ldSell">Sell${o.biz ? ' with the business' : ''} · ${usd(v * (1 - M.PROP_FEE) + (o.biz && window.Biz ? Biz.worth(o.biz) : 0))}</button>` : ''}
@@ -149,6 +150,7 @@ window.Land = (function () {
     if ($('ldBuy')) $('ldBuy').onclick = () => CSUI.story(`<small>BUY LAND</small><b>${esc(p.name)}</b><p>${(p.area / 10000).toFixed(2)} hectares for ${usd(price)}. It earns about ${usd(v * LEASE * 7)} a week from a farmer's lease.</p>`,
       [['Buy it', async () => { const r = await buy(p, price); if (!r.ok) toast('Can\'t buy', r.why); draw(); }], ['Not now', () => {}]]);
     if (window.Biz) Biz.bind(p, sheet, draw);
+    if (window.Trade) Trade.bind(sheet, { kind: 'p', key: netKey(p), plot: p, floors: 1, name: p.name, value: v, redraw: draw });
     if ($('ldSell')) $('ldSell').onclick = () => { const r = sell(p); if (!r.ok) toast('Can\'t sell', r.why); draw(); };
   }
 

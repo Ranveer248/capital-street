@@ -178,7 +178,7 @@ window.Auctions = (function () {
       const list = [...deals.values()].filter(d => d.kind === 'b' ? freeB(d.g) : freeP(d.p)).filter(d => dKind === 'all' || (dKind === 'land') === (d.kind === 'p'))
         .map(d => { const v = d.kind === 'b' ? Property.wholePrice(Property.info(d.g)) : Land.value(d.p); return Object.assign({ v, price: v * (1 - d.disc) }, d); });
       list.sort(dSort === 'disc' ? (a, b) => b.disc - a.disc : dSort === 'cheap' ? (a, b) => a.price - b.price : (a, b) => b.v - a.v);
-      html += `<div class="goal"><small>★ TODAY'S DEALS · DAY ${M.day()}</small><b>Motivated sellers, below value</b><span>New listings every morning. Buy before they're gone.</span></div>
+      html += `<div class="goal"><small>★ TODAY'S DEALS · DAY ${M.day()}</small><b>Motivated sellers, below value</b><span>New listings every morning. Buy before they're gone.</span></div>${window.Trade ? Trade.listingsHTML() : ''}<small class="ahd">FROM THE CITY'S SELLERS</small>
         <div class="chips">${chip('data-dk', 'all', dKind, 'All')}${chip('data-dk', 'b', dKind, 'Buildings')}${chip('data-dk', 'land', dKind, 'Land')}</div>
         <div class="chips">${chip('data-ds', 'disc', dSort, 'Biggest discount')}${chip('data-ds', 'cheap', dSort, 'Cheapest')}${chip('data-ds', 'big', dSort, 'Most valuable')}${lightChip()}</div>
         <p class="note">${list.length} deals</p><div class="pgrid">${list.map(d => d.kind === 'b'
@@ -186,7 +186,7 @@ window.Auctions = (function () {
           : plotCard(d.p, d.price, `<span class="tag deal">−${Math.round(d.disc * 100)}%</span>`)).join('')}</div>`;
     } else if (tab === 'auctions') {
       const lots = live(), t = M.state.time, mine = Object.entries(S()).filter(([, b]) => b.done).sort((a, b) => b[1].end - a[1].end).slice(0, 6);
-      html += `<div class="goal"><small>★ AUCTION HOUSE</small><b>Set your maximum, the game bids for you</b><span>You only pay one step above the next-highest bid. New lots every morning at 09:00; each closes at 15:00 the next day.</span></div><div class="chips">${lightChip()}</div>`;
+      html += `<div class="goal"><small>★ AUCTION HOUSE</small><b>Set your maximum, the game bids for you</b><span>You only pay one step above the next-highest bid. New lots every morning at 09:00; each closes at 15:00 the next day.</span></div><div class="chips">${lightChip()}</div>${window.Trade ? Trade.auctionsHTML() : ''}<small class="ahd">CITY AUCTIONS · GAME TIME</small>`;
       html += lots.length ? lots.map(l => {
         const st = standing(l, t), b = S()[l.id], done = b && b.done, me = st.leader && st.leader.me;
         const pic = l.kind === 'p' ? Land.art(l.p) : Property.card(l.it).match(/<div class="pp">([\s\S]*?)<\/div>/)[1];
@@ -213,6 +213,7 @@ window.Auctions = (function () {
     body.querySelectorAll('[data-ls]').forEach(b => b.onclick = () => { lSort = b.dataset.ls; Property.redraw(); });
     body.querySelectorAll('[data-plot]').forEach(b => b.onclick = () => { $('props').hidden = true; Land.select('x:' + b.dataset.plot.replace(',', ':'), true); });
     if ($('mkLight')) $('mkLight').onclick = toggle;
+    if (window.Trade) Trade.bindTab(body);
     body.querySelectorAll('form[data-f]').forEach(f => f.onsubmit = e => {
       e.preventDefault();
       const lot = live().find(l => l.id === f.dataset.f); if (!lot) return;
