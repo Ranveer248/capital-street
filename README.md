@@ -246,6 +246,37 @@ Cash still lives in each player's own save, so a player who edits their save cou
 | Steam | ⬜ needs a Steamworks account ($100 per game) for an App ID; the builds are ready to upload with SteamPipe. Code-signing certificates would remove the "unknown publisher" warnings on Windows and Mac |
 | Hosting for a game of any size | ⬜ the plan is under Hosting below (the game on Cloudflare Pages, map data on Cloudflare R2 as cities stream in); it needs the owner's Cloudflare account. GitHub Pages carries the game fine at its current size (about 17 MB) |
 
+## Goal 21: high-end graphics ✅
+
+| Check | Result |
+|---|---|
+| A film finish | ✅ `js/gfx.js` draws every frame in high dynamic range, then adds glow on bright things (bloom), filmic tone mapping, colour grading (cool shadows, warm highlights, a gentle S-curve), a vignette and fine dithering |
+| A sun that follows the clock | ✅ mornings are pale, evenings golden, nights dark blue with stars and a moon; sunlight, shadows, sky, haze and reflections all follow it. The menu is always at golden hour |
+| Sky and clouds | ✅ drifting clouds lit by the sun, a sun disc and glow, baked into the reflections whenever the light changes |
+| Glass towers and city lights | ✅ windows reflect the sky like glass; at night a scattering of windows lights up warm or cool, and streets glow |
+| Water | ✅ the sea, rivers and lakes have moving waves, sky reflections and the sun's glitter |
+| Ground and haze | ✅ grass and parks vary in colour; distance fades into the colour of the horizon |
+| High-end devices first | ✅ phones and computers that are likely too slow (weak graphics chips, little memory, no WebGL 2, or under 24 fps for 20 seconds) get a warning once; the graphics aren't lowered for them |
+
+## Goal 22: a simpler game: menu, online play, clean screen, tutorial ✅
+
+| Check | Result |
+|---|---|
+| New main menu | ✅ like a mobile city game: the logo over the city at golden hour, your player card, your empire in four chips, one big PLAY button and round buttons for World, How to play, Settings, Credits and New game |
+| Online only | ✅ Play takes you into the shared world: the first time you pick a name and a colour and play as a guest (an email can be added later). Only if the server can't be reached can you play offline for now |
+| A clean map | ✅ zoomed out, you only see your apartment and your own buildings and land. Deals, auctions, other players, plot outlines and price tags show while you browse property, or up close |
+| A simpler screen | ✅ the share ticker, key hints and empty loan pill are gone; rent shows when it's due within a day and a half |
+| Cleaner trading | ✅ a wider exchange without the order book, four key numbers, a bigger price; property filters fit on three short rows; breaking news no longer covers the panels |
+| Tutorial | ✅ Penny the piggy bank shows new players around in ten short steps, lighting up the one thing to tap: money, rent, buying a share, selling, buildings and the news. "How to play" shows it again |
+
+## Goal 23: surprises ✅
+
+| Check | Result |
+|---|---|
+| More events | ✅ bull runs, flash crashes that bounce back, recession fears, tax cuts, oil shocks, a tech bubble bursting, AI breakthroughs, bank runs, tourist booms, mystery buyers and product recalls, about four surprises a day |
+| Planes | ✅ airliners cross the sky with blinking lights about once a minute |
+| Plane crashes | ✅ the rare crash in the news is shown: an airliner with a failed engine comes down into a tower, with a fireball, a flash and smoke. Very rarely it is one of your buildings: you pay a share of the repairs and the whole market crashes again |
+
 ## Roadmap
 
 1. ✅ The New York map
@@ -273,6 +304,9 @@ From the 5 new reference videos (a player-run economy game on the real world map
 18. ✅ **Logistics:** ports, ships and trucks moving goods between cities
 19. ✅ **Wiki, changelog and community**
 20. ✅ **Launch on PC:** hosting for a game of any size, then a desktop download (Steam / itch.io)
+21. ✅ **High-end graphics:** bloom, grading, a sun that follows the clock, clouds, glass, water, night lights
+22. ✅ **Simpler:** a new menu, online-only play, a clean map and screen, a tutorial
+23. ✅ **Surprises:** more market events, planes in the sky, plane crashes
 
 ## Legal
 

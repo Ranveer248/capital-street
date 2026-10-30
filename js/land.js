@@ -58,7 +58,7 @@ window.Land = (function () {
   }
 
   // ---------- on the map: thin white outlines, coloured fills for yours, theirs, deals and auctions ----------
-  let lines = null, fills = null, sel = null;
+  let lines = null, fills = null, sel = null, showAll = false; // showAll: everyone's plots and the outlines, while you browse property (js/hud.js)
   const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.4, depthWrite: false });
   const fillMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.6, depthWrite: false, toneMapped: false, side: THREE.DoubleSide });
   function build() {
@@ -80,7 +80,7 @@ window.Land = (function () {
       for (let k = 0; k < 6; k++) col.push(...c);
     };
     for (const p of plots.values()) {
-      const k = keyOf(p), c = sel === p ? COL.sel : mine(p) ? COL.mine : theirs(p) ? COL.theirs : marks.auction.has(k) ? COL.auction : marks.deal.has(k) ? COL.deal : null;
+      const k = keyOf(p), c = sel === p ? COL.sel : mine(p) ? COL.mine : !showAll ? null : theirs(p) ? COL.theirs : marks.auction.has(k) ? COL.auction : marks.deal.has(k) ? COL.deal : null;
       if (c) add(p, c);
     }
     if (!pos.length) return;
@@ -90,8 +90,10 @@ window.Land = (function () {
   }
   frameHooks.push((dt, dist) => { // outlines fade in from 30 km and out again at street level
     if (!lines) return;
+    const all = !window.HUD || HUD.browsing || !!sel;
+    if (all !== showAll) { showAll = all; drawFills(); }
     const a = Math.min(1, Math.max(0, (30000 - dist) / 12000)) * Math.min(1, Math.max(0, (dist - 150) / 400));
-    lines.visible = a > 0.02; lineMat.opacity = 0.45 * a;
+    lines.visible = a > 0.02 && showAll; lineMat.opacity = 0.45 * a;
     if (fills) { fills.visible = dist < 60000; fillMat.opacity = 0.65 * Math.min(1, Math.max(0.35, (60000 - dist) / 30000)); }
   });
 

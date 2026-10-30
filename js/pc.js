@@ -166,8 +166,6 @@
     const open = Object.keys(CITIES).filter(k => s.cities[k]), locked = Object.keys(CITIES).length - open.length;
     $('worldD').textContent = open.map(k => CITIES[k].name).join(', ') + (locked ? ` · ${locked} more ${locked === 1 ? 'city' : 'cities'} to unlock` : '');
     $('mstatusT').textContent = `${CITY.name.toUpperCase()} · ${st === 'OPEN' ? 'MARKET OPEN' : 'MARKET CLOSED'} · ${hhmm(s.time)}`;
-    const ns = window.Net ? Net.status : 'off';
-    $('onlineD').textContent = ns === 'off' ? 'Not set up yet: playing solo' : ns === 'online' ? `Signed in as ${Net.me.name} · ${Net.online.length} online` : ns === 'connecting' ? 'Connecting…' : ns === 'no-player' ? 'Pick your player name' : 'Share the world with everyone and chat';
     $('empire').hidden = !started;
     if (started) {
       $('empW').textContent = usd(M.netWorth());

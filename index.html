@@ -627,6 +627,109 @@ h1 { -webkit-text-stroke: 3px var(--ol); paint-order: stroke fill; text-shadow: 
 .logi { display: grid; gap: 8px; } .logi .note b.up { color: var(--c-green); } .logi .note b.dn { color: #ff9aa4; }
 .planout .cards span { display: block; font-size: 10px; color: var(--x-dim); text-transform: none; letter-spacing: 0; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
+/* ---------- Goal 22: the menu, joining, the tutorial, a simpler screen ---------- */
+#title.ov { display: grid; grid-template-rows: auto 1fr auto auto; grid-template-columns: minmax(0, 1fr); justify-content: stretch; align-content: stretch; justify-items: center; align-items: start; gap: 12px; padding: max(14px, env(safe-area-inset-top)) 16px max(12px, env(safe-area-inset-bottom));
+  background: linear-gradient(to top, rgba(46, 22, 130, .82), rgba(46, 22, 130, 0) 48%), linear-gradient(to bottom, rgba(10, 15, 46, .5), rgba(10, 15, 46, 0) 24%); }
+#title[hidden] { display: none !important; }
+#title .mtop { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+#title .mi .mk { display: none !important; }
+#title .prof { width: auto; display: flex; align-items: center; gap: 10px; padding: 5px 18px 5px 5px; border-radius: 999px; background: var(--pb) !important; border: 3px solid var(--ol) !important; box-shadow: 0 4px 0 var(--ol) !important; translate: none !important; cursor: pointer; }
+#title .prof:hover { translate: 0 -2px !important; }
+.pav { width: 40px; height: 40px; flex: none; border-radius: 50%; display: grid; place-items: center; border: 3px solid var(--ol); font: 400 18px/1 'Archivo Black', sans-serif; font-style: normal; color: #fff; text-shadow: 0 2px 0 var(--ol); }
+#title .prof .mt { text-align: left; } #title .prof b { font: 800 15px/1.15 Inter, sans-serif; color: #fff; } #title .prof small { font: 800 11px/1.2 Inter, sans-serif; color: var(--tdim); } #title .prof.on small { color: var(--c-green); }
+#title #mstatus { display: flex !important; position: static; align-items: center; gap: 8px; padding: 8px 14px; font: 800 11px/1 Inter, sans-serif; letter-spacing: .06em; }
+#title .brand { align-self: center; margin-top: -6vh; justify-items: center; text-align: center; }
+#title .menu-foot { justify-items: center; }
+#title .brand h1 { filter: drop-shadow(0 10px 24px rgba(10, 15, 46, .45)); }
+#title .mmid { width: min(600px, 100%); display: grid; gap: 16px; justify-items: center; }
+#title #empire, #title #empire:not([hidden]) { position: static; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; padding: 0 !important; background: none !important; border: 0 !important; box-shadow: none !important; width: auto; animation: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+#title #empire[hidden] { display: none; }
+#title #empire > div { min-width: 92px; padding: 6px 14px 7px; border-radius: 14px; background: rgba(28, 42, 120, .88); border: 3px solid var(--ol); box-shadow: 0 3px 0 var(--ol); display: grid; gap: 3px; justify-items: center; }
+#title #empire small { font: 800 9px/1 Inter, sans-serif; letter-spacing: .12em; color: var(--c-gold); }
+#title #empire b { font: 400 16px/1 'Archivo Black', sans-serif; color: #fff; } #title #empD { display: none; }
+#title #play { position: relative; overflow: hidden; width: min(440px, 100%); justify-content: center; text-align: center; gap: 0; padding: 16px 24px 14px; border-radius: 26px;
+  background: linear-gradient(#45f08f, #17b257) !important; border: 4px solid var(--ol) !important; box-shadow: 0 7px 0 var(--ol), 0 0 0 7px rgba(255, 255, 255, .16) !important; translate: none !important; animation: playPulse 2.4s ease-in-out infinite; }
+#title #play:hover { translate: 0 -3px !important; } #title #play:active { translate: 0 4px !important; box-shadow: 0 3px 0 var(--ol) !important; }
+#title #play .mt { justify-items: center; }
+#title #play b { font: 400 38px/1 'Archivo Black', sans-serif; color: #fff; letter-spacing: .04em; -webkit-text-stroke: 3px var(--ol); paint-order: stroke fill; text-shadow: 0 4px 0 var(--ol); text-transform: uppercase; }
+#title #play small { font: 800 12px/1.3 Inter, sans-serif; color: #06380f; margin-top: 4px; }
+#title #play kbd { position: absolute; right: 14px; top: 50%; translate: 0 -50%; color: #06380f; border-color: rgba(6, 56, 15, .4); }
+#title #play::after { content: ''; position: absolute; inset: -20% auto -20% -40%; width: 30%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .55), transparent); rotate: 12deg; animation: shine 3.2s ease-in-out infinite; pointer-events: none; }
+@keyframes playPulse { 50% { scale: 1.03; } }
+@keyframes shine { 0%, 55% { left: -40%; } 100% { left: 130%; } }
+#title .mrow { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 16px; }
+#title .rb { width: 80px; display: grid; justify-items: center; gap: 6px; padding: 0; background: none !important; border: 0 !important; box-shadow: none !important; translate: none !important; color: #fff; text-decoration: none; }
+#title .rb[hidden] { display: none; }
+#title .rb .ri { width: 60px; height: 60px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(var(--rc, #4c8dff), var(--rc2, #2148b8)); border: 4px solid var(--ol); box-shadow: 0 5px 0 var(--ol);
+  font: 400 26px/1 'Archivo Black', sans-serif; color: #fff; text-shadow: 0 2px 0 var(--ol); transition: translate .2s var(--spring); }
+#title .rb .ri svg.i { width: 28px; height: 28px; stroke: #fff; stroke-width: 2.4; }
+#title .rb:hover .ri, #title .rb.sel .ri, #title .rb:focus-visible .ri { translate: 0 -4px; }
+#title .rb .mt { text-align: center; } #title .rb b { font: 800 12px/1.15 Inter, sans-serif; text-shadow: 0 2px 0 var(--ol); } #title .rb small, #title .rb kbd { display: none; }
+#title #mNew.warn small { display: block; font: 700 10px/1.2 Inter, sans-serif; color: #ffb4b4; }
+#mWorld { --rc: #2fd47a; --rc2: #14904a; } #mTut { --rc: #ffd21f; --rc2: #e09a00; } #mSettings { --rc: #a35cff; --rc2: #6a2fd0; } #mCredits { --rc: #ff6fae; --rc2: #d0306f; } #mNew { --rc: #ff8a3d; --rc2: #d0541a; }
+#title .menu-foot { display: grid; gap: 6px; justify-items: center; } #title .menu-foot small { color: #e6e9ff; opacity: .8; font-size: 11px; text-align: center; }
+@media (max-width: 600px) {
+  #title #mstatus { display: none !important; }
+  #title .mrow { gap: 10px 6px; flex-wrap: nowrap; } #title .rb { width: 62px; } #title .rb b { font-size: 11px; }
+  #title #empire > div:nth-child(4) { display: none; } #title .rb .ri { width: 50px; height: 50px; font-size: 21px; } #title .rb .ri svg.i { width: 23px; height: 23px; }
+  #title #play b { font-size: 30px; } #title #play kbd { display: none; }
+  #title #empire > div { min-width: 70px; padding: 5px 9px; } #title #empire b { font-size: 13px; }
+}
+#join { position: fixed; inset: 0; z-index: 9; display: grid; place-items: center; padding: 16px; background: rgba(10, 15, 46, .55); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+#join[hidden] { display: none; }
+.jbox { position: relative; width: min(420px, 100%); display: grid; gap: 12px; justify-items: center; text-align: center; padding: 0 22px 18px; margin-top: 40px; border-radius: 28px; background: var(--pb); border: 4px solid var(--ol); box-shadow: 0 8px 0 var(--ol); animation: jpop .4s var(--spring); }
+@keyframes jpop { from { scale: .85; opacity: 0; } }
+.jlogo { width: 80px; height: 80px; margin-top: -42px; display: grid; place-items: center; font-size: 40px; border-radius: 50%; background: linear-gradient(var(--c-gold), var(--c-gold2)); border: 4px solid var(--ol); box-shadow: 0 5px 0 var(--ol); }
+.jbox > b { font: 400 28px/1.1 'Archivo Black', sans-serif; text-shadow: 0 3px 0 var(--ol); }
+.jbox p { margin: 0; color: var(--soft); font: 600 14px/1.45 Inter, sans-serif; }
+#jForm { width: 100%; display: grid; gap: 12px; }
+#jName { width: 100%; padding: 14px 16px; border-radius: 16px; border: 3px solid var(--ol); background: #fff; color: #0a0f2e; font: 800 20px/1 Inter, sans-serif; text-align: center; user-select: text; -webkit-user-select: text; }
+.jcols { display: flex; flex-wrap: wrap; justify-content: center; gap: 9px; }
+.jcols button { width: 34px; height: 34px; padding: 0; border-radius: 50%; border: 3px solid var(--ol); box-shadow: 0 3px 0 var(--ol); cursor: pointer; } .jcols button.on { outline: 3px solid #fff; outline-offset: 2px; }
+.jbox .btn.big { padding: 16px; font: 400 24px/1 'Archivo Black', sans-serif; letter-spacing: .04em; }
+.jbox .jwhy { color: #ffb4b4; font-weight: 800; }
+.jrow { width: 100%; display: grid; gap: 8px; }
+.jx { position: absolute; top: 10px; right: 14px; padding: 4px; background: none; border: 0; color: var(--tdim); font-size: 18px; cursor: pointer; }
+.jbox small { color: var(--tdim); font-size: 11px; } .jbox small a { color: #fff; } .jbox .lnk { background: none; border: 0; color: var(--c-gold); font: 800 13px/1 Inter, sans-serif; cursor: pointer; text-decoration: underline; }
+.jspin { width: 42px; height: 42px; border-radius: 50%; border: 5px solid rgba(255, 255, 255, .2); border-top-color: var(--c-gold); animation: jspin 1s linear infinite; }
+@keyframes jspin { to { rotate: 360deg; } }
+#tut { position: fixed; inset: 0; z-index: 9; pointer-events: none; }
+#tut[hidden] { display: none; }
+#tut.dim { background: rgba(10, 15, 46, .5); pointer-events: auto; }
+.thole { position: fixed; border-radius: 18px; box-shadow: 0 0 0 9999px rgba(10, 15, 46, .5); outline: 4px solid var(--c-gold); outline-offset: 0; pointer-events: none; transition: left .35s var(--glide), top .35s var(--glide), width .35s var(--glide), height .35s var(--glide); animation: tring 1.3s ease-in-out infinite; }
+@keyframes tring { 50% { outline-offset: 5px; outline-color: #fff; } }
+.tbub { position: fixed; left: 0; top: 0; width: min(370px, calc(100vw - 24px)); display: flex; gap: 10px; align-items: flex-start; padding: 14px 14px 12px; border-radius: 22px; background: #fff; color: #0a0f2e; border: 4px solid var(--ol); box-shadow: 0 6px 0 var(--ol); pointer-events: auto; transition: left .35s var(--glide), top .35s var(--glide); }
+.tpig { font-size: 42px; line-height: 1; animation: tbob 1.8s ease-in-out infinite; }
+@keyframes tbob { 50% { translate: 0 -5px; rotate: -6deg; } }
+.ttxt { flex: 1; display: grid; gap: 6px; } .ttxt small { font: 800 10px/1 Inter, sans-serif; letter-spacing: .12em; color: #7a83a6; }
+.ttxt p { margin: 0; font: 600 15px/1.42 Inter, sans-serif; } .ttxt p b { color: #1c2a78; } .ttxt p b.g { color: #0f9d4a; } .ttxt p b.r { color: #d93a3a; }
+.tbtns { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 2px; }
+.tbtns .lnk { padding: 4px 0; background: none; border: 0; color: #7a83a6; font: 700 12px/1 Inter, sans-serif; cursor: pointer; } .tbtns .btn { padding: 9px 18px; }
+.tbtns .btn[hidden] { display: none; }
+#slowDev { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 16px; background: rgba(10, 15, 46, .6); }
+.sdbox { width: min(440px, 100%); display: grid; gap: 12px; justify-items: center; text-align: center; padding: 22px; border-radius: 26px; background: var(--pb); border: 4px solid var(--ol); box-shadow: 0 8px 0 var(--ol); }
+.sdic { font-size: 40px; } .sdbox b { font: 400 24px/1.1 'Archivo Black', sans-serif; text-shadow: 0 3px 0 var(--ol); } .sdbox p { margin: 0; color: var(--soft); font: 600 14px/1.45 Inter, sans-serif; }
+.sdrow { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+#ticker, #keys, #hint { display: none !important; }
+#rentBox:not(.soon):not(.late), #debtBox[hidden] { display: none !important; }
+#dock { bottom: calc(env(safe-area-inset-bottom) + 14px) !important; }
+/* ---------- Goal 22: a cleaner, more real trading screen ---------- */
+@media (min-width: 900px) {
+  #ex { width: min(1180px, 80vw) !important; }
+  #exBody { grid-template-columns: 250px minmax(0, 1fr) 260px !important; }
+  #breaking { left: 16px; top: 150px; transform: translate(-12px, 0); width: 380px; }
+  #breaking.on { transform: none; }
+}
+#ticket > .sec:first-child, #ticket .book { display: none !important; }
+#detail .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+#detail .stats > div:nth-child(1), #detail .stats > div:nth-child(2), #detail .stats > div:nth-child(5), #detail .stats > div:nth-child(6) { display: none; }
+#detail .stats > div { padding: 8px 10px; border-radius: 12px; background: var(--pi); border: 2px solid var(--ol); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 800; }
+#detail .stats b { font: 800 16px/1.25 Inter, sans-serif; }
+#ex, #props, #listing, #pf, #bank { font-variant-numeric: tabular-nums; }
+#detail .dh .big { font-size: 34px; }
+#breaking { border-radius: 16px; border: 3px solid var(--ol) !important; box-shadow: 0 5px 0 var(--ol); }
+#propsBody .chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; } #propsBody .chips::-webkit-scrollbar { display: none; } #propsBody .chips button { flex: none; }
+@media (min-width: 900px) { body.wide #dock { opacity: 0; pointer-events: none; } }
 </style>
 </head>
 <body>
@@ -702,27 +805,29 @@ h1 { -webkit-text-stroke: 3px var(--ol); paint-order: stroke fill; text-shadow: 
 </div>
 <div id="story" hidden><div class="box" id="storyBox"></div></div>
 <div id="title" class="ov" hidden>
-  <div class="menu-col">
-    <div class="brand">
-      <div class="over">A WALL STREET STORY</div>
-      <h1>CAPITAL<br><em>STREET</em></h1>
-      <p class="tagline">You live alone in a tiny New York apartment and the rent is due. You just found some cash. Trade it into a fortune.</p>
-    </div>
-    <nav class="menu" aria-label="Main menu">
-      <button id="play" class="mi sel"><span class="mk"></span><span class="mt"><b id="playT">Play</b><small id="playD">Rent is due in 3 days</small></span><kbd>Enter</kbd></button>
-      <button id="mNew" class="mi" hidden><span class="mk"></span><span class="mt"><b>New game</b><small id="newD">Start over from day 1</small></span><kbd>N</kbd></button>
-      <button id="mWorld" class="mi"><span class="mk"></span><span class="mt"><b>World</b><small id="worldD">Your cities on the globe</small></span><kbd>M</kbd></button>
-      <button id="mOnline" class="mi"><span class="mk"></span><span class="mt"><b>Online</b><small id="onlineD">Playing solo</small></span><kbd>O</kbd></button>
-      <button id="mSettings" class="mi"><span class="mk"></span><span class="mt"><b>Settings</b><small>Graphics and controls</small></span><kbd>S</kbd></button>
-      <a id="mCredits" class="mi" href="credits.html" target="_blank" rel="noopener"><span class="mk"></span><span class="mt"><b>Credits</b></span><kbd>C</kbd></a>
-    </nav>
-    <div class="menu-foot">
-      <nav class="legal"><a href="terms.html" target="_blank" rel="noopener">Terms</a><a href="privacy.html" target="_blank" rel="noopener">Privacy</a><a href="credits.html" target="_blank" rel="noopener">Credits</a><a href="wiki.html" target="_blank" rel="noopener">Wiki</a><a href="changelog.html" target="_blank" rel="noopener">What's new</a></nav>
-      <small>Paper trading · fictional companies · anything can happen</small>
-    </div>
+  <div class="mtop">
+    <button id="mOnline" class="mi prof"><i class="pav" id="pAv">?</i><span class="mt"><b id="pName">New player</b><small id="onlineD">Connecting…</small></span></button>
+    <div id="mstatus"><span class="dot"></span><span id="mstatusT">NEW YORK</span></div>
   </div>
-  <div id="mstatus"><span class="dot"></span><span id="mstatusT">NEW YORK</span></div>
-  <div id="empire" hidden><small>YOUR EMPIRE</small><b id="empW">$0</b><span id="empD"></span><div class="chips"><div>Cash<b id="empC">$0</b></div><div>Buildings<b id="empB">0</b></div><div>Staff<b id="empS">0</b></div></div></div>
+  <div class="brand">
+    <div class="over">A WALL STREET STORY</div>
+    <h1>CAPITAL<br><em>STREET</em></h1>
+  </div>
+  <div class="mmid">
+    <div id="empire" hidden><div><small>NET WORTH</small><b id="empW">$0</b></div><div><small>CASH</small><b id="empC">$0</b></div><div><small>BUILDINGS</small><b id="empB">0</b></div><div><small>STAFF</small><b id="empS">0</b></div><span id="empD"></span></div>
+    <button id="play" class="mi sel"><span class="mk"></span><span class="mt"><b id="playT">Play</b><small id="playD">Rent is due in 3 days</small></span><kbd>Enter</kbd></button>
+    <nav class="mrow" aria-label="Main menu">
+      <button id="mWorld" class="mi rb"><span class="mk"></span><span class="ri"><svg class="i"><use href="#i-globe"/></svg></span><span class="mt"><b>World</b><small id="worldD">Your cities</small></span><kbd>M</kbd></button>
+      <button id="mTut" class="mi rb"><span class="mk"></span><span class="ri">?</span><span class="mt"><b>How to play</b><small>The tutorial</small></span><kbd>H</kbd></button>
+      <button id="mSettings" class="mi rb"><span class="mk"></span><span class="ri"><svg class="i"><use href="#i-gear"/></svg></span><span class="mt"><b>Settings</b><small>Graphics and controls</small></span><kbd>S</kbd></button>
+      <a id="mCredits" class="mi rb" href="credits.html" target="_blank" rel="noopener"><span class="mk"></span><span class="ri">★</span><span class="mt"><b>Credits</b><small>Who made it</small></span><kbd>C</kbd></a>
+      <button id="mNew" class="mi rb" hidden><span class="mk"></span><span class="ri">↺</span><span class="mt"><b>New game</b><small id="newD">Start over from day 1</small></span><kbd>N</kbd></button>
+    </nav>
+  </div>
+  <div class="menu-foot">
+    <nav class="legal"><a href="terms.html" target="_blank" rel="noopener">Terms</a><a href="privacy.html" target="_blank" rel="noopener">Privacy</a><a href="credits.html" target="_blank" rel="noopener">Credits</a><a href="wiki.html" target="_blank" rel="noopener">Wiki</a><a href="changelog.html" target="_blank" rel="noopener">What's new</a></nav>
+    <small>Paper trading · fictional companies · anything can happen · © 2026 Pocket Rocket Studio</small>
+  </div>
 </div>
 <div id="load">Loading New York…<small id="loadMsg">Fetching 56,000 real buildings</small></div>
 
@@ -1376,7 +1481,10 @@ function buildGlobe(world) {
   backdrop.renderOrder = -2; stars.renderOrder = -1; glow.renderOrder = 0; earth.renderOrder = 1;
   globe.scene.add(backdrop, stars, earth, glow);
 }
-function renderGlobeAndCity(dist) {
+function renderGlobeAndCity(dist) { // through the film finish in js/gfx.js when it is there
+  if (window.Post) Post.frame(dist, drawWorld); else drawWorld(dist);
+}
+function drawWorld(dist) {
   const t = Math.min(1, Math.max(0, (Math.log(dist) - Math.log(1.4e6)) / (Math.log(3.2e6) - Math.log(1.4e6))));
   globe.t = t * t * (3 - 2 * t);
   renderer.autoClear = false;
@@ -1495,7 +1603,7 @@ function startGame(to = view(PLACE.home, 70, 0.55, AZ, homeTop), msg = window.Ma
   });
   homeLabel.hidden = false;
 }
-document.getElementById('play').onclick = () => startGame();
+document.getElementById('play').onclick = () => window.HUD ? HUD.play() : startGame(); // js/hud.js takes you online first
 
 (async () => {
   try {
@@ -1579,6 +1687,10 @@ document.getElementById('play').onclick = () => startGame();
 <script src="js/pc.js"></script>
 <script src="js/levels.js"></script>
 <script src="js/smooth.js"></script>
+<script src="js/gfx.js"></script>
+<script src="js/sky.js"></script>
+<script src="js/hud.js"></script>
+<script src="js/tutorial.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

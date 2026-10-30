@@ -154,12 +154,12 @@ window.Property = (function () {
     const was = pickMesh && pickMesh.visible, auto = renderer.autoClear, shadows = renderer.shadowMap.autoUpdate;
     if (pickMesh) pickMesh.visible = false;
     renderer.autoClear = true; renderer.shadowMap.autoUpdate = false;
-    renderer.render(scene, cam);
+    if (window.Post) Post.shot(cam); else renderer.render(scene, cam);
     const out = document.createElement('canvas'); out.width = W; out.height = H;
     const sw = Math.min(cv.width, cv.height * W / H), sh = sw * H / W; // the middle of the screen, cropped to the photo's shape
     out.getContext('2d').drawImage(cv, (cv.width - sw) / 2, (cv.height - sh) / 2, sw, sh, 0, 0, W, H);
     if (pickMesh) pickMesh.visible = was;
-    renderer.render(scene, camera); // put the normal view back before anything is shown
+    if (window.Post) Post.shot(camera); else renderer.render(scene, camera); // put the normal view back before anything is shown
     renderer.autoClear = auto; renderer.shadowMap.autoUpdate = shadows;
     const url = out.toDataURL('image/jpeg', 0.82);
     photos.set(it.g, url);

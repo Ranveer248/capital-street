@@ -236,6 +236,7 @@
   }
   const facts = list => `<div class="facts">${list.map(([k, v, warn]) => `<div class="${warn ? 'warn' : ''}">${k}<b>${v}</b></div>`).join('')}</div>`;
   function intro() {
+    if (window.Tutorial && Tutorial.want()) { Tutorial.start(); return; } // js/tutorial.js: Penny shows new players around
     if (S().started) { toast('Welcome back', `Day ${M.day()}: you have ${usd(M.netWorth())}.`); return; }
     story(`<small>DAY 1 · YOUR APARTMENT</small><b>Rent is due.</b><p>Just you, a mattress, a laptop and a stack of bills. The landlord wants ${usd(M.RENT, 0)} by the end of day 3.</p>${facts([['Bank account', '$340'], ['Rent due', usd(M.RENT, 0) + ' · 3 days', true]])}`,
       [['Look around', () => story(`<small>WAIT…</small><b>You found $2,000.</b><p>Taped under a loose floorboard: an envelope stuffed with cash. It covers the rent, but not much else. Unless you make it grow.</p>${facts([['Cash now', '$2,340'], ['Rent', usd(M.RENT, 0), true]])}<p>Your laptop has a paper-trading app with fictional New York companies. Prices move every minute, and anything can happen. Need more to trade with? Big Apple Bank on Wall Street gives small starter loans.</p>`,
@@ -243,7 +244,7 @@
   }
   M.on((type, d) => {
     if (type === 'event') {
-      const good = ['rally', 'merger', 'squeeze'].includes(d.kind) || (d.kind === 'earnings' && d.title.includes('SMASHES'));
+      const good = ['rally', 'merger', 'squeeze', 'bull', 'stimulus', 'ai', 'tourism', 'whale'].includes(d.kind) || (d.kind === 'oil' && d.title.includes('COLLAPSE')) || (d.kind === 'earnings' && d.title.includes('SMASHES'));
       let look = null;
       if (d.smoke && window.CS && CS.smoke) { const at = CS.smoke(); look = () => { $('breaking').classList.remove('on'); ex.hidden = true; flyTo(view(at, 900, 0.9, current().az)); }; }
       breaking('BREAKING NEWS · ' + hhmm(d.time), d.title, d.text, good, look);

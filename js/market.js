@@ -73,7 +73,19 @@
     { w: 2, run() { const c = pick(LISTED()), d = 0.2 + rnd() * 0.25; return { kind: 'merger', title: `${c.t} TO BE BOUGHT OUT`, text: `A rival offers a big premium for ${c.name}.`, fx: [{ who: c.t, jump: d, sticky: true }] }; } },
     { w: 1, run() { return { kind: 'hack', title: 'EXCHANGE HACKED', text: 'Trading is halted while the exchange investigates.', fx: [{ who: 'all', jump: -0.02, sticky: true }], halt: 20 }; } },
     { w: 2, run() { return { kind: 'storm', title: 'HURRICANE HEADS FOR NEW YORK', text: 'Energy and builders up, shops and taxis down.', fx: [{ who: 'Energy', jump: 0.07, sticky: true }, { who: 'Construction', jump: 0.06, sticky: true }, { who: 'Retail', jump: -0.05, sticky: true }, { who: 'Transport', jump: -0.06, sticky: true }] }; } },
-    { w: 2, run() { const s = pick(SECTORS), good = rnd() < 0.5, d = (0.05 + rnd() * 0.08) * (good ? 1 : -1); return { kind: 'sector', title: `${s.toUpperCase()} ${good ? 'BOOM' : 'SLUMP'}`, text: `${good ? 'Money floods into' : 'Investors flee'} ${s.toLowerCase()} stocks.`, fx: [{ who: s, jump: d * 0.4, drift: d * 0.6 / 30, mins: 30, sticky: true }] }; } }
+    { w: 2, run() { const s = pick(SECTORS), good = rnd() < 0.5, d = (0.05 + rnd() * 0.08) * (good ? 1 : -1); return { kind: 'sector', title: `${s.toUpperCase()} ${good ? 'BOOM' : 'SLUMP'}`, text: `${good ? 'Money floods into' : 'Investors flee'} ${s.toLowerCase()} stocks.`, fx: [{ who: s, jump: d * 0.4, drift: d * 0.6 / 30, mins: 30, sticky: true }] }; } },
+    // Goal 23: more ways for the market to surprise you
+    { w: 2, run() { const total = 0.12 + rnd() * 0.15; return { kind: 'bull', title: 'BULL RUN!', text: 'Everyone is buying. Prices climb hour after hour.', fx: [{ who: 'all', jump: total * 0.15, drift: total * 0.85 / 90, mins: 90, sticky: true }] }; } },
+    { w: 2, run() { return { kind: 'flash', title: 'FLASH CRASH', text: 'A trading robot goes haywire. Prices drop in seconds... and start to bounce back.', fx: [{ who: 'all', jump: -0.08 - rnd() * 0.06 }] }; } },
+    { w: 1, run() { return { kind: 'recession', title: 'RECESSION FEARS', text: 'Shoppers stop spending. Shops and builders slide for days.', fx: [{ who: 'all', jump: -0.04, drift: -0.06 / 120, mins: 120, sticky: true }, { who: 'Retail', jump: -0.06, sticky: true }, { who: 'Construction', jump: -0.05, sticky: true }] }; } },
+    { w: 2, run() { return { kind: 'stimulus', title: 'GOVERNMENT CUTS TAXES', text: 'Free money for everyone. Shops and builders cheer.', fx: [{ who: 'all', jump: 0.04, sticky: true }, { who: 'Construction', jump: 0.07, sticky: true }, { who: 'Retail', jump: 0.06, sticky: true }] }; } },
+    { w: 2, run() { const up = rnd() < 0.5; return { kind: 'oil', title: up ? 'OIL PRICES SKYROCKET' : 'OIL PRICES COLLAPSE', text: up ? 'Energy stocks gush, airlines and taxis suffer.' : 'Cheap fuel: transport soars, energy sinks.', fx: [{ who: 'Energy', jump: up ? 0.14 : -0.12, sticky: true }, { who: 'Transport', jump: up ? -0.09 : 0.08, sticky: true }] }; } },
+    { w: 1, run() { return { kind: 'bubble', title: 'TECH BUBBLE BURSTS', text: 'The party is over for tech and crypto.', fx: [{ who: 'Tech', jump: -0.14, drift: -0.1 / 40, mins: 40, sticky: true }, { who: 'Crypto', jump: -0.3, sticky: true }] }; } },
+    { w: 2, run() { return { kind: 'ai', title: 'AI BREAKTHROUGH', text: 'A new robot brain amazes the world. Tech stocks fly.', fx: [{ who: 'Tech', jump: 0.1, drift: 0.06 / 30, mins: 30, sticky: true }] }; } },
+    { w: 1, run() { return { kind: 'bankrun', title: 'BANK RUN', text: 'Long lines outside the banks. Everyone wants their cash back.', fx: [{ who: 'Finance', jump: -0.18, sticky: true }, { who: 'all', jump: -0.03, sticky: true }] }; } },
+    { w: 2, run() { return { kind: 'tourism', title: 'RECORD TOURIST SEASON', text: 'The city is packed. Restaurants and shops are cashing in.', fx: [{ who: 'Food', jump: 0.08, sticky: true }, { who: 'Retail', jump: 0.06, sticky: true }, { who: 'Transport', jump: 0.04, sticky: true }] }; } },
+    { w: 3, run() { const c = pick(LISTED()), d = 0.2 + rnd() * 0.35; return { kind: 'whale', title: `MYSTERY BUYER SNAPS UP ${c.t}`, text: `Someone very rich is buying every share of ${c.name} they can find.`, fx: [{ who: c.t, jump: d * 0.5, drift: d * 0.5 / 20, mins: 20, sticky: true }] }; } },
+    { w: 2, run() { const c = pick(LISTED()), d = 0.15 + rnd() * 0.25; return { kind: 'recall', title: `${c.t} RECALLS ITS PRODUCTS`, text: `Customers are angry and ${c.name} shares tumble.`, fx: [{ who: c.t, jump: -d, sticky: true }] }; } },
   ];
   const EVENT_W = EVENTS.reduce((s, e) => s + e.w, 0);
 
@@ -158,7 +170,7 @@
     for (const p of Object.values(S.props)) { const r = p.floors * floorValue(p) * PROP_YIELD; p.earned += r; income += r; }
     if (income > 0) { S.cash = +(S.cash + income).toFixed(2); S.rentIncome += income; emit('property', { kind: 'income', income }); }
   }
-  const PROP_SHOCK = { crash: 0.95, rally: 1.02, plane: 0.92, blackout: 0.99, fed: 0.97, storm: 0.96, hack: 1 };
+  const PROP_SHOCK = { crash: 0.95, rally: 1.02, bull: 1.04, recession: 0.95, stimulus: 1.03, bankrun: 0.96, flash: 0.99, plane: 0.92, blackout: 0.99, fed: 0.97, storm: 0.96, hack: 1 };
 
   // other parts of the game (the office) add their own nightly work and their own value
   const dayHooks = [], worthHooks = [];
@@ -273,8 +285,8 @@
       const o = S.orders[i], p = priceOf(o.t);
       if ((o.side === 'buy' && p <= o.limit) || (o.side === 'sell' && p >= o.limit)) { S.orders.splice(i, 1); fill(o.side, o.t, o.shares, Math.min(p, o.side === 'buy' ? o.limit : Infinity) || p, true); }
     }
-    // roughly three surprises a day
-    if (rnd() < 3 / MIN_PER_DAY) { let r = rnd() * EVENT_W; applyEvent(EVENTS.find(e => (r -= e.w) < 0).run()); }
+    // roughly four surprises a day
+    if (rnd() < 4 / MIN_PER_DAY) { let r = rnd() * EVENT_W; applyEvent(EVENTS.find(e => (r -= e.w) < 0).run()); }
   }
 
   function fill(side, t, shares, price, fromLimit) {
