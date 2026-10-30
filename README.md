@@ -227,6 +227,15 @@ Cash still lives in each player's own save, so a player who edits their save cou
 | Trucks | ✅ hire a truck fleet per city ($40 a night for each farm, mine or well) and it picks up their storage every night, so you don't have to collect by hand |
 | Fits the economy | ✅ each city's price drops as you sell there and recovers overnight; goods at sea still count toward net worth |
 
+## Goal 19: wiki, changelog and community ✅ (outside channels wait on the owner)
+
+| Check | Result |
+|---|---|
+| Wiki | ✅ [wiki.html](wiki.html): getting started, trading, the bank, property, deals and auctions, land, businesses, factories and the planner, logistics, inside buildings, the office, your company, playing and trading online, levels, PC keys and community rules, in the bright style |
+| Changelog | ✅ [changelog.html](changelog.html): what's new, newest first |
+| Linked from the game | ✅ Wiki and What's new sit next to Terms, Privacy and Credits in the main menu and the pause menu |
+| Community | ✅ in-game chat (World and each city) with the fair-play rules from the Terms. ⬜ A Discord server or social accounts need the owner to create them |
+
 ## Roadmap
 
 1. ✅ The New York map
@@ -252,7 +261,7 @@ From the 5 new reference videos (a player-run economy game on the real world map
 16. ✅ **Inside buildings:** rooms, furniture, renting rooms to players and NPCs, extensions and basements, temperature (heat from machines, cooling, happy tenants and workers)
 17. ✅ **Companies and the stock market:** start a company, take it public, players trade its shares
 18. ✅ **Logistics:** ports, ships and trucks moving goods between cities
-19. **Wiki, changelog and community**
+19. ✅ **Wiki, changelog and community**
 20. **Launch on PC:** hosting for a game of any size, then a desktop download (Steam / itch.io)
 
 ## Legal

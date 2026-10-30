@@ -125,7 +125,7 @@
   pause.id = 'pause'; pause.className = 'ov2'; pause.hidden = true;
   pause.innerHTML = `<div class="pcard glass2" role="dialog" aria-label="Paused"><h2>PAUSED</h2><p id="pauseD"></p><nav class="menu">
     ${item('pResume', 'Resume', 'Esc')}${item('pSettings', 'Settings', 'S')}${item('pWorld', 'World map', 'M')}${item('pQuit', 'Save and quit to menu', 'Q', 'Your game is saved on this device')}</nav>
-    <nav class="legal"><a href="terms.html" target="_blank" rel="noopener">Terms</a><a href="privacy.html" target="_blank" rel="noopener">Privacy</a><a href="credits.html" target="_blank" rel="noopener">Credits</a></nav></div>`;
+    <nav class="legal"><a href="terms.html" target="_blank" rel="noopener">Terms</a><a href="privacy.html" target="_blank" rel="noopener">Privacy</a><a href="credits.html" target="_blank" rel="noopener">Credits</a><a href="wiki.html" target="_blank" rel="noopener">Wiki</a><a href="changelog.html" target="_blank" rel="noopener">What&#39;s new</a></nav></div>`;
   document.body.appendChild(pause);
   function openPause() {
     if (!inGame() || !pause.hidden) return;
