@@ -126,12 +126,12 @@
   const PROP_YIELD = 0.004, PROP_FEE = 0.06; // rent per floor per game day as a share of its value; selling costs 6%
   const floorValue = p => p.floorPrice * S.reIndex;
   const propValue = () => Object.values(S.props).reduce((sum, p) => sum + p.floors * floorValue(p), 0);
-  function buyProperty(id, floors, info) { // info: { name, floorPrice, totalFloors, x, z, type, street }
+  function buyProperty(id, floors, info, price) { // info: { name, floorPrice, totalFloors, x, z, type, street }; price: a deal or auction price
     const have = S.props[id] ? S.props[id].floors : 0;
     floors = Math.min(Math.floor(floors), info.totalFloors - have);
     if (!(floors > 0)) return { ok: false, why: 'You already own every floor' };
     const whole = have === 0 && floors === info.totalFloors && floors > 1;
-    const cost = +(floors * info.floorPrice * S.reIndex * (whole ? 0.95 : 1)).toFixed(2); // whole buildings get 5% off
+    const cost = price > 0 ? +price.toFixed(2) : +(floors * info.floorPrice * S.reIndex * (whole ? 0.95 : 1)).toFixed(2); // whole buildings get 5% off
     if (S.evicted) return { ok: false, why: 'You were evicted' };
     if (cost > S.cash) return { ok: false, why: `You need ${'$' + cost.toLocaleString('en-US', { maximumFractionDigits: 0 })} in cash` };
     S.cash = +(S.cash - cost).toFixed(2);

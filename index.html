@@ -327,7 +327,7 @@ kbd { display: inline-block; min-width: 20px; padding: 3px 6px; border-radius: 6
 .ov2 { position: fixed; inset: 0; z-index: 6; display: grid; place-items: center; padding: 16px; background: rgba(5, 9, 18, .62); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
 .ov2[hidden] { display: none; }
 #settings { z-index: 7; } /* above the pause menu it can be opened from */
-.pcard { width: min(510px, 100%); padding: 24px; display: grid; gap: 8px; }
+.pcard.glass2 { width: min(510px, 100%); padding: 24px; display: grid; gap: 8px; }
 .pcard h2, .smodal h2 { margin: 0; font: 400 40px/1 'Archivo Black', sans-serif; }
 .pcard > p { margin: 0 0 12px; color: var(--tdim); font: 500 14px/1.3 Inter, sans-serif; }
 .pcard .legal { margin-top: 8px; }
@@ -438,7 +438,7 @@ kbd { display: inline-block; min-width: 20px; padding: 3px 6px; border-radius: 6
 body { background: linear-gradient(var(--sky1), var(--sky2)); }
 #load { background: linear-gradient(160deg, var(--sky1), var(--sky2)); text-shadow: 0 3px 0 var(--ol); }
 /* panels: outline, lip and a coloured ribbon on top */
-#ex, #bank, #props, #listing, #cityCard, #net, #ostaff, #story .box, .pcard, .smodal, #empire:not([hidden]) {
+#ex, #bank, #props, #listing, #cityCard, #net, #ostaff, #story .box, .pcard.glass2, .smodal, #empire:not([hidden]) {
   border: 4px solid var(--ol) !important; border-radius: 22px !important; box-shadow: 0 6px 0 var(--ol), 0 22px 44px rgba(10, 15, 46, .45) !important;
   -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: var(--pb) !important;
 }
@@ -556,6 +556,26 @@ h1 { -webkit-text-stroke: 3px var(--ol); paint-order: stroke fill; text-shadow: 
 #lvlUp .rew i { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; font: 400 22px/1 'Archivo Black', sans-serif; font-style: normal; border: 3px solid var(--ol); background: linear-gradient(var(--rc, var(--c-green)), var(--rc2, var(--c-green2))); text-shadow: 0 2px 0 var(--ol); }
 #lvlUp .rew b { font: 400 18px/1.1 'Archivo Black', sans-serif; text-shadow: 0 2px 0 var(--ol); } #lvlUp .rew small { font: 700 12px/1.2 Inter, sans-serif; color: var(--tdim); }
 #lvlUp .btn { padding: 16px 40px; font: 400 22px/1 'Archivo Black', sans-serif; letter-spacing: .06em; }
+/* ---------- Goal 13: land, deals and auctions ---------- */
+.pcard { border: 2px solid var(--ol) !important; border-radius: 14px !important; background: var(--pi) !important; transition: translate .2s var(--spring); }
+.pcard:hover { translate: 0 -3px; } .pcard .was { text-decoration: line-through; }
+.tag.deal { background: var(--c-gold) !important; color: #2a1800 !important; } .tag.auc { background: var(--c-purple) !important; color: #fff !important; }
+.lab.place.deal { background: linear-gradient(var(--c-gold), var(--c-gold2)); color: #2a1800; cursor: pointer; pointer-events: auto; } .lab.place.deal i { font-style: normal; color: #7a1d00; }
+.lab.place.auctag { background: linear-gradient(var(--c-purple), var(--c-purple2)); color: #fff; cursor: pointer; pointer-events: auto; animation: aucPulse 1.6s ease-in-out infinite; }
+@keyframes aucPulse { 50% { box-shadow: 0 0 0 5px rgba(163, 92, 255, .35); } }
+.lpic s, .lp s { opacity: .7; }
+.auc { display: grid; grid-template-columns: 132px 1fr; gap: 12px; padding: 10px; margin-bottom: 10px; background: var(--pi); border: 2px solid var(--ol); border-radius: 16px; }
+.auc .pp { height: 100%; min-height: 110px; border-radius: 10px; overflow: hidden; border: 2px solid var(--ol); cursor: pointer; }
+.auc .pp img, .auc .pp svg { width: 100%; height: 100%; object-fit: cover; display: block; }
+.auc .ab { display: grid; gap: 6px; align-content: start; min-width: 0; } .auc .ab > b { font: 800 14px/1.2 Inter, sans-serif; } .auc .ab > span { color: var(--x-dim); font-size: 11px; }
+.arow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; } .arow div { padding: 6px 8px; border-radius: 10px; background: var(--pb); border: 2px solid var(--ol); font: 700 10px/1.2 Inter, sans-serif; color: var(--x-dim); text-transform: uppercase; letter-spacing: .04em; }
+.arow strong { display: block; font: 800 14px/1.25 Inter, sans-serif; color: #fff; text-transform: none; letter-spacing: 0; } .arow strong.up { color: var(--c-green); }
+.abid { display: flex; gap: 6px; } .abid input { flex: 1; min-width: 0; user-select: text; -webkit-user-select: text; background: var(--pb); border: 2px solid var(--ol); border-radius: 10px; padding: 8px 10px; color: #fff; font: 700 13px/1.2 Inter, sans-serif; }
+.abid .btn { padding: 8px 16px; } .auc small { color: var(--c-gold); font-size: 11px; }
+.ahd { display: block; margin: 14px 0 6px; font: 800 10px/1 Inter, sans-serif; letter-spacing: .12em; color: var(--x-dim); }
+.ares { display: flex; justify-content: space-between; gap: 10px; padding: 8px 10px; margin-bottom: 6px; border-radius: 10px; background: var(--pi); border: 2px solid var(--ol); font-size: 12px; } .ares.won span { color: var(--c-green); } .ares.lost span, .ares.unpaid span { color: #ff9aa4; }
+#props .tabs { overflow-x: auto; }
+@media (max-width: 520px) { .auc { grid-template-columns: 1fr; } .auc .pp { min-height: 120px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
 </style>
 </head>
@@ -618,7 +638,7 @@ h1 { -webkit-text-stroke: 3px var(--ol); paint-order: stroke fill; text-shadow: 
 </div>
 <div id="props" hidden>
   <div class="exh"><b>PROPERTY · NEW YORK</b><span class="st"></span><button id="propsX" aria-label="Close">✕</button></div>
-  <div class="tabs"><button data-pt="sale" class="on">For sale</button><button data-pt="mine">Yours</button></div>
+  <div class="tabs"><button data-pt="sale" class="on">For sale</button><button data-pt="deals">Deals</button><button data-pt="auctions">Auctions</button><button data-pt="land">Land</button><button data-pt="mine">Yours</button></div>
   <div id="propsBody"></div>
 </div>
 <div id="listing" hidden></div>
@@ -1258,6 +1278,7 @@ canvas.addEventListener('pointerup', e => {
   ray.setFromCamera(ndc, camera);
   if (window.Office && Office.active() && Office.tap(ray)) return; // inside your office: furnish it
   if (current().dist < 6000 && !document.getElementById('hud').hidden && window.Property && Property.tap(ray)) return; // a building: open its listing
+  if (current().dist < 30000 && !document.getElementById('hud').hidden && window.Land && Land.tap(ray)) return; // a land plot: open its card
   const hit = ray.ray.intersectPlane(ground, new THREE.Vector3());
   if (!hit) return;
   const r = Math.hypot(hit.x, hit.z), dist = current().dist;
@@ -1461,6 +1482,7 @@ document.getElementById('play').onclick = () => startGame();
     buildGlobe(world);
     await buildStreetLabels(nyc, streets);
     if (window.Property) Property.init(nyc, streets);
+    if (window.Land) Land.init(nyc);
     if (window.Office) Office.init(nyc);
     if (CITY.id === 'nyc') buildApartment(PLACE.home, homeTop, homeAngle); // your studio, with the ceiling off
     pin = new THREE.Group();
@@ -1493,6 +1515,8 @@ document.getElementById('play').onclick = () => startGame();
 <script src="js/net-config.js"></script>
 <script src="js/net.js"></script>
 <script src="js/property.js"></script>
+<script src="js/land.js"></script>
+<script src="js/auctions.js"></script>
 <script src="js/office.js"></script>
 <script src="js/world.js"></script>
 <script src="js/pc.js"></script>

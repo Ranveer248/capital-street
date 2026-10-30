@@ -74,6 +74,17 @@ window.Property = (function () {
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals(); geo.computeBoundingSphere();
     return geo;
   }
+  function merged(gs, grow) { // one geometry for many buildings
+    const pos = [], idx = [];
+    for (const g of gs) {
+      if (!groups.has(g)) continue;
+      const geo = shellGeo(g, grow), base = pos.length / 3;
+      pos.push(...geo.attributes.position.array); for (const i of geo.index.array) idx.push(base + i); geo.dispose();
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals(); geo.computeBoundingSphere();
+    return geo;
+  }
   let pickMesh = null, selected = null;
   const ownMeshes = new Map(), ownLabels = new Map();
   function highlight(g) {
@@ -111,17 +122,12 @@ window.Property = (function () {
       for (const [k] of Net.owners) if (isHere(k) && theirs(gOf(k)) && !owned(gOf(k)) && groups.has(gOf(k))) gs.push(gOf(k));
       for (const [g, l] of theirLabels) if (!gs.includes(g)) { l.el.remove(); labels.splice(labels.indexOf(l), 1); theirLabels.delete(g); }
       if (!gs.length) return;
-      const pos = [], idx = [];
       for (const g of gs) {
-        const geo = shellGeo(g, 0.25), base = pos.length / 3;
-        pos.push(...geo.attributes.position.array); for (const i of geo.index.array) idx.push(base + i); geo.dispose();
         const it = info(g), o = theirs(g), txt = esc(o.name).toUpperCase();
         if (!theirLabels.has(g)) { const l = label(txt, 'place theirs', [it.x, it.z], it.maxH + 6, 0, 2500); l.el.onclick = () => select(g, true); theirLabels.set(g, l); }
         else theirLabels.get(g).el.innerHTML = txt;
       }
-      const geo = new THREE.BufferGeometry();
-      geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals(); geo.computeBoundingSphere();
-      theirMesh = new THREE.Mesh(geo, theirMat); theirMesh.renderOrder = 11; scene.add(theirMesh);
+      theirMesh = new THREE.Mesh(merged(gs, 0.25), theirMat); theirMesh.renderOrder = 11; scene.add(theirMesh);
     }, 300);
   }
   if (window.Net) Net.on(t => { if (t === 'owners' || t === 'me') { drawTheirs(); if (!sheet.hidden && selected != null) drawListing(false); if (!panel.hidden) drawPanel(); } });
@@ -181,19 +187,22 @@ window.Property = (function () {
     const p = owned(selected), s = M.state, mine = p ? p.floors : 0, other = theirs(selected), left = other ? 0 : it.floors - mine;
     const income = it.floors * perFloor(it) * M.PROP_YIELD * 7;
     const pic = photos.get(it.g) || (withPhoto ? photo(it) : null);
+    const A = window.Auctions, auc = !p && !other && A && A.atAuction(key(selected)), disc = !p && !other && !auc && A ? A.discount(key(selected)) : 0;
+    const dealPrice = wholePrice(it) * (1 - disc);
     const trend = (s.reIndex - 1) * 100;
     sheet.innerHTML = `
       <div class="lsh"><b>PROPERTY LISTING</b><button id="lsX" aria-label="Close">✕</button></div>
-      <div class="lpic">${pic ? `<img src="${pic}" alt="">` : isoArt(it)}<span class="tag ${p ? 'own' : other ? 'theirs' : ''}">${p ? (left ? `You own ${mine} of ${it.floors} floors` : 'YOURS') : other ? `OWNED BY ${esc(other.name).toUpperCase()}` : 'FOR SALE'}</span></div>
+      <div class="lpic">${pic ? `<img src="${pic}" alt="">` : isoArt(it)}<span class="tag ${p ? 'own' : other ? 'theirs' : auc ? 'auc' : disc ? 'deal' : ''}">${p ? (left ? `You own ${mine} of ${it.floors} floors` : 'YOURS') : other ? `OWNED BY ${esc(other.name).toUpperCase()}` : auc ? 'AT AUCTION' : disc ? `DEAL · ${Math.round(disc * 100)}% OFF` : 'FOR SALE'}</span></div>
       <div class="lbody">
-        <div class="lt"><div><b>${it.type}</b><span>${it.name}</span></div><div class="lp"><strong>${usd(wholePrice(it))}</strong><span>${it.floors > 1 ? usd(perFloor(it)) + ' a floor' : 'whole building'}</span></div></div>
+        <div class="lt"><div><b>${it.type}</b><span>${it.name}</span></div><div class="lp"><strong>${usd(disc ? dealPrice : wholePrice(it))}</strong><span>${disc ? `<s>${usd(wholePrice(it))}</s> value` : it.floors > 1 ? usd(perFloor(it)) + ' a floor' : 'whole building'}</span></div></div>
         <div class="stats">
           <div>Floors<b>${it.floors}</b></div><div>Floor area<b>${Math.round(it.footprint).toLocaleString('en-US')} m²</b></div><div>Height<b>${Math.round(it.maxH)} m</b></div><div>Rent income<b class="up">${usd(income)}/wk</b></div>
           <div>Market<b class="${trend >= 0 ? 'up' : 'dn'}">${trend >= 0 ? '+' : ''}${trend.toFixed(1)}%</b></div><div>Your cash<b>${usd(s.cash, 2)}</b></div>${p ? `<div>Your value<b>${usd(p.floors * M.floorValue(p))}</b></div><div>Rent earned<b class="up">${usd(p.earned, 2)}</b></div>` : ''}
         </div>
         <div class="lbtns">
-          ${left > 0 && it.floors > 1 ? `<button class="buy" data-buy="1">Buy 1 floor · ${usd(perFloor(it))}</button>` : ''}
-          ${left > 0 ? `<button class="buy" data-buy="${left}">${mine ? `Buy the other ${left} floors` : it.floors > 1 ? 'Buy the whole building' : 'Buy it'} · ${usd(mine ? left * perFloor(it) : wholePrice(it))}</button>` : ''}
+          ${auc ? '<button class="buy" id="lsAuc">See the auction</button>' : ''}
+          ${left > 0 && !auc && it.floors > 1 ? `<button class="buy" data-buy="1">Buy 1 floor · ${usd(perFloor(it))}</button>` : ''}
+          ${left > 0 && !auc ? `<button class="buy" data-buy="${left}">${mine ? `Buy the other ${left} floors` : it.floors > 1 ? 'Buy the whole building' : 'Buy it'} · ${usd(mine ? left * perFloor(it) : disc ? dealPrice : wholePrice(it))}</button>` : ''}
           ${p && p.floors > 1 ? `<button class="sell" data-sell="1">Sell 1 floor · ${usd(M.floorValue(p) * (1 - M.PROP_FEE))}</button>` : ''}
           ${p ? `<button class="sell" data-sell="${p.floors}">Sell ${p.floors > 1 ? 'everything' : 'it'} · ${usd(p.floors * M.floorValue(p) * (1 - M.PROP_FEE))}</button>` : ''}
           ${p && window.Office ? (Office.hq() === it.g ? '<button class="buy" id="lsOffice">Enter your office</button>' : '<button class="plain" id="lsOffice">Make this my office</button>') : ''}
@@ -205,14 +214,15 @@ window.Property = (function () {
     sheet.hidden = false;
     $('lsX').onclick = deselect;
     $('lsFly').onclick = () => select(selected, true);
+    if ($('lsAuc')) $('lsAuc').onclick = () => open('auctions');
     if ($('lsOffice')) $('lsOffice').onclick = () => { if (Office.hq() !== it.g) { Office.setHQ(it.g); drawListing(false); } else Office.enter(); };
     sheet.querySelectorAll('[data-buy]').forEach(b => b.onclick = () => {
-      const n = +b.dataset.buy, cost = mine || n === 1 || it.floors === 1 ? n * perFloor(it) : wholePrice(it);
+      const n = +b.dataset.buy, deal = disc && !mine && n === it.floors, cost = deal ? dealPrice : mine || n === 1 || it.floors === 1 ? n * perFloor(it) : wholePrice(it);
       CSUI.story(`<small>BUY PROPERTY</small><b>${it.type} at ${it.name}</b><p>${n === it.floors ? 'The whole building' : n + ' floor' + (n > 1 ? 's' : '')} for ${usd(cost)}. It earns about ${usd(n * perFloor(it) * M.PROP_YIELD * 7)} a week in rent.</p>`,
         [['Buy it', async () => {
           if (cost > M.state.cash) { toast('Can\'t buy', `You need ${usd(cost)} in cash`); return; }
           if (window.Net) { const c = await Net.claim(key(it.g), mine + n, it.name); if (!c.ok) { toast('Can\'t buy', c.why); drawListing(false); return; } } // the shared world first
-          const r = M.buyProperty(key(it.g), n, { name: it.name, type: it.type, floorPrice: it.floorPrice, totalFloors: it.floors, x: it.x, z: it.z, city: CITY.id });
+          const r = M.buyProperty(key(it.g), n, { name: it.name, type: it.type, floorPrice: it.floorPrice, totalFloors: it.floors, x: it.x, z: it.z, city: CITY.id }, deal ? cost : 0);
           if (!r.ok) { toast('Can\'t buy', r.why); if (window.Net) { if (mine) Net.claim(key(it.g), mine, it.name); else Net.release(key(it.g)); } }
           drawListing(true);
         }], ['Not now', () => {}]]);
@@ -254,6 +264,7 @@ window.Property = (function () {
   function drawPanel() {
     const s = M.state;
     document.querySelectorAll('#props .tabs button').forEach(b => b.classList.toggle('on', b.dataset.pt === tab));
+    if (['deals', 'auctions', 'land'].includes(tab) && window.Auctions) { Auctions.drawTab(tab, $('propsBody')); wire(); return; }
     let html = '';
     if (tab === 'sale') {
       const gl = goal();
@@ -280,7 +291,10 @@ window.Property = (function () {
       html += mine.length ? `<div class="pgrid">${mine.map(([g]) => info(+g)).filter(Boolean).map(card).join('')}</div>` : '<p class="note">You don\'t own any property yet. Tap any building on the map to see its listing.</p>';
     }
     $('propsBody').innerHTML = html;
-    snapQueue = [...$('propsBody').querySelectorAll('.pcard')].map(c => +c.dataset.g).filter(g => !photos.has(g)).slice(0, 24);
+    wire();
+  }
+  function wire() { // photos fill in a few at a time; cards open their listing; the filter chips work
+    snapQueue = [...$('propsBody').querySelectorAll('.pcard[data-g], .pp[data-g]')].map(c => +c.dataset.g).filter(g => !photos.has(g)).slice(0, 24);
     $('propsBody').querySelectorAll('[data-g]').forEach(b => b.onclick = () => select(+b.dataset.g, true));
     $('propsBody').querySelectorAll('[data-k]').forEach(b => b.onclick = () => { kind = b.dataset.k; drawPanel(); });
     $('propsBody').querySelectorAll('[data-mp]').forEach(b => b.onclick = () => { maxPrice = +b.dataset.mp; drawPanel(); });
@@ -292,7 +306,7 @@ window.Property = (function () {
   frameHooks.push(dt => {
     if (panel.hidden || !snapQueue.length || (snapT += dt) < 0.2) return;
     snapT = 0;
-    const g = snapQueue.shift(), it = info(g), url = it && photo(it), el = url && $('propsBody').querySelector(`.pcard[data-g="${g}"] .pp`);
+    const g = snapQueue.shift(), it = info(g), url = it && photo(it), host = url && $('propsBody').querySelector(`[data-g="${g}"]`), el = host && (host.classList.contains('pp') ? host : host.querySelector('.pp'));
     if (el) { const tag = el.querySelector('.tag'); el.innerHTML = `<img src="${url}" alt="">`; if (tag) el.appendChild(tag); }
   });
   function open(which = 'sale') { tab = which; $('ex').hidden = true; $('bank').hidden = true; sheet.hidden = true; panel.hidden = false; drawPanel(); }
@@ -328,5 +342,5 @@ window.Property = (function () {
     }
     drawOwned();
   }
-  return { init, tap, select, open, info, goal, deselect, refreshOwned: drawOwned, key, isHere, gOf, cityOf, debug: () => ({ meshes: ownMeshes.size, labels: [...ownLabels.values()].map(l => [l.el.textContent, l.on, l.p.y]) }) };
+  return { init, tap, select, open, info, goal, deselect, merged, card, wholePrice, perFloor, redraw: () => { if (!panel.hidden) drawPanel(); if (!sheet.hidden && selected != null) drawListing(false); }, get tab() { return panel.hidden ? null : tab; }, refreshOwned: drawOwned, key, isHere, gOf, cityOf, debug: () => ({ meshes: ownMeshes.size, labels: [...ownLabels.values()].map(l => [l.el.textContent, l.on, l.p.y]) }) };
 })();

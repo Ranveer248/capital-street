@@ -151,6 +151,18 @@ Designed first in Figma ([Capital Street — Bright UI](https://www.figma.com/de
 | Brighter graphics | ✅ a bluer sky, more fill light and a touch more exposure in the city |
 | Phones and PCs | ✅ checked at 375 × 812, 1024 × 768 and 1280 × 800 with no overlaps |
 
+## Goal 13: real land and a property market ✅
+
+| Check | Result |
+|---|---|
+| Land plots on the map | ✅ the open land around each city is cut into 160 m plots (5,346 around New York, in Queens, Brooklyn, the Bronx and New Jersey), found by painting the city's land onto a small canvas and keeping squares that are land all the way across. Thin white outlines fade in as you zoom out; tap a plot for its card (size, price per m², lease, distance from Wall Street) |
+| Buy, own and sell land | ✅ plots cost about $9k to $51k, dearer near the centre, and follow the property market; owned plots turn green, earn a farmer's lease every night (0.2% of value) and count toward net worth; selling costs 6%. In multiplayer they are claimed through the same server rules as buildings (key `plot:i:j`), so other players' land shows in blue. No database change was needed |
+| A Zillow-style market | ✅ the property screen has For sale, Deals, Auctions, Land and Yours tabs, with listing photos, filters and sorting (biggest discount, cheapest, most valuable, nearest). Every morning motivated sellers list 36 buildings and 14 plots 6–28% below value; the listing card shows the deal price next to the crossed-out value |
+| Auctions with max bids | ✅ three new lots every morning at 09:00 (two buildings and a plot), each closing at 15:00 the next day. You set a maximum and the game bids for you; 2–5 other bidders join over time, each with a hidden maximum; the winner pays one step (about 1%) above the second-highest maximum. Win and it's yours at that price; lose and you see what it went for |
+| Everything for sale lights up | ✅ deals glow gold and auctions purple on the map, with price tags (`$137k −15%`, `AUCTION · $24k`) you can tap; plots for sale are filled gold or purple too. One switch in the property screen turns it all off |
+
+Deals and auctions are worked out from the city and the day, so the save only keeps your bids. Buying from other players (and auctions between players) needs new server tables: that is the next step for this goal's multiplayer side.
+
 ## Roadmap
 
 1. ✅ The New York map
@@ -170,7 +182,7 @@ From the 5 new reference videos (a player-run economy game on the real world map
 10. ✅ **PC-first and smooth:** a perfect main menu and HUD designed in Figma from trending simulator UIs, mouse and keyboard controls, graphics settings, 60 fps
 11. ✅ **Multiplayer:** accounts and one shared world; everyone sees who owns what; chat; cloud saves (your cash, shares, loans, buildings and office follow your account to every device)
 12. ✅ **Bright, smooth, with levels:** a vivid simulator-style UI designed in Figma, spring animations everywhere, smooth zoom, brighter daylight, XP and levels with a level-up screen
-13. **Real land and buildings for everyone:** land plots on the map; a Zillow-style property market with photos, filters and auctions with max bids; everything for sale lights up
+13. ✅ **Real land and buildings for everyone:** land plots on the map; a Zillow-style property market with photos, filters and auctions with max bids; everything for sale lights up
 14. **Businesses:** farms, mines, oil rigs and shops on your land; NPC income that rewards setup cost and effort without inflating the economy
 15. **Player-set markets:** an item exchange where players set every price; production chains from raw resources to finished goods; a factory planner
 16. **Inside buildings:** rooms, furniture, renting rooms to players and NPCs, extensions and basements, temperature (heat from machines, cooling, happy tenants and workers)
