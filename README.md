@@ -163,6 +163,18 @@ Designed first in Figma ([Capital Street — Bright UI](https://www.figma.com/de
 
 Deals and auctions are worked out from the city and the day, so the save only keeps your bids. Buying from other players (and auctions between players) needs new server tables: that is the next step for this goal's multiplayer side.
 
+## Goal 14: businesses on your land ✅
+
+| Check | Result |
+|---|---|
+| Farms, mines, oil wells and shops | ✅ build one business on any plot you own: a farm ($6,000), an iron mine ($28,000, needs an ore deposit: about 1 plot in 6), an oil well ($70,000, needs an oil field: about 1 in 12) or a shop ($15,000, needs to be within 5.5 km of the centre). Each plot's card shows its soil, ore, oil and how close town is |
+| On the map | ✅ farms get crop rows, a red barn and a silo; mines a pit, a headframe and ore heaps; oil wells nodding pumpjacks and a tank; shops a store with a pink awning. Each upgrade adds to them |
+| Setup cost and effort | ✅ every night each business pays its upkeep (no cash, no work that night) and fills its storage, which holds three days' output: you have to come back and collect. Three levels (upgrades cost 1.5× then 2.2× the build price, for 1.6× and 2.5× the output). Demolishing gives back 30% |
+| Income without inflating the economy | ✅ goods sell to the city's buyers at a price that walks down with every unit sold (the city buys about 600 crates, 400 t of ore or 250 barrels a day before the price halves) and recovers overnight. A farm pays back in about a month, a mine or well in three to four weeks if you keep collecting |
+| A first production chain | ✅ shops sell crates from your warehouse at $18 instead of the city's ~$10, up to 40 a night per level, so farms and shops work together |
+| Business tab | ✅ Property → Business: your warehouse with live prices and Sell ¼ / Sell all (showing what you'll get), every business with its storage, and Collect everything |
+| Fits the rest of the game | ✅ XP for building, upgrading and selling; hurricanes flatten crops; crashes and rate hikes knock the oil price; businesses count toward net worth (a third of what went in, plus goods at today's price); a plot with a business stops collecting the farmer's lease; selling the plot sells the business with it |
+
 ## Roadmap
 
 1. ✅ The New York map
@@ -183,7 +195,7 @@ From the 5 new reference videos (a player-run economy game on the real world map
 11. ✅ **Multiplayer:** accounts and one shared world; everyone sees who owns what; chat; cloud saves (your cash, shares, loans, buildings and office follow your account to every device)
 12. ✅ **Bright, smooth, with levels:** a vivid simulator-style UI designed in Figma, spring animations everywhere, smooth zoom, brighter daylight, XP and levels with a level-up screen
 13. ✅ **Real land and buildings for everyone:** land plots on the map; a Zillow-style property market with photos, filters and auctions with max bids; everything for sale lights up
-14. **Businesses:** farms, mines, oil rigs and shops on your land; NPC income that rewards setup cost and effort without inflating the economy
+14. ✅ **Businesses:** farms, mines, oil rigs and shops on your land; NPC income that rewards setup cost and effort without inflating the economy
 15. **Player-set markets:** an item exchange where players set every price; production chains from raw resources to finished goods; a factory planner
 16. **Inside buildings:** rooms, furniture, renting rooms to players and NPCs, extensions and basements, temperature (heat from machines, cooling, happy tenants and workers)
 17. **Companies and the stock market:** start a company, take it public, players trade its shares

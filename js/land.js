@@ -130,16 +130,17 @@ window.Land = (function () {
       <div class="lbody">
         <div class="lt"><div><b>Land plot</b><span>${esc(p.name)}</span></div><div class="lp"><strong>${usd(o ? v : price)}</strong><span>${disc && !o && !t ? `<s>${usd(v)}</s> value` : usd(p.ppm * s.reIndex, 2) + ' a m²'}</span></div></div>
         <div class="stats">
-          <div>Size<b>${(p.area / 10000).toFixed(2)} ha</b></div><div>Side<b>${SIZE} m</b></div><div>Lease<b class="up">${usd(v * LEASE * 7)}/wk</b></div><div>From Wall St<b>${wall.toFixed(1)} km</b></div>
-          <div>Your cash<b>${usd(s.cash, 2)}</b></div>${o ? `<div>You paid<b>${usd(o.paid)}</b></div><div>Lease earned<b class="up">${usd(o.earned, 2)}</b></div>` : ''}
+          <div>Size<b>${(p.area / 10000).toFixed(2)} ha</b></div><div>Side<b>${SIZE} m</b></div>${o && o.biz ? '' : `<div>Lease<b class="up">${usd(v * LEASE * 7)}/wk</b></div>`}<div>From Wall St<b>${wall.toFixed(1)} km</b></div>
+          <div>Your cash<b>${usd(s.cash, 2)}</b></div>${o ? `<div>You paid<b>${usd(o.paid)}</b></div>${o.biz ? '' : `<div>Lease earned<b class="up">${usd(o.earned, 2)}</b></div>`}` : ''}
         </div>
+        ${o && window.Biz ? Biz.section(p) : ''}
         <div class="lbtns">
           ${!o && !t && !marks.auction.has(k) ? `<button class="buy" id="ldBuy">Buy this plot · ${usd(price)}</button>` : ''}
-          ${o ? `<button class="sell" id="ldSell">Sell · ${usd(v * (1 - M.PROP_FEE))}</button>` : ''}
+          ${o ? `<button class="sell" id="ldSell">Sell${o.biz ? ' with the business' : ''} · ${usd(v * (1 - M.PROP_FEE) + (o.biz && window.Biz ? Biz.worth(o.biz) : 0))}</button>` : ''}
           ${marks.auction.has(k) && !o ? '<button class="buy" id="ldAuc">See the auction</button>' : ''}
           <button class="plain" id="ldFly">Fly there</button>
         </div>
-        <p class="note">Open land around ${esc(CITY.name)}. A farmer leases it for now; businesses (farms, mines, shops) come next. Land follows the property market. Selling costs ${M.PROP_FEE * 100}%.</p>
+        <p class="note">Open land around ${esc(CITY.name)}. Build a farm, mine, oil well or shop on it, or let a farmer lease it. Land follows the property market. Selling costs ${M.PROP_FEE * 100}%.</p>
       </div>`;
     sheet.hidden = false;
     $('ldX').onclick = close;
@@ -147,6 +148,7 @@ window.Land = (function () {
     if ($('ldAuc')) $('ldAuc').onclick = () => { close(); Property.open('auctions'); };
     if ($('ldBuy')) $('ldBuy').onclick = () => CSUI.story(`<small>BUY LAND</small><b>${esc(p.name)}</b><p>${(p.area / 10000).toFixed(2)} hectares for ${usd(price)}. It earns about ${usd(v * LEASE * 7)} a week from a farmer's lease.</p>`,
       [['Buy it', async () => { const r = await buy(p, price); if (!r.ok) toast('Can\'t buy', r.why); draw(); }], ['Not now', () => {}]]);
+    if (window.Biz) Biz.bind(p, sheet, draw);
     if ($('ldSell')) $('ldSell').onclick = () => { const r = sell(p); if (!r.ok) toast('Can\'t sell', r.why); draw(); };
   }
 
@@ -168,7 +170,7 @@ window.Land = (function () {
   function sell(p) {
     const k = keyOf(p), o = S()[k];
     if (!o) return { ok: false, why: 'You don\'t own this' };
-    const gets = +(value(p) * (1 - M.PROP_FEE)).toFixed(2);
+    const gets = +(value(p) * (1 - M.PROP_FEE) + (o.biz && window.Biz ? Biz.worth(o.biz) : 0)).toFixed(2); // a business on it sells for a third of what went in
     delete S()[k]; M.state.cash = +(M.state.cash + gets).toFixed(2);
     if (window.Net) Net.release(netKey(p));
     M.save(); M.emit('land', { kind: 'sold', id: k, gets });
@@ -180,7 +182,7 @@ window.Land = (function () {
   M.addWorth(st => Object.values(st.land || {}).reduce((s, o) => s + o.area * o.ppm * st.reIndex, 0));
   M.onDay(st => { // the nightly lease, in every city you own land
     let income = 0;
-    for (const o of Object.values(st.land || {})) { const r = plotValue(o) * LEASE; o.earned += r; income += r; }
+    for (const o of Object.values(st.land || {})) { if (o.biz) continue; const r = plotValue(o) * LEASE; o.earned += r; income += r; } // a business replaces the lease
     if (income > 0) { st.cash = +(st.cash + income).toFixed(2); M.emit('land', { kind: 'income', income }); }
   });
   M.on((type, d) => {
@@ -201,6 +203,7 @@ window.Land = (function () {
 
   return {
     init, tap, select: (k, fly) => { const p = typeof k === 'string' ? plots.get(k.split(':').slice(-2).join(',')) : k; if (p) select(p, fly); }, close, buy, sell, value, plots, keyOf, mine, theirs, SIZE, LEASE, art,
+    redraw() { if (sel && !sheet.hidden) draw(); },
     setMarks(m) { marks = m; drawFills(); if (sel && !sheet.hidden) draw(); }, get selected() { return sel; }
   };
 })();

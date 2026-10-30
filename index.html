@@ -576,6 +576,24 @@ h1 { -webkit-text-stroke: 3px var(--ol); paint-order: stroke fill; text-shadow: 
 .ares { display: flex; justify-content: space-between; gap: 10px; padding: 8px 10px; margin-bottom: 6px; border-radius: 10px; background: var(--pi); border: 2px solid var(--ol); font-size: 12px; } .ares.won span { color: var(--c-green); } .ares.lost span, .ares.unpaid span { color: #ff9aa4; }
 #props .tabs { overflow-x: auto; }
 @media (max-width: 520px) { .auc { grid-template-columns: 1fr; } .auc .pp { min-height: 120px; } }
+/* ---------- Goal 14: businesses ---------- */
+.biz { display: grid; gap: 8px; margin: 10px 0; padding: 12px; border-radius: 16px; background: var(--pi); border: 2px solid var(--ol); }
+.biz > small { font: 800 10px/1 Inter, sans-serif; letter-spacing: .12em; color: var(--c-gold); }
+.ground { display: flex; flex-wrap: wrap; gap: 6px; } .ground span { padding: 4px 8px; border-radius: 999px; background: var(--pb); border: 2px solid var(--ol); font: 700 11px/1 Inter, sans-serif; color: var(--x-dim); } .ground b { color: #fff; }
+.bopts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.bopt { display: grid; grid-template-columns: 36px 1fr; grid-template-rows: auto auto; column-gap: 8px; align-items: center; text-align: left; padding: 8px 10px; border-radius: 14px; border: 3px solid var(--ol); background: var(--pb); color: #fff; box-shadow: 0 3px 0 var(--ol); transition: translate .2s var(--spring); }
+.bopt:hover:not(:disabled) { translate: 0 -2px; } .bopt:disabled { opacity: .45; }
+.bopt i, .bzrow i { grid-row: 1 / 3; width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--ol); background: linear-gradient(var(--bc), var(--bc2)); }
+.bopt b { font: 800 13px/1.2 Inter, sans-serif; } .bopt span { font-size: 11px; color: var(--x-dim); }
+.bopt.farm, .bzrow.farm { --bc: var(--c-green); --bc2: var(--c-green2); } .bopt.mine, .bzrow.mine { --bc: var(--c-orange); --bc2: var(--c-orange2); } .bopt.oil, .bzrow.oil { --bc: #4a4f5a; --bc2: #1f232b; } .bopt.shop, .bzrow.shop { --bc: var(--c-pink); --bc2: var(--c-pink2); }
+.store { display: grid; gap: 4px; } .store span { font-size: 11px; color: var(--x-dim); }
+.sbar { height: 14px; border-radius: 7px; background: var(--pb); border: 2px solid var(--ol); overflow: hidden; } .sbar i { display: block; height: 100%; background: linear-gradient(var(--c-gold), var(--c-gold2)); transition: width .6s var(--glide); }
+.goods { display: grid; gap: 8px; } .good { display: grid; grid-template-columns: 40px 1fr auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 14px; background: var(--pi); border: 2px solid var(--ol); }
+.good .gi { font-size: 26px; text-align: center; } .good b { display: block; font: 800 13px/1.2 Inter, sans-serif; } .good span { font-size: 11px; color: var(--x-dim); } .good em { font-style: normal; } .good em.up { color: var(--c-green); } .good em.dn { color: #ff9aa4; }
+.gb { display: flex; gap: 6px; } .gb .btn { padding: 7px 10px; font-size: 12px; display: grid; gap: 2px; } .gb .btn small { font: 700 10px/1 Inter, sans-serif; opacity: .85; }
+.bzrow { width: 100%; display: grid; grid-template-columns: 36px 1fr auto; gap: 10px; align-items: center; text-align: left; padding: 8px 10px; margin-bottom: 6px; border-radius: 14px; background: var(--pi); border: 2px solid var(--ol); color: #fff; }
+.bzrow i { grid-row: auto; } .bzrow b { display: block; font: 800 13px/1.2 Inter, sans-serif; } .bzrow span { font-size: 11px; color: var(--x-dim); }
+.stats b.dn { color: #ff9aa4; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
 </style>
 </head>
@@ -638,7 +656,7 @@ h1 { -webkit-text-stroke: 3px var(--ol); paint-order: stroke fill; text-shadow: 
 </div>
 <div id="props" hidden>
   <div class="exh"><b>PROPERTY · NEW YORK</b><span class="st"></span><button id="propsX" aria-label="Close">✕</button></div>
-  <div class="tabs"><button data-pt="sale" class="on">For sale</button><button data-pt="deals">Deals</button><button data-pt="auctions">Auctions</button><button data-pt="land">Land</button><button data-pt="mine">Yours</button></div>
+  <div class="tabs"><button data-pt="sale" class="on">For sale</button><button data-pt="deals">Deals</button><button data-pt="auctions">Auctions</button><button data-pt="land">Land</button><button data-pt="business">Business</button><button data-pt="mine">Yours</button></div>
   <div id="propsBody"></div>
 </div>
 <div id="listing" hidden></div>
@@ -1517,6 +1535,7 @@ document.getElementById('play').onclick = () => startGame();
 <script src="js/property.js"></script>
 <script src="js/land.js"></script>
 <script src="js/auctions.js"></script>
+<script src="js/business.js"></script>
 <script src="js/office.js"></script>
 <script src="js/world.js"></script>
 <script src="js/pc.js"></script>

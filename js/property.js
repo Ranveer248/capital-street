@@ -264,6 +264,7 @@ window.Property = (function () {
   function drawPanel() {
     const s = M.state;
     document.querySelectorAll('#props .tabs button').forEach(b => b.classList.toggle('on', b.dataset.pt === tab));
+    if (tab === 'business' && window.Biz) { Biz.drawTab($('propsBody')); return; }
     if (['deals', 'auctions', 'land'].includes(tab) && window.Auctions) { Auctions.drawTab(tab, $('propsBody')); wire(); return; }
     let html = '';
     if (tab === 'sale') {

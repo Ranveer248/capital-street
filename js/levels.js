@@ -53,6 +53,9 @@ window.Levels = (function () {
     else if (type === 'city') give(400);
     else if (type === 'land' && d.kind === 'bought') give(Math.min(150, 30 + d.cost / 2000));
     else if (type === 'auction' && d.kind === 'won') give(120);
+    else if (type === 'biz' && d.kind === 'built') give(80);
+    else if (type === 'biz' && d.kind === 'upgraded') give(60);
+    else if (type === 'biz' && d.kind === 'sold') give(Math.min(60, 5 + d.total / 500));
     else if (type === 'office') give(15);
     else if (type === 'close') give(10); // you made it through another trading day
     else if (type === 'reset') draw();
