@@ -136,9 +136,11 @@ window.HUD = (function () {
   function openEarn() {
     const inGame = $('title').hidden;
     earn.innerHTML = `<div class="ebox"><button id="earnX" class="ex" aria-label="Close">${IC('close')}</button><b>Jobs</b><p>You have ${usd(S().cash)}. Every job pays about the same for the money and time you put in: pick the ones you enjoy.</p>
+      ${window.Tasks ? Tasks.html() : ''}
       <div class="egrid">${JOBS.map(([ic, n, d, pay, , st], i) => { const x = st && st(); return `<button data-w="${i}"><i>${IC(ic)}</i><span><b>${n}</b><small>${d}</small><em>${x ? esc(x) : 'Pays: ' + pay.toLowerCase()}</em></span></button>`; }).join('')}</div></div>`;
     earn.hidden = false;
     $('earnX').onclick = () => { earn.hidden = true; };
+    if (window.Tasks) Tasks.bind(earn, openEarn, f => { earn.hidden = true; if (inGame) { if (!$('ex').hidden && f !== ex) $('ex').hidden = true; f(); } else play(f); });
     earn.onclick = e => { if (e.target === earn) earn.hidden = true; };
     earn.querySelectorAll('[data-w]').forEach(b => b.onclick = () => {
       const go = JOBS[+b.dataset.w][4];
@@ -153,7 +155,7 @@ window.HUD = (function () {
   const CARDS = [
     ['tag', () => window.Auctions ? Auctions.deals().size : 0, 'Deals', () => Property.open('deals')],
     ['gavel', () => window.Auctions && Auctions.live ? Auctions.live().length : 0, 'Auctions', () => Property.open('auctions')],
-    ['key', () => Object.keys(S().props || {}).length, 'Yours', () => Property.open('mine')]
+    ['star', () => window.Tasks ? Tasks.progress() + '/3' : '0/3', 'Tasks', null]
   ];
   let cardsSig = '';
   setInterval(() => {
@@ -164,7 +166,7 @@ window.HUD = (function () {
     if (sig === cardsSig) return;
     cardsSig = sig;
     $('lcards').innerHTML = CARDS.map(([ic, , label], i) => `<button data-lc="${i}">${IC(ic)}<b>${vals[i]}</b><small>${label}</small></button>`).join('');
-    $('lcards').querySelectorAll('[data-lc]').forEach(b => b.onclick = () => play(CARDS[+b.dataset.lc][3]));
+    $('lcards').querySelectorAll('[data-lc]').forEach(b => b.onclick = () => { const f = CARDS[+b.dataset.lc][3]; if (f) play(f); else openEarn(); });
   }, 700);
 
   // ---------- the menu's player card ----------

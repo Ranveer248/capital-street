@@ -267,7 +267,7 @@ window.Office = (function () {
     M.state.cash = +(M.state.cash - c.fee).toFixed(2);
     o.staff.push({ id: o.nextId++, role: c.role, name: c.name, skill: c.skill, salary: c.salary, desk: seat.id, days: 0, hired: M.state.time, earned: 0 });
     o.cands.list = o.cands.list.filter(x => x.id !== cid);
-    M.save(); drawItems(); drawBar();
+    M.save(); drawItems(); drawBar(); M.emit('hire', { role: c.role });
     return { ok: true };
   }
   function promote(id) {

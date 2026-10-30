@@ -86,7 +86,7 @@ window.Auctions = (function () {
     if (st.leader && !st.leader.me && max < st.price + st.inc) return { ok: false, why: `Bid at least ${usd(st.price + st.inc)}` };
     if (max < st.opening) return { ok: false, why: `The opening bid is ${usd(st.opening)}` };
     S()[lot.id] = { max: Math.round(max), at: M.state.time, city: CITY.id, key: lot.key, name: lot.name, end: lot.end };
-    M.save();
+    M.save(); M.emit('auction', { kind: 'bid', id: lot.id });
     const now = standing(lot, M.state.time);
     return { ok: true, leading: !!(now.leader && now.leader.me), price: now.price };
   }

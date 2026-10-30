@@ -214,6 +214,7 @@ window.Build = (function () {
     M.save(); Property.forget(g); draw(g);
     if (window.Net) Net.claim(k, q.floors, it.name).then(() => share(k, r, false));
     if (window.Levels) Levels.give(Math.min(400, 20 + q.floors * 4), 'Building');
+    M.emit('build', { kind: 'started', design: id });
     toast('Building started', `${d.name} at ${it.name}: ready in ${hm(q.mins)}`);
     Property.redraw();
     return { ok: true };
