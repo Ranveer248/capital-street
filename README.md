@@ -318,6 +318,21 @@ Designed first in Figma ([Capital Street — Game UI](https://www.figma.com/desi
 | Camera | ✅ a narrow lens and a fixed tilt in the city, for the flatter near-isometric look of city builders instead of a low, very 3D view |
 | Play always starts | ✅ tapping Play while still connecting now always starts the game once you're online |
 
+## Goal 27: toy-city buildings ✅
+
+| Check | Result |
+|---|---|
+| Coloured roofs | ✅ every building gets its own roof colour (terracotta, teal, sand, blue or slate) inside a white parapet, like a toy city |
+| Windows | ✅ windows stay crisp further out, with brighter blue glass |
+
+## Goal 28: daily tasks ✅
+
+| Check | Result |
+|---|---|
+| Three a day | ✅ one easy task and two others, picked each game day from 12 (buy shares, 3 trades, sell shares, buy a building, bid at an auction, buy land, collect from a business, sell goods, build a business, ship goods, start a new building, hire staff), so they lead you through every job |
+| Rewards | ✅ each pays 0.5% of your net worth ($300 to $20,000) and 25 XP; all three pay a double bonus and 60 XP |
+| Where | ✅ at the top of the Jobs sheet with Go and Collect buttons, a red badge on the JOBS button when a reward is waiting, and a Tasks card in the lobby |
+
 ## Roadmap
 
 1. ✅ The New York map
@@ -348,6 +363,8 @@ From the 5 new reference videos (a player-run economy game on the real world map
 21. ✅ **High-end graphics:** bloom, grading, a sun that follows the clock, clouds, glass, water, night lights
 22. ✅ **Simpler:** a new menu, online-only play, a clean map and screen, a tutorial
 23. ✅ **Surprises:** more market events, planes in the sky, plane crashes
+28. ✅ **Daily tasks:** three a day across every job, with rewards and a bonus
+27. ✅ **Toy-city buildings:** coloured roofs, crisper windows
 26. ✅ **City-builder screen:** designed in Figma; corner JOBS button, tiles and a rail instead of the dock, a lobby over the city, a flatter camera
 25. ✅ **City builder:** a bright toy-city look, rebuild what you own, 12 balanced jobs, online only, our own icons
 24. ✅ **Easier, livelier:** one game bar in and out of the game, an Earn button, simple trading, fewer crashes, boats, helicopters and car lights
