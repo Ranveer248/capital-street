@@ -88,7 +88,40 @@ function pitchedGeo(list) {
   }
   return geoMesh(b.pos, b.nor, b.col, { rt: [b.rt, 2] }, roofMat).geometry;
 }
+// Goal 30: tiled roofs on more low homes and flats, for the toy-town look (the map only gives them to most houses)
+function morePitched(d) {
+  const F0 = d['p.f'], XY = d['b.xy'], add = [];
+  const grid = new Set(), gk = (x, z) => Math.floor(x / 20) * 100003 + Math.floor(z / 20);
+  for (let i = 0; i < F0.length; i += 7) grid.add(gk(F0[i], F0[i + 1]));
+  const hsh = (i, s) => ((i * 2654435761 ^ s * 40503) >>> 0) % 1000 / 1000;
+  const ROOFS = [[181, 82, 59], [181, 82, 59], [192, 101, 63], [142, 59, 46], [122, 74, 51], [75, 79, 87]];
+  for (const p of pieces) {
+    if (p.mh > 0 || p.flags & 7 || p.mat === 9 || p.k < 4 || p.k > 6 || p.area < 40 || p.area > 1200) continue;
+    if (!((p.typ === 1 && p.h <= 22 && hsh(p.i, 1) < 0.6) || (p.typ === 2 && p.h <= 16 && hsh(p.i, 1) < 0.4))) continue;
+    if (grid.has(gk(p.x, p.z))) continue; // already has one nearby: leave the map's roofs alone
+    let best = null; // the tightest rectangle along one of the outline's own edges
+    for (let j = 0; j < p.k; j++) {
+      const ax = XY[p.off + 2 * j] / 2, az = XY[p.off + 2 * j + 1] / 2, b2 = (j + 1) % p.k, bx = XY[p.off + 2 * b2] / 2, bz = XY[p.off + 2 * b2 + 1] / 2;
+      const a = Math.atan2(bz - az, bx - ax), ca = Math.cos(a), sa = Math.sin(a);
+      let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
+      for (let q = 0; q < p.k; q++) { const x = XY[p.off + 2 * q] / 2, z = XY[p.off + 2 * q + 1] / 2, u = x * ca + z * sa, v = -x * sa + z * ca; u0 = Math.min(u0, u); u1 = Math.max(u1, u); v0 = Math.min(v0, v); v1 = Math.max(v1, v); }
+      const ar = (u1 - u0) * (v1 - v0);
+      if (!best || ar < best.ar) best = { ar, a, ca, sa, L: u1 - u0, W: v1 - v0, u: (u0 + u1) / 2, v: (v0 + v1) / 2 };
+    }
+    if (p.area / best.ar < 0.84) continue;
+    let { a, L, W } = best; if (W > L) { [L, W] = [W, L]; a += Math.PI / 2; }
+    const x = best.u * best.ca - best.v * best.sa, z = best.u * best.sa + best.v * best.ca;
+    const rise = Math.min(5, Math.max(1.6, W * 0.38)), gable = L / W > 1.4 && hsh(p.i, 2) < 0.6 ? 1 : 0;
+    add.push([x, z, a, L + 0.6, W + 0.6, p.h, rise, gable, ROOFS[Math.floor(hsh(p.i, 3) * ROOFS.length)], p.col, rise >= 2.4 && L >= 6 && hsh(p.i, 4) < 0.45 ? 1 : 0]);
+  }
+  if (!add.length) return;
+  const n0 = d['p.g'].length, n = n0 + add.length, F = new Float32Array(7 * n), G = new Uint8Array(n), C = new Uint8Array(6 * n), X = new Uint8Array(n);
+  F.set(F0); G.set(d['p.g']); C.set(d['p.c']); if (d['p.x']) X.set(d['p.x']);
+  add.forEach((r, i) => { F.set(r.slice(0, 7), 7 * (n0 + i)); G[n0 + i] = r[7]; C.set(r[8].concat(r[9]), 6 * (n0 + i)); X[n0 + i] = r[10]; });
+  Object.assign(d, { 'p.f': F, 'p.g': G, 'p.c': C, 'p.x': X });
+}
 function buildPitched(d) {
+  morePitched(d);
   Object.assign(pitched, { F: d['p.f'], G: d['p.g'], C: d['p.c'], X: d['p.x'] });
   const lists = new Map();
   for (let i = 0; i < pitched.G.length; i++) {
@@ -241,6 +274,83 @@ function buildMarkings(d, L) {
     m.renderOrder = 4.6; m.receiveShadow = true;
     scene.add(m); cityTiles.push({ mesh: m, kind: 'marks' });
   }
+}
+
+// ---------- street furniture (Goal 30): lamps, benches and street trees along the pavements ----------
+function mergeFlat(parts) { // [geometry, [r,g,b] 0-1] → one unindexed geometry with vertex colours
+  const pos = [], nor = [], col = [];
+  for (const [g0, c] of parts) {
+    const g = g0.index ? g0.toNonIndexed() : g0;
+    pos.push(...g.attributes.position.array); nor.push(...g.attributes.normal.array);
+    const lc = c.map(v => v ** 2.2); // the colours below are written as on screen: vertex colours are linear
+    for (let i = 0; i < g.attributes.position.count; i++) col.push(...lc);
+  }
+  const m = new THREE.BufferGeometry();
+  m.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); m.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  m.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return m;
+}
+function buildStreetProps(d, L) {
+  const POLE = [0.1, 0.19, 0.16], WOOD = [0.6, 0.36, 0.2], IRON = [0.12, 0.12, 0.13];
+  const lampGeo = mergeFlat([ // a park-style lamp: dark green pole, an arm out over the road and a warm lantern
+    [new THREE.CylinderGeometry(0.2, 0.24, 0.5, 6).translate(0, 0.25, 0), POLE],
+    [new THREE.CylinderGeometry(0.08, 0.11, 4.6, 6).translate(0, 2.3, 0), POLE],
+    [new THREE.BoxGeometry(0.95, 0.09, 0.09).translate(0.45, 4.52, 0), POLE],
+    [new THREE.BoxGeometry(0.5, 0.24, 0.34).translate(0.88, 4.4, 0), [1, 0.88, 0.55]]
+  ]);
+  const benchGeo = mergeFlat([ // seat facing the road (+x), back away from it
+    [new THREE.BoxGeometry(0.48, 0.09, 1.7).translate(0, 0.46, 0), WOOD],
+    [new THREE.BoxGeometry(0.07, 0.4, 1.7).translate(-0.22, 0.8, 0), WOOD],
+    [new THREE.BoxGeometry(0.44, 0.44, 0.08).translate(0, 0.22, -0.72), IRON],
+    [new THREE.BoxGeometry(0.44, 0.44, 0.08).translate(0, 0.22, 0.72), IRON]
+  ]);
+  const treeGeo = mergeFlat([ // a round toy tree: two puffs of leaves on a short trunk
+    [new THREE.CylinderGeometry(0.12, 0.17, 2, 5).translate(0, 1, 0), [0.4, 0.27, 0.16]],
+    [new THREE.IcosahedronGeometry(1.45, 0).translate(0, 3.1, 0), [0.32, 0.58, 0.24]],
+    [new THREE.IcosahedronGeometry(0.95, 0).translate(0.45, 3.95, 0.25), [0.44, 0.68, 0.3]]
+  ]);
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, flatShading: true });
+  // skip spots that already have a mapped tree
+  const has = new Set(), xy = d['t.xy'], cell = (x, z) => (Math.floor(x / 6) + 60000) * 200000 + Math.floor(z / 6) + 60000;
+  if (xy) for (let i = 0; i < xy.length; i += 2) has.add(cell(xy[i] / 2, xy[i + 1] / 2));
+  const near = (x, z) => { for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) if (has.has(cell(x + a * 6, z + b * 6))) return true; return false; };
+  // and keep clear of junctions: every street's ends, wherever they meet another street
+  const ends = new Map(), ek = (x, z) => Math.floor(x / 16) * 100003 + Math.floor(z / 16);
+  for (const { pts, w } of L) for (const p of [pts[0], pts[pts.length - 1]]) { const k = ek(p[0], p[1]); if (!ends.has(k)) ends.set(k, []); ends.get(k).push([p[0], p[1], w]); }
+  const junction = (x, z, w) => { for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) for (const e of ends.get(ek(x + a * 16, z + b * 16)) || []) if (Math.hypot(x - e[0], z - e[1]) < Math.max(w, e[2]) / 2 + 7) return true; return false; };
+  const bins = new Map(), bin = k => { let b = bins.get(k); if (!b) bins.set(k, b = { lamp: [], bench: [], tree: [] }); return b; };
+  let n = 0;
+  for (const { pts, cls, w } of L) {
+    if (cls < 1 || cls > 7) continue; // not on motorways or service roads
+    for (let j = 0; j < pts.length - 1; j++) {
+      const [ax, az] = pts[j], [bx, bz] = pts[j + 1], len = Math.hypot(bx - ax, bz - az);
+      if (len < 26) continue;
+      const ux = (bx - ax) / len, uz = (bz - az) / len, nx = -uz, nz = ux;
+      for (let s = 11, k = 0; s < len - 11; s += 26, k++) {
+        const side = (k + j) % 2 ? 1 : -1, at = (t, off) => [ax + ux * t + nx * off, az + uz * t + nz * off];
+        const ang = Math.atan2(-nz * -side, nx * -side); // turn +x to face the road
+        const [lx, lz] = at(s, side * (w / 2 + 0.8));
+        if (!junction(lx, lz, w)) { bin(tileOf(lx, lz)).lamp.push([lx, lz, ang]); n++; }
+        if (s + 13 > len - 11 || junction(...at(s + 13, 0), w)) continue;
+        const h = ((j * 31 + k * 17 + cls) * 2654435761 >>> 0) % 100;
+        if (cls >= 3 && h < 70) { // street trees between the lamps, on both sides
+          for (const sd of [side, -side]) { const [tx, tz] = at(s + 13, sd * (w / 2 + 1.9)); if (!near(tx, tz)) { bin(tileOf(tx, tz)).tree.push([tx, tz, h]); has.add(cell(tx, tz)); } }
+        } else if (h < 85) { const [qx, qz] = at(s + 13, side * (w / 2 + 1.5)); bin(tileOf(qx, qz)).bench.push([qx, qz, ang]); }
+      }
+    }
+  }
+  const tint = new THREE.Color();
+  for (const b of bins.values()) for (const [list, geo, set] of [
+    [b.lamp, lampGeo, (p, o) => { o.position.set(p[0], 0, p[1]); o.rotation.set(0, p[2], 0); o.scale.setScalar(1); }],
+    [b.bench, benchGeo, (p, o) => { o.position.set(p[0], 0, p[1]); o.rotation.set(0, p[2], 0); o.scale.setScalar(1); }],
+    [b.tree, treeGeo, (p, o, m, j) => { o.position.set(p[0], 0, p[1]); o.rotation.set(0, p[2], 0); o.scale.setScalar(0.85 + (p[2] % 7) * 0.06); m.setColorAt(j, tint.setScalar(0.85 + (p[2] % 5) * 0.07)); }]
+  ]) {
+    if (!list.length) continue;
+    const mesh = instanced(geo, mat, list, allSphere(list), (p, o, m, j) => set(p, o, m, j));
+    mesh.geometry.boundingSphere.radius -= 40; // allSphere is sized for buildings: these stand under 6 m
+    cityTiles.push({ mesh, kind: 'props' });
+  }
+  return n;
 }
 
 // ---------- traffic and people ----------

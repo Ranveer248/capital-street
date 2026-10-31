@@ -934,6 +934,29 @@ h1 { -webkit-text-stroke: 3px var(--ol); paint-order: stroke fill; text-shadow: 
   #bar { top: calc(max(10px, env(safe-area-inset-top)) + 60px) !important; max-width: calc(100vw - 190px) !important; flex-wrap: wrap !important; white-space: normal !important; row-gap: 4px !important; }
   #hud #netChip { display: none !important; }
 }
+/* ---------- Goal 30: clean cream panels, like a city builder's build menu ----------
+   Every sheet turns warm cream with navy type and the same chunky navy outline; coloured headers and buttons stay. */
+:root { --cr: #fff8ea; --cr2: #fbebc6; --crl: #ead7a8; --crink: #24305e; --crdim: #7d7058; }
+#ex, #bank, #props, #listing, #cityCard, #net, #ostaff, #story .box, .pcard.glass2, .smodal, .ebox, .jbox {
+  --ink: var(--crink); --dim: var(--crdim); --soft: #5f5743; --tdim: var(--crdim);
+  --pb: var(--cr); --pl: #fff; --pi: var(--cr2); --raised: #fff; --glass: var(--cr); --panel: var(--cr);
+  --line: var(--crl); --line2: var(--crl); --edge: var(--crl);
+  --x-bg: var(--cr); --x-panel: #fff; --x-line: var(--crl); --x-ink: var(--crink); --x-dim: var(--crdim);
+  color: var(--crink) !important; background: var(--cr) !important; border-color: var(--g-navy) !important; box-shadow: 0 6px 0 var(--g-navy), 0 22px 44px rgba(10, 15, 46, .35) !important;
+}
+:is(#ex, #bank, #props, #listing, #cityCard, #net, #ostaff, #story .box, .pcard.glass2, .smodal, .ebox, .jbox) .btn:not(.pri):not(.danger):not(.sell):not(.buy) { background: linear-gradient(#fff, #f3e3bd) !important; color: var(--crink) !important; text-shadow: none !important; }
+:is(#ex, #bank, #props, #listing, #cityCard, #net, #ostaff, #story .box, .pcard.glass2, .smodal, .ebox, .jbox) .tabs { background: var(--cr2); } :is(#ex, #bank, #props, #listing, #cityCard, #net, #ostaff, #story .box, .pcard.glass2, .smodal, .ebox, .jbox) .tabs button { color: var(--crdim); } :is(#ex, #bank, #props, #listing, #cityCard, #net, #ostaff, #story .box, .pcard.glass2, .smodal, .ebox, .jbox) .tabs button.on { color: var(--crink) !important; }
+:is(#ex, #bank, #props, #listing, #cityCard, #net, #ostaff, #story .box, .pcard.glass2, .smodal, .ebox, .jbox) .chips button:not(.on), :is(#ex, #bank, #props, #listing, #cityCard, #net, #ostaff, #story .box, .pcard.glass2, .smodal, .ebox, .jbox) .rooms button:not(.on) { background: #fff !important; color: var(--crink) !important; }
+:is(#ex, #bank, #props, #listing, #cityCard, #net, #ostaff, #story .box, .pcard.glass2, .smodal, .ebox, .jbox) input, :is(#ex, #bank, #props, #listing, #cityCard, #net, #ostaff, #story .box, .pcard.glass2, .smodal, .ebox, .jbox) select, :is(#ex, #bank, #props, #listing, #cityCard, #net, #ostaff, #story .box, .pcard.glass2, .smodal, .ebox, .jbox) textarea { background: #fff !important; color: var(--crink) !important; border-color: var(--crl) !important; }
+.jbox > b, .ebox > b, #story .box b { text-shadow: none !important; color: var(--crink); }
+.jbox small a { color: var(--crink); } .jbox .lnk { color: #c76a00; } .jbox .jwhy { color: #c2213a; }
+/* the older dark-theme pieces that had white type or near-black fills */
+:is(#ex, #bank, #props, #listing, #cityCard, #net, #ostaff, #story .box, .pcard.glass2, .smodal, .ebox, .jbox) :is(.est b, .cards b, .lcard .terms b, .cos b, .arow strong:not(.up):not(.dn), .facts b, .step button, .step input, #obar .st b, .stabs button.on, .ask .lnk, .askf input, .plan input, .plan select, .trade select, .xform select, .opts button, #wx, .amts button:not(.on)) { color: var(--crink) !important; }
+:is(#ex, #bank, #props, #listing, #cityCard, #net, #ostaff, #story .box, .pcard.glass2, .smodal, .ebox, .jbox) :is(.seg, .step, .bar2, .pcard .pp, .lpic, .lbtns .plain, #obar button, .sb button.ghost, .lcard button.main:disabled, .lbtns button:disabled, .seg button.on.plain, .amts button:not(.on), .opts button, #wx) { background: #fff !important; color: var(--crink) !important; }
+:is(#ex, #bank, #props, #listing, #cityCard, #net, #ostaff, #story .box, .pcard.glass2, .smodal, .ebox, .jbox) #list .row.on { background: #fde7a6 !important; } :is(#ex, #bank, #props, #listing, #cityCard, #net, #ostaff, #story .box, .pcard.glass2, .smodal, .ebox, .jbox) .chartctl button.on { background: var(--crink) !important; color: #fff !important; }
+.ebox .egrid button { background: #fff; color: var(--crink); } .ebox .egrid em { color: #188a43 !important; }
+#story .box p { color: #5f5743; } #story .box > small { color: #c76a00; } #story .box .facts div { background: #fff; }
+:is(#ex, #bank, #props, #listing, #cityCard, #net, #ostaff, #story .box, .pcard.glass2, .smodal, .ebox, .jbox) .tog:not([aria-pressed="true"]) { background: #e6d8b8 !important; } :is(#ex, #bank, #props, #listing, #cityCard, #net, #ostaff, #story .box, .pcard.glass2, .smodal, .ebox, .jbox) kbd { color: var(--crdim) !important; border-color: var(--crl) !important; background: #fff !important; }
 </style>
 </head>
 <body>
@@ -1285,6 +1308,15 @@ buildingMat.onBeforeCompile = sh => {
             vec3 shc = sh < 0.2 ? vec3(0.06, 0.2, 0.1) : sh < 0.38 ? vec3(0.04, 0.17, 0.2) : vec3(0.22, 0.09, 0.04);
             float sw = (wx1 - wx0) * 0.42, shut = (boxAA(ffx, wx0 - sw, wx0 - 0.015, wx) + boxAA(ffx, wx1 + 0.015, wx1 + sw, wx)) * boxAA(ffy, wy0, wy1, wy);
             c = mix(c, shc * (1.0 - 0.25 * lineAA(fract(y / 0.35), 0.18, fwidth(y / 0.35))), shut * (1.0 - far));
+          }
+          if (typ > 0.5 && typ < 2.5 && mat != 9.0 && sh >= 0.5 && fy > 1.0) { // Goal 30: balconies on flats, a slab and a painted rail on alternate bays
+            float bal = step(0.5, fract((floor(fx) + floor(fy) * step(0.78, sh)) * 0.5)) * (1.0 - far);
+            float bx = boxAA(ffx, wx0 - 0.17, wx1 + 0.17, wx) * bal;
+            float rail = boxAA(ffy, wy0 - 0.04, wy0 + 0.3, wy) * bx, slab = boxAA(ffy, wy0 - 0.1, wy0 - 0.04, wy) * bx;
+            vec3 rc = sh < 0.7 ? vec3(0.93, 0.91, 0.86) : sh < 0.85 ? vec3(0.2, 0.22, 0.26) : vec3(0.75, 0.42, 0.3);
+            c = mix(c, vec3(0.32, 0.3, 0.28), slab);
+            c = mix(c, rc * (1.0 - 0.3 * boxAA(ffy, wy0 + 0.24, wy0 + 0.3, wy)) * (1.0 - 0.18 * lineAA(fract(u / 0.3), 0.1, fwidth(u / 0.3))), rail);
+            win *= 1.0 - rail;
           }
         }
         if (typ == 5.0 && mat != 9.0) c *= 1.0 - 0.18 * lineAA(fract(u / 4.5), 0.06, fwidth(u / 4.5)) * (1.0 - far); // piers up stone towers
@@ -1763,7 +1795,7 @@ function frame(now) {
   const hs = Math.max(0.01, sink * sink * (3 - 2 * sink));
   for (const t of tiles) { t.mesh.visible = dist < (t.tall ? 120000 : 40000); t.mesh.scale.y = hs; }
   const lowDetail = GFX.detail === 'low'; // Settings: building detail
-  for (const t of cityTiles) { t.mesh.visible = dist < (t.kind === 'marks' ? 3000 : t.kind === 'detail' ? (lowDetail ? 0 : 2500) : t.kind === 'crown' ? (lowDetail ? 0 : 6000) : 40000); if (t.kind === 'roof') t.mesh.scale.y = hs; } // crowns go before the city starts sinking at 6 km
+  for (const t of cityTiles) { t.mesh.visible = dist < (t.kind === 'marks' ? 3000 : t.kind === 'props' ? (lowDetail ? 0 : 1600) : t.kind === 'detail' ? (lowDetail ? 0 : 2500) : t.kind === 'crown' ? (lowDetail ? 0 : 6000) : 40000); if (t.kind === 'roof') t.mesh.scale.y = hs; } // crowns go before the city starts sinking at 6 km
   for (const f of frameHooks) f(dt, dist);
   for (const t of trees) t.visible = dist < (lowDetail ? 1500 : 4500);
   for (const t of roofThings) t.visible = !lowDetail && dist < 3500;
@@ -1861,6 +1893,7 @@ document.getElementById('play').onclick = () => window.HUD ? HUD.play() : startG
     buildTrees(nyc);
     const streetLines = lines(nyc);
     buildMarkings(nyc, streetLines);
+    buildStreetProps(nyc, streetLines);
     buildTraffic(streetLines);
     buildGlobe(world);
     await buildStreetLabels(nyc, streets);

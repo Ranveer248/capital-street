@@ -346,6 +346,15 @@ Learned from the look of illustrated city builders (CityRT, SimCity BuildIt, Cit
 | Calmer streets | ✅ 1,500 cars round the camera instead of 2,400, so junctions don't clog |
 | Setting | ✅ Settings → Graphics → Ink outlines, for slower devices |
 
+## Goal 30: streets, roofs and cream panels ✅
+
+| Check | Result |
+|---|---|
+| Street furniture | ✅ green park lamps every 26 m along both pavements, toy street trees between them on smaller streets (not where the map already has a tree), and benches; kept clear of junctions, drawn within 1.6 km, off on Low building detail |
+| More tiled roofs | ✅ terracotta, red, brown and slate pitched roofs on about half the low row houses and small blocks of flats that had flat roofs (rectangular footprints only), with attic dormers on some |
+| Balconies | ✅ flats without shutters get balconies on alternate bays: a slab and a white, dark or terracotta rail, drawn in the wall shader |
+| Cream panels | ✅ every sheet (Exchange, Property, Bank, Jobs, Settings, join, stories) is warm cream with navy type and the same chunky navy outline; coloured headers and buttons stay |
+
 ## Roadmap
 
 1. ✅ The New York map
