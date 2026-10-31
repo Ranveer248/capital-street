@@ -32,11 +32,30 @@ window.Trade = (function () {
   }
   let collecting = null;
   function collect() { return collecting || (collecting = collectNow().finally(() => { collecting = null; })); }
+  // Goal 31: the inbox is a ledger applied exactly once. Open rows are read (not taken), applied, and their ids saved
+  // in your game (state.ledger); the save goes up to your account, and only then are the rows marked done. If the page
+  // closes or the connection drops anywhere in between, nothing is lost and nothing is paid twice.
   async function collectNow() {
     if (!on()) return;
+    if (Net.legacy) return collectOld();
+    const S = M.state, done = S.ledger || (S.ledger = []);
+    const q = await sb().from('cs_inbox').select('*').eq('player', Net.me.id).eq('collected', false).order('id', { ascending: true }).limit(200);
+    if (q.error) return;
+    const open = (q.data || []).map(r => r.id), fresh = (q.data || []).filter(r => !done.includes(r.id));
+    if (fresh.length) { applyRows(fresh); done.push(...fresh.map(r => r.id)); M.save(); }
+    if (!open.length) { if (done.length) { S.ledger = []; M.save(); } return; }
+    const up = await Net.pushCloud(true); // your account must have the save with these rows in it first
+    if (!up.ok) return; // tried again next time: the ids in your save stop them being applied twice
+    const ack = await sb().rpc('cs_inbox_ack', { p_ids: open.filter(id => done.includes(id)) });
+    if (!ack.error) { S.ledger = done.filter(id => !open.includes(id)); M.save(); }
+  }
+  async function collectOld() { // a server from before Goal 31
     const { data, error } = await sb().rpc('cs_collect_inbox');
     if (error || !data || !data.length) return;
-    const lines = [], inv = window.Biz ? Biz.inv() : (M.state.goods || (M.state.goods = {}));
+    applyRows(data); M.save();
+  }
+  function applyRows(data) {
+    const lines = [], bought = [], inv = window.Biz ? Biz.inv() : (M.state.goods || (M.state.goods = {}));
     for (const r of data) {
       const cash = +r.cash || 0;
       if (cash) M.state.cash = +(M.state.cash + cash).toFixed(2);
@@ -44,14 +63,15 @@ window.Trade = (function () {
         if (r.building && r.building.startsWith('plot:')) { delete (M.state.land || {})[`${r.city}:${r.building}`]; M.emit('land', { kind: 'sold', id: `${r.city}:${r.building}`, gets: cash }); }
         else if (r.building && M.state.props[r.building]) { delete M.state.props[r.building]; M.emit('property', { kind: 'sold', id: r.building, floors: r.floors, gets: cash }); }
         lines.push(`${r.note}: +${usd(cash)}`);
-      } else if (r.kind === 'won') {
+      } else if (r.kind === 'won' || r.kind === 'bought') { // yours now: paid from your cash, through the ledger
         pending().push({ city: r.city, building: r.building, floors: r.floors, price: -cash });
+        if (r.kind === 'bought') bought.push({ kind: 'bought', id: r.building, floors: r.floors, cost: -cash, fromPlayer: true });
         lines.push(`${r.note}: ${usd(cash)}`);
       } else if (r.kind === 'goods') { inv[r.good] = (inv[r.good] || 0) + r.qty; lines.push(r.note); }
       else lines.push(cash ? `${r.note}: +${usd(cash)}` : r.note);
     }
     applyHere();
-    M.save();
+    for (const b of bought) M.emit('property', b); // XP and tasks, once the building is in your save
     if (window.Property) Property.refreshOwned();
     toast('Trades with players', lines.slice(0, 3).join(' · ') + (lines.length > 3 ? ` · and ${lines.length - 3} more` : ''));
     if (M.state.cash < 0) setTimeout(() => toast('You owe money', `Your cash is ${usd(M.state.cash)} after an auction you won. Sell something to get back above zero.`), 2600);
@@ -125,15 +145,23 @@ window.Trade = (function () {
         [['Buy it', () => buyListing(ctx)], ['Not now', () => {}]]);
     };
   }
+  let busy = false; // one purchase or bid at a time: a double click can't send two
+  const synced = async () => { const r = await Net.pushCloud(true); if (r.ok) return true; toast('Not connected', r.why === 'conflict' ? 'Your game was saved from another device or tab. Sort it out in Settings → Your save first.' : 'Your game couldn\'t reach the server just now. Try again in a moment.'); return false; };
   async function buyListing(ctx) {
-    const l = listings.get(ctx.key); if (!l) return;
+    const l = listings.get(ctx.key); if (!l || busy) return;
     if (l.price > M.state.cash) { toast('Can\'t buy', `You need ${usd(l.price)} in cash`); return; }
-    const { error } = await sb().rpc('cs_buy_listing', { p_city: CITY.id, p_building: ctx.key, p_price: l.price });
-    if (error) { toast('Can\'t buy', err(error)); await loadListings(); ctx.redraw(); return; }
-    if (ctx.kind === 'p') await Land.buy(ctx.plot, l.price);
-    else { const it = ctx.it; M.buyProperty(ctx.key, l.floors, { name: it.name, type: it.type, floorPrice: it.floorPrice, totalFloors: it.floors, x: it.x, z: it.z, city: CITY.id }, l.price); }
-    toast('Bought from ' + l.sellerName, `${l.name || ctx.name} for ${usd(l.price)}.`);
-    await loadListings(); ctx.redraw();
+    busy = true;
+    try {
+      if (!Net.legacy && !(await synced())) return;
+      const { error } = await sb().rpc('cs_buy_listing', { p_city: CITY.id, p_building: ctx.key, p_price: l.price });
+      if (error) { toast('Can\'t buy', err(error)); await loadListings(); ctx.redraw(); return; }
+      if (Net.legacy) { // the old server didn't write the buyer's side of the ledger
+        if (ctx.kind === 'p') await Land.buy(ctx.plot, l.price);
+        else { const it = ctx.it; M.buyProperty(ctx.key, l.floors, { name: it.name, type: it.type, floorPrice: it.floorPrice, totalFloors: it.floors, x: it.x, z: it.z, city: CITY.id }, l.price); }
+      } else await collect(); // the ledger moves the money and the building into your game, exactly once
+      toast('Bought from ' + l.sellerName, `${l.name || ctx.name} for ${usd(l.price)}. The money went to ${l.sellerName}.`);
+      await loadListings(); ctx.redraw();
+    } finally { busy = false; }
   }
 
   // ---------- in the property screen: player listings (Deals) and player auctions (Auctions) ----------
@@ -158,10 +186,15 @@ window.Trade = (function () {
     body.querySelectorAll('form[data-pf]').forEach(f => f.onsubmit = async e => {
       e.preventDefault();
       const max = +f.querySelector('input').value;
+      if (busy) return;
       if (max > M.state.cash) { toast('Bid not placed', `You can bid up to your cash (${usd(M.state.cash)}): the winner pays when it ends.`); return; }
-      const { error } = await sb().rpc('cs_bid', { p_auction: +f.dataset.pf, p_max: max });
-      if (error) toast('Bid not placed', err(error)); else toast('Bid placed', 'The server bids for you up to your maximum. Nobody else can see it.');
-      await loadAuctions(); redraw();
+      busy = true;
+      try {
+        if (!Net.legacy && !(await synced())) return;
+        const { error } = await sb().rpc('cs_bid', { p_auction: +f.dataset.pf, p_max: max });
+        if (error) toast('Bid not placed', err(error)); else toast('Bid placed', 'The server bids for you up to your maximum. Nobody else can see it.');
+        await loadAuctions(); redraw();
+      } finally { busy = false; }
     });
   }
 

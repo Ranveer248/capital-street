@@ -43,7 +43,7 @@ function pitchedGeo(list) {
   const { F, G, C, X } = pitched, b = { pos: [], nor: [], col: [], rt: [] };
   for (const i of list) {
     const [x, z, a, L, W, y, rise] = F.subarray(7 * i, 7 * i + 7), gable = G[i];
-    if (pitched.hidden(x, z) || (window.Build && Build.inCleared(x, z))) continue; // the roof over your office is lifted off; knocked-down buildings lose theirs
+    if (pitched.hidden(x, z) || nearHome(x, z) || (window.Build && Build.inCleared(x, z))) continue; // the roof over your office is lifted off; knocked-down buildings lose theirs
     const ca = Math.cos(a), sa = Math.sin(a), hl = L / 2, hw = W / 2, r = gable ? hl : Math.max(0, hl - hw);
     const P = (lx, ly, lz) => [x + ca * lx - sa * lz, y + ly, z + sa * lx + ca * lz];
     const A = P(-hl, 0, -hw), B = P(hl, 0, -hw), Cc = P(hl, 0, hw), D = P(-hl, 0, hw), R1 = P(-r, rise, 0), R2 = P(r, rise, 0);
@@ -348,7 +348,9 @@ function buildStreetProps(d, L) {
     if (!list.length) continue;
     const mesh = instanced(geo, mat, list, allSphere(list), (p, o, m, j) => set(p, o, m, j));
     mesh.geometry.boundingSphere.radius -= 40; // allSphere is sized for buildings: these stand under 6 m
-    cityTiles.push({ mesh, kind: 'props' });
+    mesh.castShadow = false; // Goal 31: too small for the sun's shadow map to show, and they doubled the shadow pass
+    const c = mesh.geometry.boundingSphere.center;
+    cityTiles.push({ mesh, kind: 'props', x: c.x, z: c.z });
   }
   return n;
 }
@@ -444,7 +446,179 @@ function buildTraffic(L) {
   });
 }
 
-// ---------- your apartment: a studio on the roof, seen from above with the ceiling off ----------
+// ---------- your first home (Goal 31): a top-floor studio in a five-storey walk-up by the South Street Seaport ----------
+// A real row house is swapped for a model of the same footprint: brick, sash windows, a shop and the front door with its
+// stoop on the street, a fire escape, and the top floor drawn with its roof off so you can see the studio inside.
+// Towers and luxury flats come later; this is where a broke student starts.
+const homeSpot = { poly: null, g: null, x: 0, z: 0 };
+const inRing = (x, z, pts) => { let c = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) { const a = pts[i], b = pts[j]; if ((a[1] > z) !== (b[1] > z) && x < (b[0] - a[0]) * (z - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; };
+const inHome = (x, z) => !!homeSpot.poly && inRing(x, z, homeSpot.poly);
+const nearHome = (x, z) => !!homeSpot.poly && (x - homeSpot.x) ** 2 + (z - homeSpot.z) ** 2 < 20 ** 2; // the next-door roofs are flat, so you can see in
+function ringOf(d, p) { const XY = d['b.xy'], pts = []; for (let j = 0; j < p.k; j++) pts.push([XY[p.off + 2 * j] / 2, XY[p.off + 2 * j + 1] / 2]); return pts; }
+function findStarterHome(d) { // the row house nearest the chosen spot that is plain, low and rectangular enough
+  let best = null, bd = 60 * 60;
+  for (const p of pieces) {
+    if (p.mh || p.flags || p.h < 10 || p.h > 24 || p.k < 4 || p.k > 6 || p.area < 90 || p.area > 420) continue;
+    const dd = (p.x - PLACE.home[0]) ** 2 + (p.z - PLACE.home[1]) ** 2;
+    if (dd < bd) { bd = dd; best = p; }
+  }
+  return best;
+}
+function buildStarterHome(d, L) {
+  const p = findStarterHome(d); if (!p) return null;
+  const pts = ringOf(d, p);
+  // a rectangle along the longest wall
+  let ang = 0, len = 0;
+  for (let j = 0; j < pts.length; j++) { const a = pts[j], b = pts[(j + 1) % pts.length], l = Math.hypot(b[0] - a[0], b[1] - a[1]); if (l > len) { len = l; ang = Math.atan2(b[1] - a[1], b[0] - a[0]); } }
+  const ux = Math.cos(ang), uz = Math.sin(ang), vx = -uz, vz = ux;
+  let u0 = 1e9, u1 = -1e9, v0 = 1e9, v1 = -1e9;
+  for (const [x, z] of pts) { const u = x * ux + z * uz, v = x * vx + z * vz; u0 = Math.min(u0, u); u1 = Math.max(u1, u); v0 = Math.min(v0, v); v1 = Math.max(v1, v); }
+  const cu = (u0 + u1) / 2, cv = (v0 + v1) / 2, LX = u1 - u0, WZ = v1 - v0;
+  const cx = cu * ux + cv * vx, cz = cu * uz + cv * vz;
+  // the front is the short end nearer a street; the party wall is the long side that touches a neighbour
+  const segD = (x, z) => { let m = 1e9; for (const l of L) { if (l.cls > 8) continue; for (let i = 0; i < l.pts.length - 1; i++) { const [ax, az] = l.pts[i], [bx, bz] = l.pts[i + 1], dx = bx - ax, dz = bz - az, t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz || 1))); m = Math.min(m, Math.hypot(ax + t * dx - x, az + t * dz - z)); } } return m; };
+  const fs = segD(cx + ux * LX / 2, cz + uz * LX / 2) <= segD(cx - ux * LX / 2, cz - uz * LX / 2) ? 1 : -1; // +u or -u is the front
+  const near = pieces.filter(q => q !== p && q.h > 6 && Math.hypot(q.x - cx, q.z - cz) < 40).map(q => ringOf(d, q));
+  const touches = s => near.some(r => inRing(cx + vx * s * (WZ / 2 + 1.2), cz + vz * s * (WZ / 2 + 1.2), r));
+  const party = touches(1) ? 1 : touches(-1) ? -1 : 0; // which long side (in local z) is a shared wall
+  // local frame: +x = the front, z across; the group turns it into place
+  const fx = ux * fs, fz = uz * fs, sx = vx * fs, sz = vz * fs; // local x and z axes in the world
+  const zp = party * fs || 0; // the party side in local z
+  const FL = Math.max(3.2, Math.min(3.6, p.h / 5.1)), y0 = 4 * FL, CH = 2.75, T = 0.24, HX = LX / 2, HZ = WZ / 2;
+  const brick = (() => { const [r, g, b] = p.col; return r > g * 1.15 ? [r / 255, g / 255, b / 255] : [0.62, 0.33, 0.25]; })();
+  const CREAM = [0.95, 0.9, 0.78], WHITE = [0.97, 0.97, 0.95], DARK = [0.1, 0.11, 0.13], GLASSC = [0.33, 0.52, 0.66], WOOD = [0.62, 0.42, 0.26], IRON = [0.13, 0.14, 0.15];
+  const parts = [], box = (w, h, dd, x, y, z, c) => parts.push([new THREE.BoxGeometry(w, h, dd).translate(x, y + h / 2, z), c]);
+  const studioBack = HX - Math.min(10.5, LX * 0.48); // the studio takes the front of the top floor; the back is the neighbour's flat and the stairs
+
+  // ---------- the building below you ----------
+  box(LX, y0, WZ, 0, 0, 0, brick);
+  box(LX + 0.3, 0.32, WZ + 0.3, 0, y0 - 0.32, 0, CREAM); // a stone band under the top floor
+  const win = (x, y, z, alongZ, w = 1.05, h = 1.55) => { // a sash window on an outside face
+    const o = 0.05; if (alongZ) { box(0.08, h, w, x + o * Math.sign(x), y, z, GLASSC); box(0.1, 0.12, w + 0.3, x + 0.06 * Math.sign(x), y - 0.12, z, CREAM); box(0.1, 0.16, w + 0.2, x + 0.06 * Math.sign(x), y + h, z, CREAM); box(0.09, 0.05, w, x + 0.07 * Math.sign(x), y + h * 0.5, z, WHITE); }
+    else { box(w, h, 0.08, x, y, z + o * Math.sign(z), GLASSC); box(w + 0.3, 0.12, 0.1, x, y - 0.12, z + 0.06 * Math.sign(z), CREAM); box(w + 0.2, 0.16, 0.1, x, y + h, z + 0.06 * Math.sign(z), CREAM); box(w, 0.05, 0.09, x, y + h * 0.5, z + 0.07 * Math.sign(z), WHITE); }
+  };
+  const frontCols = WZ > 7 ? [-WZ * 0.3, 0, WZ * 0.3] : [-WZ * 0.22, WZ * 0.22];
+  for (let f = 1; f < 4; f++) for (const z of frontCols) win(HX, f * FL + 0.85, z, true);
+  for (let f = 1; f < 4; f++) for (let x = -HX + 1.6; x < HX - 1; x += 2.5) { if (zp !== 1) win(x, f * FL + 0.85, HZ, false); if (zp !== -1) win(x, f * FL + 0.85, -HZ, false); }
+  // the street floor: a little shop, and the building's own front door up a stoop
+  const doorZ = -zp * (HZ - 0.9) || HZ - 0.9;
+  box(0.1, 2.3, WZ - 2.2, HX + 0.05, 0.4, doorZ > 0 ? -0.9 : 0.9, GLASSC); // shop window
+  box(0.9, 0.12, WZ - 1.8, HX + 0.45, 2.85, doorZ > 0 ? -0.9 : 0.9, [0.14, 0.5, 0.33]); // green awning
+  box(0.12, 2.3, 1.05, HX + 0.06, 0.55, doorZ, [0.35, 0.2, 0.12]); // the front door
+  box(0.14, 0.12, 1.3, HX + 0.08, 2.85, doorZ, CREAM);
+  for (let s = 0; s < 3; s++) box(0.35, 0.18, 1.4, HX + 0.25 + (2 - s) * 0.33, s * 0.18, doorZ, [0.6, 0.6, 0.58]); // the stoop
+  box(0.08, 0.3, 0.5, HX + 0.08, 2.35, doorZ + (doorZ > 0 ? -0.85 : 0.85), [0.85, 0.75, 0.35]); // house number plate
+  // a fire escape on the front, the New York way
+  for (let f = 1; f < 5; f++) {
+    const y = f * FL - 0.05, w = Math.min(WZ - 0.8, 3.4);
+    box(0.95, 0.06, w, HX + 0.5, y, 0, IRON);
+    box(0.05, 0.9, w, HX + 0.95, y + 0.06, 0, IRON);
+    for (const z of [-w / 2, w / 2]) box(0.95, 0.9, 0.05, HX + 0.5, y + 0.06, z, IRON);
+    if (f < 4) { const lad = new THREE.BoxGeometry(0.06, Math.hypot(FL, 1.6), 0.5).rotateZ(0).rotateX(Math.atan2(1.6, FL) * (f % 2 ? 1 : -1)).translate(HX + 0.72, y + FL / 2, (f % 2 ? 1 : -1) * 0.3); parts.push([lad, IRON]); }
+  }
+
+  // ---------- the top floor ----------
+  const xb = studioBack, xf = HX;
+  box(xf - xb, 0.12, WZ - 2 * T, (xf + xb) / 2, y0, 0, [0.67, 0.47, 0.3]); // wooden floor
+  for (let k = 0; k < 9; k++) box(xf - xb - 0.1, 0.005, 0.02, (xf + xb) / 2, y0 + 0.12, -HZ + T + (k + 1) * (WZ - 2 * T) / 10, [0.55, 0.37, 0.22]); // floorboards
+  // outside walls with window openings: [x or z along the wall, width]
+  const wallX = (x, za, zb, holes) => { // a wall facing ±x, from za to zb, with windows
+    let z = za; const H = holes.slice().sort((a, b) => a[0] - b[0]);
+    for (const [hz, hw] of H) { const a = hz - hw / 2, b = hz + hw / 2; if (a > z) box(T, CH, a - z, x, y0, (a + z) / 2, brick); box(T, 0.85, hw, x, y0, hz, brick); box(T, CH - 2.25, hw, x, y0 + 2.25, hz, brick); box(0.05, 1.4, hw, x, y0 + 0.85, hz, GLASSC); box(T + 0.1, 0.07, hw + 0.1, x, y0 + 0.85, hz, WHITE); z = b; }
+    if (zb > z) box(T, CH, zb - z, x, y0, (zb + z) / 2, brick);
+  };
+  const wallZ = (z, xa, xb2, holes) => {
+    let x = xa; const H = holes.slice().sort((a, b) => a[0] - b[0]);
+    for (const [hx, hw] of H) { const a = hx - hw / 2, b = hx + hw / 2; if (a > x) box(a - x, CH, T, (a + x) / 2, y0, z, brick); box(hw, 0.85, T, hx, y0, z, brick); box(hw, CH - 2.25, T, hx, y0 + 2.25, z, brick); box(hw, 1.4, 0.05, hx, y0 + 0.85, z, GLASSC); box(hw + 0.1, 0.07, T + 0.1, hx, y0 + 0.85, z, WHITE); x = b; }
+    if (xb2 > x) box(xb2 - x, CH, T, (xb2 + x) / 2, y0, z, brick);
+  };
+  wallX(xf - T / 2, -HZ, HZ, frontCols.map(z => [z, 1.1]));
+  const sideHoles = []; for (let x = xb + 2.2; x < xf - 1.2; x += 3.2) sideHoles.push([x, 1.2]);
+  wallZ(HZ - T / 2, xb, xf, zp === 1 ? [] : sideHoles);
+  wallZ(-HZ + T / 2, xb, xf, zp === -1 ? [] : sideHoles);
+  // the back wall, with your front door onto the landing and a door to the bathroom
+  const entZ = zp ? zp * (HZ - T - 0.75) : -(HZ - T - 0.75), bathZ = -entZ * 0.55;
+  const back = [[entZ, 1.0], [bathZ, 0.85]].sort((a, b) => a[0] - b[0]);
+  { let z = -HZ; for (const [hz, hw] of back) { box(T, CH, hz - hw / 2 - z, xb, y0, (hz - hw / 2 + z) / 2, [0.93, 0.9, 0.84]); box(T, CH - 2.1, hw, xb, y0 + 2.1, hz, [0.93, 0.9, 0.84]); z = hz + hw / 2; } box(T, CH, HZ - z, xb, y0, (HZ + z) / 2, [0.93, 0.9, 0.84]); }
+  box(0.06, 2.05, 0.95, xb + 0.35, y0, entZ + (entZ > 0 ? -0.42 : 0.42), [0.42, 0.25, 0.15]); // your front door, open
+  box(0.7, 0.02, 1.0, xb + 0.5, y0 + 0.12, entZ, [0.55, 0.3, 0.25]); // doormat
+  box(0.05, 2.0, 0.8, xb + 0.06, y0, bathZ, WHITE); // bathroom door, shut
+  // the rest of the top floor has its roof on: the neighbour's flat and the stair bulkhead
+  box(xb + HX, CH + 0.35, WZ, (xb - HX) / 2, y0, 0, brick);
+  box(xb + HX + 0.3, 0.2, WZ + 0.3, (xb - HX) / 2, y0 + CH + 0.35, 0, [0.42, 0.43, 0.45]);
+  box(2.6, 2.4, 2.4, xb - 1.6, y0 + CH + 0.55, -zp * 0.8 || 0.8, [0.72, 0.68, 0.6]); // stair bulkhead
+  box(0.08, 1.9, 0.9, xb - 0.27, y0 + CH + 0.55, -zp * 0.8 || 0.8, [0.3, 0.32, 0.35]);
+  // a wooden water tank on legs, like every walk-up in the city
+  for (const [a, b] of [[-0.8, -0.8], [0.8, -0.8], [-0.8, 0.8], [0.8, 0.8]]) box(0.14, 2.1, 0.14, -HX + 2.4 + a, y0 + CH + 0.55, b, IRON);
+  parts.push([new THREE.CylinderGeometry(1.25, 1.25, 2.2, 14).translate(-HX + 2.4, y0 + CH + 0.55 + 2.1 + 1.1, 0), [0.6, 0.42, 0.27]]);
+  parts.push([new THREE.ConeGeometry(1.35, 0.9, 14).translate(-HX + 2.4, y0 + CH + 0.55 + 4.2 + 0.45, 0), [0.35, 0.3, 0.27]]);
+
+  // ---------- inside the studio ----------
+  const iz = s => s * (HZ - T), F0 = y0 + 0.12; // the inside of each long wall, and the floor
+  const pz = zp || -1; // the party side, where the bed and sofa go
+  // the bed in the back corner, with a pillow, duvet and the unpaid bills
+  const bx = xb + T + 1.05, bz = iz(pz) - pz * 0.78;
+  box(2.1, 0.3, 1.5, bx, F0, bz, [0.45, 0.3, 0.2]); box(2.0, 0.22, 1.4, bx, F0 + 0.3, bz, WHITE);
+  box(1.4, 0.08, 1.45, bx + 0.32, F0 + 0.52, bz, [0.24, 0.42, 0.78]); box(0.45, 0.14, 1.0, bx - 0.72, F0 + 0.52, bz, WHITE);
+  for (let k = 0; k < 3; k++) box(0.32, 0.02, 0.24, bx + 0.1 + k * 0.28, F0 + 0.61, bz - 0.2 + (k % 2) * 0.25, [0.97, 0.97, 0.92]);
+  box(0.5, 0.5, 0.45, bx + 1.4, F0, iz(pz) - pz * 0.3, WOOD); // bedside table
+  // the kitchenette against the back wall on the other side
+  const kz = iz(-pz) + pz * 0.35;
+  box(0.62, 0.9, 2.2, xb + T + 1.6, F0, kz, [0.9, 0.88, 0.84]); box(0.66, 0.05, 2.24, xb + T + 1.6, F0 + 0.9, kz, [0.35, 0.36, 0.38]);
+  box(0.66, 1.75, 0.66, xb + T + 1.6, F0, kz + pz * 1.5, [0.86, 0.9, 0.93]); // fridge
+  box(0.3, 0.04, 0.4, xb + T + 1.6, F0 + 0.95, kz - pz * 0.5, [0.15, 0.15, 0.16]); // hob
+  // a small table with two chairs
+  const tx = xb + T + 4.2, tz = kz + pz * 0.6;
+  box(0.8, 0.74, 0.8, tx, F0, tz, WOOD); for (const s of [-1, 1]) box(0.42, 0.45, 0.42, tx + s * 0.62, F0, tz, [0.3, 0.32, 0.36]);
+  // the sofa and rug in the middle, facing the windows
+  const sx2 = xf - 4.4, szz = iz(pz) - pz * 0.5;
+  box(0.85, 0.42, 2.0, sx2, F0, szz, [0.46, 0.5, 0.58]); box(0.85, 0.42, 0.25, sx2, F0 + 0.42, szz + pz * 0.88, [0.42, 0.46, 0.54]);
+  box(2.4, 0.015, 1.8, sx2 + 1.4, F0, szz - pz * 0.9, [0.72, 0.32, 0.24]);
+  box(0.4, 1.7, 0.9, xf - 2.3, F0, iz(pz) - pz * 0.22, WOOD); for (let k = 0; k < 3; k++) box(0.36, 0.25, 0.8, xf - 2.3, F0 + 0.35 + k * 0.5, iz(pz) - pz * 0.22, [[0.75, 0.25, 0.2], [0.2, 0.45, 0.7], [0.85, 0.7, 0.25]][k]); // books
+  // the desk under the front window: where it all begins
+  const dz = frontCols[frontCols.length - 1] * (pz > 0 ? -1 : 1) || 0, dx = xf - T - 0.38;
+  box(0.7, 0.05, 1.4, dx, F0 + 0.72, dz, WOOD); for (const s of [-1, 1]) for (const t of [-1, 1]) box(0.05, 0.72, 0.05, dx + s * 0.3, F0, dz + t * 0.65, [0.3, 0.2, 0.13]);
+  box(0.46, 0.46, 0.46, dx - 0.7, F0, dz, [0.18, 0.2, 0.24]); box(0.08, 0.5, 0.46, dx - 0.95, F0 + 0.46, dz, [0.18, 0.2, 0.24]); // chair
+  box(0.3, 0.02, 0.42, dx + 0.02, F0 + 0.77, dz, [0.22, 0.24, 0.28]); // laptop base
+  box(0.12, 0.1, 0.08, dx - 0.05, F0 + 0.77, dz + 0.5, WHITE); // a mug
+  // a plant by the window
+  box(0.36, 0.38, 0.36, xf - T - 0.35, F0, iz(-pz) + pz * 0.35, [0.72, 0.36, 0.24]);
+  parts.push([new THREE.IcosahedronGeometry(0.42, 0).translate(xf - T - 0.35, F0 + 0.75, iz(-pz) + pz * 0.35), [0.33, 0.6, 0.3]]);
+
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(mergeFlat(parts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8 }));
+  body.castShadow = body.receiveShadow = true;
+  g.add(body);
+  const screen = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.27, 0.4).rotateZ(-0.25).translate(dx + 0.17, F0 + 0.92, dz), new THREE.MeshStandardMaterial({ color: lin(0x9fd3ff), emissive: lin(0x3a8adf), emissiveIntensity: 1.2, roughness: 0.3 }));
+  g.add(screen);
+  const you = personMesh(0x3b6fd8, 1.0); you.position.set(dx - 0.72, F0, dz + 0.05); you.rotation.y = Math.PI / 2; g.add(you);
+  // place it: local +x is the front, local +z is (sx, sz)
+  g.position.set(cx, 0, cz);
+  g.rotation.y = -Math.atan2(fz, fx);
+  g.traverse(o => { o.renderOrder = 10; });
+  scene.add(g);
+  // the real building it replaces sinks out of sight, with anything on its roof
+  homeSpot.poly = pts; homeSpot.g = p.g;
+  const pad = 0.6, outer = [[-HX - pad, -HZ - pad], [HX + pad, -HZ - pad], [HX + pad, HZ + pad], [-HX - pad, HZ + pad]].map(([a, b]) => [cx + fx * a + sx * b, cz + fz * a + sz * b]);
+  homeSpot.poly = outer; homeSpot.x = cx; homeSpot.z = cz;
+  for (const t of tiles) {
+    const P = t.mesh.geometry.attributes.position; let hit = false;
+    for (let v = 0; v < t.pid.length; v++) if (t.pid[v] === p.i) { P.setY(v, -3); hit = true; }
+    if (hit) P.needsUpdate = true;
+  }
+  const zero = new THREE.Matrix4().makeScale(0, 0, 0), mtx = new THREE.Matrix4(), ps = new THREE.Vector3();
+  for (const m of roofThings.concat(cityTiles.filter(t => t.kind === 'crown' || t.kind === 'detail' || t.kind === 'props').map(t => t.mesh))) {
+    if (!m.isInstancedMesh) continue;
+    let hit = false;
+    for (let i = 0; i < m.count; i++) { m.getMatrixAt(i, mtx); ps.setFromMatrixPosition(mtx); if (inHome(ps.x, ps.z)) { m.setMatrixAt(i, zero); hit = true; } }
+    if (hit) m.instanceMatrix.needsUpdate = true;
+  }
+  refreshPitched(cx, cz);
+  const mid = (xf + xb) / 2;
+  return { group: g, g: p.g, i: p.i, x: cx + fx * mid, z: cz + fz * mid, y: y0, top: y0 + CH, az: Math.atan2(fx, fz), door: [cx + fx * (HX + 1.5) + sx * doorZ, cz + fz * (HX + 1.5) + sz * doorZ], size: [LX, WZ] };
+}
+
+// ---------- the old rooftop studio, only used if the walk-up can't be found in the map data ----------
 function personMesh(shirt, scale = 1.3) {
   const g = new THREE.Group(), mat = c => new THREE.MeshStandardMaterial({ color: lin(c), roughness: 0.7 });
   const body = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.27, 1.05, 10).translate(0, 0.62, 0), mat(shirt));

@@ -12,16 +12,11 @@
   const inGame = () => $('title').hidden && !$('hud').hidden;
 
   // ---------- graphics settings (GFX, pixelRatio and dynScale live in index.html, read before the renderer was made) ----------
-  const PRESETS = {
-    low: { cap: 1, scale: 0.7, shadows: 'off', detail: 'low', aa: false },
-    medium: { cap: 1.5, scale: 0.85, shadows: 'low', detail: 'high', aa: true },
-    high: { cap: 2, scale: 1, shadows: 'high', detail: 'high', aa: true },
-    ultra: { cap: 3, scale: 1, shadows: 'high', detail: 'high', aa: true },
-  };
+  const PRESETS = Boot.PRESETS; // js/boot.js, which also picks one for a new player
   const aaAtStart = GFX.aa;
   function applyGfx() {
     renderer.setPixelRatio(pixelRatio());
-    const on = GFX.shadows !== 'off', size = GFX.shadows === 'low' ? 2048 : 4096;
+    const on = GFX.shadows !== 'off', size = shadowSize(); // the same sizes as at startup, so changing another setting never makes shadows heavier
     if (renderer.shadowMap.enabled !== on) { // materials compile shadows in or out, so they have to be rebuilt
       renderer.shadowMap.enabled = on;
       scene.traverse(o => { if (o.material) [].concat(o.material).forEach(m => { m.needsUpdate = true; }); });
@@ -55,7 +50,7 @@
   // ---------- Settings ----------
   const sets = document.createElement('div');
   sets.id = 'settings'; sets.className = 'ov2'; sets.hidden = true;
-  sets.innerHTML = '<div class="smodal glass2" role="dialog" aria-label="Settings"><nav class="stabs"><h2>SETTINGS</h2><button data-t="graphics" class="on">Graphics</button><button data-t="controls">Controls</button></nav><div class="sbody" id="sBody"></div></div>';
+  sets.innerHTML = '<div class="smodal glass2" role="dialog" aria-label="Settings"><nav class="stabs"><h2>SETTINGS</h2><button data-t="graphics" class="on">Graphics</button><button data-t="controls">Controls</button><button data-t="save">Your save</button></nav><div class="sbody" id="sBody"></div></div>';
   document.body.appendChild(sets);
   let sTab = 'graphics';
   const seg = (key, opts, cur) => `<div class="seg" data-k="${key}">${opts.map(([v, l]) => `<button data-v="${v}" class="${String(v) === String(cur) ? 'on' : ''}">${l}</button>`).join('')}</div>`;
@@ -79,6 +74,9 @@
         ${row('Building detail', 'Attics, chimneys, domes, street lamps, benches and trees', seg('detail', [['low', 'Low'], ['high', 'High']], GFX.detail))}
         ${row('Show frame rate', `Or press ${K('F3')}`, tog('showFps', GFX.showFps, 'Show frame rate'))}
         ${foot(true)}`;
+    } else if (sTab === 'save' && window.Saves) {
+      body.innerHTML = Saves.html() + foot(false);
+      Saves.bind(body, drawSettings);
     } else {
       body.innerHTML = `<h3>Controls</h3><p>Mouse: drag to move, right-drag to turn, the wheel to zoom, click a building to see it.</p>
         <div class="keylist">
@@ -125,7 +123,7 @@
   const pause = document.createElement('div');
   pause.id = 'pause'; pause.className = 'ov2'; pause.hidden = true;
   pause.innerHTML = `<div class="pcard glass2" role="dialog" aria-label="Paused"><h2>PAUSED</h2><p id="pauseD"></p><nav class="menu">
-    ${item('pResume', 'Resume', 'Esc')}${item('pSettings', 'Settings', 'S')}${item('pWorld', 'World map', 'M')}${item('pQuit', 'Save and quit to menu', 'Q', 'Your game is saved on this device')}</nav>
+    ${item('pResume', 'Resume', 'Esc')}${item('pSettings', 'Settings', 'S')}${item('pWorld', 'World map', 'M')}${item('pQuit', 'Save and quit to menu', 'Q', 'Your game is saved on this device')}${item('pSave', 'Your save', 'F9', 'Save status, and a backup file')}</nav>
     <nav class="legal"><a href="terms.html" target="_blank" rel="noopener">Terms</a><a href="privacy.html" target="_blank" rel="noopener">Privacy</a><a href="credits.html" target="_blank" rel="noopener">Credits</a><a href="wiki.html" target="_blank" rel="noopener">Wiki</a><a href="changelog.html" target="_blank" rel="noopener">What&#39;s new</a></nav></div>`;
   document.body.appendChild(pause);
   function openPause() {
@@ -147,6 +145,7 @@
   }
   $('pResume').onclick = closePause;
   $('pSettings').onclick = () => openSettings();
+  $('pSave').onclick = () => openSettings('save');
   $('pWorld').onclick = () => { closePause(); toWorld(); };
   $('pQuit').onclick = quitToMenu;
   pause.onclick = e => { if (e.target === pause) closePause(); };

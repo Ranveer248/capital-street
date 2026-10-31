@@ -38,9 +38,20 @@ window.HUD = (function () {
   const join = document.createElement('div');
   join.id = 'join'; join.className = 'ov2'; join.hidden = true;
   document.body.appendChild(join);
-  let color = COLORS[Math.floor(Math.random() * COLORS.length)], busy = false, why = '', name = '';
+  let color = COLORS[Math.floor(Math.random() * COLORS.length)], busy = false, why = '', name = '', slow = false;
   try { name = localStorage.getItem('cs-name') || ''; } catch (e) { /* storage blocked */ }
   let wantPlay = false; // you tapped Play and are waiting to get online
+  // Goal 31: an invite link (?with=Name) says whose game you're joining, and takes you to their buildings once you're in
+  const friend = (() => { try { const v = new URLSearchParams(location.search).get('with'); return v && /^[A-Za-z0-9][A-Za-z0-9 _.-]{1,18}[A-Za-z0-9]$/.test(v) ? v : ''; } catch (e) { return ''; } })();
+  let friendDone = false, waitT = 0;
+  async function toFriend() {
+    if (!friend || friendDone || !window.Net || Net.status !== 'online') return;
+    friendDone = true;
+    if (Net.me && Net.me.name.toLowerCase() === friend.toLowerCase()) return;
+    const id = await Net.findByName(friend);
+    if (!id) { toast('Friend not found', `There's no player called ${friend}.`); return; }
+    setTimeout(() => { const on = Net.online.some(p => p.id === id); if (!Net.findPlayer(id)) Net.open('players'); toast(`${friend} is ${on ? 'online now' : 'not online right now'}`, on ? 'Their buildings carry their name and colour on the map.' : 'You share the same city: their buildings are here even when they\'re away.'); }, 5600);
+  }
   let after = null; // what to open once you're in, when you tapped a bar button or an Earn tile on the menu
   function play(then) {
     after = typeof then === 'function' && !(window.Tutorial && Tutorial.want()) ? then : null;
@@ -49,7 +60,8 @@ window.HUD = (function () {
     why = ''; wantPlay = true; join.hidden = false; drawJoin();
   }
   function go() {
-    join.hidden = true; wantPlay = false; CS.startGame();
+    join.hidden = true; wantPlay = false; clearTimeout(waitT); CS.startGame();
+    toFriend();
     if (!after) return;
     const f = after; after = null;
     const t = setInterval(() => { if ($('hud').hidden || !window.Property || !Property.loaded()) return; clearInterval(t); setTimeout(f, 300); }, 200);
@@ -59,10 +71,14 @@ window.HUD = (function () {
     const st = Net.status;
     if (st === 'online') { go(); return; }
     let body;
-    if (st === 'connecting') body = '<div class="jspin"></div><p>Connecting to New York…</p>';
-    else if (st === 'error' || st === 'off') {
-      body = `<p>Capital Street is online only, and we can't reach the game server right now. Check your connection and try again.</p>
-        <div class="jrow"><button class="btn pri" id="jRetry">TRY AGAIN</button></div>`;
+    if (st === 'connecting') {
+      body = '<div class="jspin"></div><p>Connecting to New York…</p>';
+      clearTimeout(waitT); waitT = setTimeout(() => { if (!join.hidden && Net.status === 'connecting') { slow = true; drawJoin(); } }, 12000);
+      if (slow) body += `<p class="jwhy">This is taking a while. Your connection may be slow.</p><div class="jrow"><button class="btn" id="jOff">PLAY OFFLINE</button></div>`;
+    } else if (st === 'error' || st === 'off') {
+      body = `<p class="jwhy">${esc(Net.why || 'Can\'t reach the game server right now.')}</p>
+        <p>You can try again, or play offline: your game saves on this device and goes to your account the next time you're online.</p>
+        <div class="jrow"><button class="btn pri" id="jRetry">TRY AGAIN</button><button class="btn" id="jOff">PLAY OFFLINE</button></div>`;
     } else {
       body = `<p>Everyone plays in the same city. Pick the name other players will see.</p>
         <form id="jForm"><input id="jName" maxlength="20" placeholder="Your name" aria-label="Your name" autocomplete="nickname" value="${esc(name)}" required>
@@ -71,10 +87,11 @@ window.HUD = (function () {
         <button class="btn pri big" ${busy ? 'disabled' : ''}>${busy ? 'JOINING…' : 'PLAY'}</button></form>
         <button class="lnk" id="jAcc">I already have an account</button>`;
     }
-    join.innerHTML = `<div class="jbox"><button class="jx" id="jX" aria-label="Close">${IC('close')}</button><div class="jlogo">${IC('skyline')}</div><b>Join New York</b>${body}
+    join.innerHTML = `<div class="jbox"><button class="jx" id="jX" aria-label="Close">${IC('close')}</button><div class="jlogo">${IC('skyline')}</div><b>${friend ? `Join ${esc(friend)} in New York` : 'Join New York'}</b>${body}
       <small>By playing you agree to the <a href="terms.html" target="_blank" rel="noopener">Terms</a> and <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a>.</small></div>`;
     $('jX').onclick = () => { join.hidden = true; after = null; wantPlay = false; };
-    if ($('jRetry')) $('jRetry').onclick = () => location.reload();
+    if ($('jRetry')) $('jRetry').onclick = () => { Net.retry(); slow = false; drawJoin(); };
+    if ($('jOff')) $('jOff').onclick = () => { toast('Playing offline', 'Your game saves on this device. Shared buildings and chat come back when you reconnect.'); go(); };
     if ($('jAcc')) $('jAcc').onclick = () => { join.hidden = true; Net.open('account'); };
     join.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { color = b.dataset.c; join.querySelectorAll('[data-c]').forEach(x => x.classList.toggle('on', x === b)); });
     if ($('jForm')) {
@@ -96,7 +113,7 @@ window.HUD = (function () {
       };
     }
   }
-  if (window.Net) Net.on(t => { if (t === 'me' && !join.hidden && !busy) drawJoin(); });
+  if (window.Net) Net.on(t => { if (t === 'me' && !join.hidden && !busy) drawJoin(); if (t === 'me' && !$('hud').hidden) toFriend(); });
   let lastSt = ''; // and whenever the status changes (the 'me' news can come before the status does)
   setInterval(() => {
     if (wantPlay && window.Net && Net.status === 'online' && !$('title').hidden) { go(); return; } // a safety net: tapped Play, now online

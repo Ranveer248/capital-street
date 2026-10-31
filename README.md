@@ -355,6 +355,33 @@ Learned from the look of illustrated city builders (CityRT, SimCity BuildIt, Cit
 | Balconies | ✅ flats without shutters get balconies on alternate bays: a slab and a white, dark or terracotta rail, drawn in the wall shader |
 | Cream panels | ✅ every sheet (Exchange, Property, Bank, Jobs, Settings, join, stories) is warm cream with navy type and the same chunky navy outline; coloured headers and buttons stay |
 
+## Goal 31: a real start, safer saves, working multiplayer ✅
+
+| Check | Result |
+|---|---|
+| A believable first home | ✅ the tiny room on a 40-storey tower is gone. You start in a top-floor studio in a five-storey brick walk-up at the **South Street Seaport**, built on a real row house's footprint: sash windows, a shop and the front door with its stoop on the street, a fire escape, a water tank, and the top floor drawn with its roof off. Inside: bed, desk with a glowing laptop, chair, kitchenette and fridge, table, sofa, rug, bookshelf, the door to the landing and the bathroom door. The next-door roofs are flat so you can see in |
+| A starter neighbourhood | ✅ "South Street Seaport" on the map, a clickable **Stock Exchange** (opens the Exchange), **Fulton Market** (opens Jobs) and **Wall Street** (offices, level 5), with Big Apple Bank a short walk away |
+| Opening camera and Home | ✅ the same view every time, in through the open roof from the street side, clear of the neighbours; Home closes panels, leaves the office and flies there from anywhere |
+| Later progression | ✅ skyscraper floors unlock at level 5 and luxury flats at level 4 (what you already own never locks); your own building isn't for sale |
+| Loading that explains itself | ✅ the browser's 3D is checked first: no WebGL gets a screen saying how to fix it (hardware acceleration, update, another browser) with Try again and Try low graphics, instead of hanging on "Fetching 56,000 real buildings". Real stages with a progress bar, two download tries, a "taking longer than usual" retry, and a "Graphics paused" screen if the browser takes the graphics card away |
+| Quality before the city | ✅ a new player picks Low, Medium, High or Ultra before the city is built, with the right one suggested for the device (Low when the browser draws without the graphics card) |
+| Shadows | ✅ one shadow size per setting (Low 1024, High 2048) at startup and in Settings, so changing another setting can't make shadows heavier |
+| Faster | ✅ measured at the spawn on High: 2,172 → 597 draw calls, 28.4 M → 7.6 M triangles (street furniture now only near the camera, without shadows). Repeat visits build the city in about 2.8 s instead of 7 (road and sidewalk shapes are kept on the device). Low leaves street furniture out entirely |
+| Save status | ✅ "Saved" / "Saving" / "Not saved" in the top bar; a warning that says why (storage full or blocked, no connection, another device); Settings → Your save shows this device and your account, with times |
+| Backups | ✅ download your whole game as a file and load it again (here or in another browser); your current save is kept as a backup; a save that can't be read is kept aside instead of being overwritten |
+| No lost or doubled progress | ✅ saving when you close or refresh the tab; cloud saves name the version they replace, so an older copy can't overwrite a newer one, and if two devices both played you choose which to keep; the game open in two tabs asks which one plays |
+| Multiplayer status | ✅ the Online chip says "2 online", "Reconnecting…" or "Offline", with the reason; it reconnects by itself and then catches up on what changed while it was away |
+| Joining | ✅ clear errors (name taken, can't reach the server) with Try again and Play offline; **Invite** in Online → Players gives a link: your friend joins "your" New York and lands on your buildings |
+| Who's who | ✅ Online → Players lists everyone online and the richest, marks you, shows how many buildings each has here, and **Find** flies to them; buildings carry their owner's name and colour on the map |
+| Shared vs yours | ✅ Online → Account explains it: cash, shares, loans, level and tasks are yours; buildings, listings, auctions, the goods exchange and chat are shared |
+| Checked on the server | ✅ (`server/goal31.sql`) buying from a player and bidding are checked against the cash the server knows you have; a purchase writes both sides to a ledger that each game applies exactly once; two players can never get the same building |
+| A short first mission | ✅ Penny's tutorial is now: open the Exchange, buy a share, sell it, collect $500, pick a goal (buy a building, grow to $5,000, repay a loan, pay the rent). Time stands still while she talks. The goal shows in the top bar with progress and pays a little when done |
+| One thing at a time | ✅ for new players, Property and Jobs open after the first trade, land, businesses and auctions at level 3, the office at level 5. Players from before this update keep everything open |
+| Daily tasks that fit | ✅ tasks are picked from what you've unlocked, own and can afford (no "build a business" without land) |
+| Rent always visible | ✅ the rent and how long until it's due stay on screen |
+
+Tested with a local copy of the server (the real `server/schema.sql` in Postgres) and two to four separate players in the browser: joining, refreshing, leaving, losing the connection and coming back, two buyers at once, a sale between friends, a duplicate tab and a save conflict. See "Turning on multiplayer" for the one database step this needs.
+
 ## Roadmap
 
 1. ✅ The New York map
@@ -385,6 +412,8 @@ From the 5 new reference videos (a player-run economy game on the real world map
 21. ✅ **High-end graphics:** bloom, grading, a sun that follows the clock, clouds, glass, water, night lights
 22. ✅ **Simpler:** a new menu, online-only play, a clean map and screen, a tutorial
 23. ✅ **Surprises:** more market events, planes in the sky, plane crashes
+31. ✅ **A real start:** a walk-up at the Seaport, loading that explains itself, safe saves and backups, multiplayer that reconnects and is checked on the server, a short first mission
+30. ✅ **Streets, roofs and cream panels**
 29. ✅ **Illustrated city:** ink outlines, a warmer palette, window sills and shutters
 28. ✅ **Daily tasks:** three a day across every job, with rewards and a bonus
 27. ✅ **Toy-city buildings:** coloured roofs, crisper windows
@@ -407,6 +436,7 @@ Not legal advice: have a lawyer read these before a paid launch.
 Online play needs a free [Supabase](https://supabase.com) project. Until one is set, the game plays alone exactly as before and the menu says "Solo".
 
 1. Create a project (free plan is fine), open **SQL Editor**, paste all of [`server/schema.sql`](server/schema.sql) and run it. It is safe to run again after updates.
+   - **Goal 31 update for an existing project:** run [`server/goal31.sql`](server/goal31.sql) once (it is also at the end of schema.sql). It only adds: versioned cloud saves (`cs_put_save`), the exactly-once ledger (`cs_inbox_ack`, a `bought` row kind), and cash checks in `cs_buy_listing` and `cs_bid`. Nothing is deleted. Until it runs, the game keeps using the older functions and still works.
 2. **Authentication → Sign In / Providers:** turn on **Allow anonymous sign-ins** (for "Play online as a guest") and keep **Email** on. Optional: turn off "Confirm email" while testing.
 3. **Project Settings → API Keys:** copy the project URL and the **publishable** key (`sb_publishable_...`, or the legacy `anon` key) into [`js/net-config.js`](js/net-config.js). Never put the `service_role` / secret key in the game: everything in it is public.
 4. Reload the game. The chip next to your cash turns into "Sign in"; press **O** in the menu or **T** in the game.

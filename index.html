@@ -189,6 +189,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .lcard button.main.pay { background: var(--x-acc); color: #1a1300; }
 .lcard button.main:disabled { background: #2b313c; color: var(--x-dim); }
 .bar2 { height: 6px; border-radius: 3px; background: #111318; overflow: hidden; } .bar2 i { display: block; height: 100%; background: var(--x-acc); }
+.lab.place.go { pointer-events: auto; cursor: pointer; background: #fff8ea; color: #24305e; } .lab.place.go i { font-style: normal; font-weight: 700; color: #188a43; margin-left: 4px; }
 .lab.place.bank { pointer-events: auto; cursor: pointer; background: #1d4ed8; border-color: #93c5fd; }
 
 /* property: the listings screen and the listing card, like the reference videos' property auctions */
@@ -707,7 +708,7 @@ h1 { -webkit-text-stroke: 3px var(--ol); paint-order: stroke fill; text-shadow: 
 .tbtns .lnk { padding: 4px 0; background: none; border: 0; color: #7a83a6; font: 700 12px/1 Inter, sans-serif; cursor: pointer; } .tbtns .btn { padding: 9px 18px; }
 .tbtns .btn[hidden] { display: none; }
 #ticker, #keys, #hint { display: none !important; }
-#rentBox:not(.soon):not(.late), #debtBox[hidden] { display: none !important; }
+#debtBox[hidden] { display: none !important; }
 #dock { bottom: calc(env(safe-area-inset-bottom) + 14px) !important; }
 /* ---------- Goal 22: a cleaner, more real trading screen ---------- */
 @media (min-width: 900px) {
@@ -957,6 +958,58 @@ h1 { -webkit-text-stroke: 3px var(--ol); paint-order: stroke fill; text-shadow: 
 .ebox .egrid button { background: #fff; color: var(--crink); } .ebox .egrid em { color: #188a43 !important; }
 #story .box p { color: #5f5743; } #story .box > small { color: #c76a00; } #story .box .facts div { background: #fff; }
 :is(#ex, #bank, #props, #listing, #cityCard, #net, #ostaff, #story .box, .pcard.glass2, .smodal, .ebox, .jbox) .tog:not([aria-pressed="true"]) { background: #e6d8b8 !important; } :is(#ex, #bank, #props, #listing, #cityCard, #net, #ostaff, #story .box, .pcard.glass2, .smodal, .ebox, .jbox) kbd { color: var(--crdim) !important; border-color: var(--crl) !important; background: #fff !important; }
+/* ---------- Goal 31: the loading screen ---------- */
+#load { place-content: center; justify-items: center; padding: 16px; overflow: auto; }
+#load .lbox { width: min(440px, 100%); background: var(--cr, #fff8ea); color: var(--crink, #24305e); border: 4px solid var(--ol, #0a0f2e); border-radius: 22px; box-shadow: 0 6px 0 var(--ol, #0a0f2e); padding: 20px 20px 18px; text-shadow: none; display: grid; gap: 10px; }
+#load .lbox > b { font: 400 24px/1.15 'Lilita One', 'Archivo Black', sans-serif; }
+#load .lsteps { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+#load .lsteps li { font: 700 12px/1 Inter, sans-serif; padding: 6px 9px; border-radius: 99px; background: #ead7a8; color: #7d7058; }
+#load .lsteps li.on { background: #2f6bff; color: #fff; } #load .lsteps li.done { background: #2fbf6a; color: #fff; }
+#load .lsteps li.done::before { content: '✓ '; }
+#load .lbar { height: 12px; border-radius: 99px; background: #ead7a8; border: 2px solid var(--ol, #0a0f2e); overflow: hidden; }
+#load .lbar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #2fbf6a, #9be15d); transition: width .25s; }
+#load small, #load .lnote { font: 600 13px/1.35 Inter, sans-serif; color: #5f5743; margin: 0; }
+#load #lq small { display: block; margin: 4px 0 6px; color: #7d7058; letter-spacing: .06em; font-size: 11px; }
+#load .lqrow { display: flex; gap: 6px; justify-content: center; }
+#load .lqrow button, #load .lqbig button { border: 3px solid var(--ol, #0a0f2e); border-radius: 12px; background: #fff; color: var(--crink, #24305e); font: 800 13px/1.1 Inter, sans-serif; padding: 8px 12px; }
+#load .lqrow button.on { background: #2f6bff; color: #fff; }
+#load .lqbig { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+#load .lqbig button { display: grid; gap: 3px; text-align: left; padding: 10px 12px; box-shadow: 0 3px 0 var(--ol, #0a0f2e); }
+#load .lqbig button b { font: 400 18px/1 'Lilita One', sans-serif; } #load .lqbig button span { font: 600 12px/1.2 Inter, sans-serif; color: #7d7058; }
+#load .lqbig button.rec { background: #fde7a6; } #load .lqbig button.rec span { color: #188a43; }
+#load #lerr { text-align: left; display: grid; gap: 8px; } #load #lerr[hidden], #load #lq[hidden] { display: none; }
+#load #lerr > b { font: 400 20px/1.15 'Lilita One', sans-serif; color: #c8322b; } #load #lerr p b { font-weight: 800; } #load #lerr p { margin: 0; font: 600 14px/1.45 Inter, sans-serif; }
+#load #lerr code { font: 600 11px/1.3 ui-monospace, monospace; color: #7d7058; word-break: break-all; }
+#load .lbtns2 { display: flex; gap: 8px; flex-wrap: wrap; } #load .btn { pointer-events: auto; }
+#load.bad .lbar, #load.bad #loadMsg { display: none; }
+#lslow p { margin: 0 0 6px; font: 600 13px/1.3 Inter, sans-serif; }
+#glLost { z-index: 90; } #glLost .jbox { max-width: 360px; }
+/* ---------- Goal 31: save status, warnings, locks, multiplayer ---------- */
+#saveSt { border: 0; background: rgba(255,255,255,.14); color: #dfe7ff; font: 700 11px/1 Inter, sans-serif; padding: 5px 8px; border-radius: 99px; margin: 0 4px; pointer-events: auto; }
+#saveSt:empty { display: none; } #saveSt.busy { color: #fff; } #saveSt.bad { background: #e0453a; color: #fff; animation: aucPulse 1.6s ease-in-out infinite; }
+#saveWarn { position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 64px); transform: translateX(-50%); z-index: 60; display: flex; align-items: center; gap: 10px; width: min(640px, calc(100% - 24px)); box-sizing: border-box;
+  background: #fff1e6; color: #5a1d00; border: 3px solid var(--ol, #0a0f2e); border-radius: 16px; box-shadow: 0 4px 0 var(--ol, #0a0f2e); padding: 8px 10px; font: 700 13px/1.3 Inter, sans-serif; }
+#saveWarn[hidden] { display: none; } #saveWarn span { flex: 1; min-width: 0; } @media (max-width: 520px) { #saveWarn { flex-wrap: wrap; } #saveWarn span { flex-basis: calc(100% - 60px); } } #saveWarn > b { font-size: 18px; color: #e0453a; } #saveWarn .btn { flex: none; font-size: 11px; padding: 7px 10px; } #saveWarn .lnk { background: none; border: 0; color: #5a1d00; font-size: 16px; }
+.swarn { background: #fff1e6; color: #8a2a00 !important; border: 2px solid #e0453a; border-radius: 12px; padding: 8px 10px; font: 700 13px/1.35 Inter, sans-serif; margin: 6px 0; }
+.sst { font: 900 18px/1 Inter, sans-serif; color: #7d7058; } .sst.ok { color: #188a43; } .sst.bad, .srow .bad { color: #c8322b !important; }
+#sBody label.btn { display: inline-flex; align-items: center; cursor: pointer; }
+.lpic .tag.lock { background: #7d7058; color: #fff; } .note.lock { background: #fde7a6; color: #5a4300 !important; border-radius: 10px; padding: 8px 10px; width: 100%; }
+#netChip.warn { background: #e8a33a !important; color: #2a1800 !important; } #netChip.warn b { color: #2a1800 !important; }
+.netp .invite { display: flex; gap: 10px; align-items: center; background: #fde7a6; border-radius: 14px; padding: 10px; margin-bottom: 8px; } .netp .invite small { display: block; font-weight: 600; opacity: .8; }
+.netp .split { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; } .netp .split > div { background: rgba(255,255,255,.7); border-radius: 12px; padding: 8px 10px; } .netp .split small { display: block; font-weight: 600; opacity: .85; margin-top: 3px; }
+.prow em.you { font: 900 10px/1 Inter, sans-serif; background: #2f6bff; color: #fff; border-radius: 99px; padding: 3px 6px; margin-left: 6px; font-style: normal; }
+.prow .lnk { margin-left: auto; }
+input.invl { width: 100%; font: 600 13px/1.3 ui-monospace, monospace; padding: 8px; border-radius: 10px; border: 2px solid var(--ol, #0a0f2e); user-select: all; }
+#tabOv, #glLost { z-index: 95; } #tabOv .jrow, #join .jrow { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+/* Goal 31: the objective under your cash, and locked buttons */
+#objective { position: relative; pointer-events: auto; display: flex; align-items: center; gap: 8px; flex-basis: 100%; margin-top: 6px; overflow: hidden;
+  background: #fff8ea; color: #24305e; border: 3px solid var(--ol, #0a0f2e); border-radius: 14px; box-shadow: 0 3px 0 var(--ol, #0a0f2e); padding: 6px 10px; text-align: left; }
+#objective[hidden] { display: none; } #objective .oi { font-size: 18px; } #objective b { display: block; font: 800 13px/1.15 Inter, sans-serif; } #objective small { display: block; font: 700 11px/1.2 Inter, sans-serif; color: #7d7058; }
+#objective i { position: absolute; left: 0; bottom: 0; height: 4px; background: #2fbf6a; }
+button.locked { filter: grayscale(.85) brightness(.9); } button.locked::after { content: '🔒'; position: absolute; right: -4px; top: -6px; font-size: 14px; }
+.locked-tab { padding: 18px; text-align: center; } .locked-tab b { font: 400 20px/1.2 'Lilita One', sans-serif; }
+#storyBox button small { display: block; font: 600 12px/1.2 Inter, sans-serif; opacity: .85; text-transform: none; letter-spacing: 0; }
+.netp .invite small, .netp .split small { letter-spacing: 0 !important; text-transform: none !important; font-size: 12px !important; color: #5f5743 !important; }
 </style>
 </head>
 <body>
@@ -1063,7 +1116,8 @@ h1 { -webkit-text-stroke: 3px var(--ol); paint-order: stroke fill; text-shadow: 
   </nav>
   <button id="earnM" class="earnb" aria-label="Jobs"><svg class="ic"><use href="#ic-crane"/></svg><b>JOBS</b></button>
 </div>
-<div id="load">Loading New York…<small id="loadMsg">Fetching 56,000 real buildings</small></div>
+<div id="load"><small id="loadMsg">Loading…</small></div>
+<script src="js/boot.js"></script>
 
 <script src="lib/three.min.js"></script>
 <script src="lib/OrbitControls.js"></script>
@@ -1072,8 +1126,8 @@ h1 { -webkit-text-stroke: 3px var(--ol); paint-order: stroke fill; text-shadow: 
 <script src="js/market.js"></script>
 <script>
 'use strict';
-const loadMsg = document.getElementById('loadMsg');
-if (!window.THREE || !THREE.MapControls) { loadMsg.textContent = 'Could not load the 3D engine. Check your connection and reload.'; throw new Error('three.js missing'); }
+if (Boot.dead) throw new Error('This browser can\'t draw WebGL'); // js/boot.js shows how to fix it
+if (!window.THREE || !THREE.MapControls) { Boot.fail('The 3D engine didn\'t load', 'Part of the game didn\'t download. Check your connection and try again.', { low: false }); throw new Error('three.js missing'); }
 
 // ---------- projection (same as tools/build_map.py): Web Mercator, 1 unit = 1 m at New York, origin Times Square ----------
 const LAT0 = CITY.lat, LON0 = CITY.lon, R = 6378137, K = Math.cos(LAT0 * Math.PI / 180); // everything is laid out around the city you're in
@@ -1083,7 +1137,8 @@ const ll = (lat, lon) => [R * K * (lon - LON0) * Math.PI / 180, -R * K * (mercY(
 
 // ---------- places ----------
 const PLACE = {
-  home: ll(40.7097, -74.0087),            // as in the reference: a rooftop room on a tower by John Street and Broadway
+  home: ll(40.70723, -74.00182),          // Goal 31: a top-floor studio in a five-storey walk-up at the South Street Seaport (js/city.js)
+  seaport: ll(40.7066, -74.0030),
   wall: ll(40.7064, -74.0094),
   bank: ll(40.7061, -74.0087),            // Big Apple Bank, on Wall Street
   manhattan: ll(...CITY.centre), // the city view
@@ -1092,16 +1147,71 @@ const PLACE = {
 const UNLOCKED_R = 45000; // metres around the city that are playable; other cities open from the globe
 
 // ---------- binary map files written by tools/build_map.py ----------
-async function loadBin(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(url + ' ' + res.status);
-  const buf = await res.arrayBuffer();
+async function fetchBytes(url, onBytes, tries = 2) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(url + ' ' + res.status);
+    if (!res.body || !res.body.getReader || !onBytes) return await res.arrayBuffer();
+    const rd = res.body.getReader(), parts = [];
+    let n = 0;
+    for (;;) { const { done, value } = await rd.read(); if (done) break; parts.push(value); n += value.length; onBytes(value.length); }
+    const out = new Uint8Array(n); let o = 0;
+    for (const p of parts) { out.set(p, o); o += p.length; }
+    return out.buffer;
+  } catch (e) {
+    if (tries > 1) { await new Promise(r => setTimeout(r, 1200)); return fetchBytes(url, onBytes, tries - 1); }
+    throw e;
+  }
+}
+async function loadBin(url, onBytes) {
+  const buf = await fetchBytes(url, onBytes);
   const hl = new DataView(buf).getUint32(0, true);
   const head = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 4, hl)));
   const T = { uint8: Uint8Array, uint16: Uint16Array, int16: Int16Array, uint32: Uint32Array, float32: Float32Array };
   const out = {};
   for (const [name, [type, off, n]] of Object.entries(head)) out[name] = new T[type](buf, 4 + hl + off, n);
   return out;
+}
+// Goal 31: the street and sidewalk polygons have thousands of holes, and triangulating them took 3 to 5 seconds of
+// loading. A worker does it while the main thread builds the buildings; without workers it runs here as before.
+// The result is kept on the device (IndexedDB), so every visit after the first skips the work entirely.
+const geoCache = {
+  db: null,
+  open() { return this.db || (this.db = new Promise(res => { try { const q = indexedDB.open('cs-geo', 1); q.onupgradeneeded = () => q.result.createObjectStore('g'); q.onsuccess = () => res(q.result); q.onerror = () => res(null); } catch (e) { res(null); } })); },
+  async get(k) { const db = await this.open(); if (!db) return null; return new Promise(res => { try { const q = db.transaction('g').objectStore('g').get(k); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); } catch (e) { res(null); } }); },
+  async put(k, v) { const db = await this.open(); if (!db) return; try { db.transaction('g', 'readwrite').objectStore('g').put(v, k); } catch (e) { /* no room: it's only a cache */ } }
+};
+const geoOf = v => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(v.P, 3)); g.setAttribute('normal', new THREE.BufferAttribute(v.N, 3)); if (v.I) g.setIndex(new THREE.BufferAttribute(v.I, 1)); return g; };
+async function polyGeoAsync(d, name) {
+  const r = d[name + '.r'], xy = d[name + '.xy'];
+  if (!r || !xy) return polyGeo(d, name);
+  let h = 0; for (let i = 0; i < xy.length; i += 97) h = Math.imul(h, 31) + xy[i] | 0;
+  const key = `${CITY.id}:${name}:${xy.length}:${h}`, hit = await geoCache.get(key);
+  if (hit && hit.P) return geoOf(hit);
+  const g = await triangulate(d, name, r, xy);
+  geoCache.put(key, { P: g.attributes.position.array, N: g.attributes.normal.array, I: g.index ? g.index.array : null });
+  return g;
+}
+function triangulate(d, name, r, xy) {
+  if (typeof Worker === 'undefined') return Promise.resolve(polyGeo(d, name));
+  return new Promise(res => {
+    let w;
+    const here = () => { if (w) w.terminate(); res(polyGeo(d, name)); };
+    try {
+      const src = `importScripts(${JSON.stringify(new URL('lib/three.min.js', location.href).href)});
+onmessage = e => {
+  const r = e.data.r, xy = e.data.xy, shapes = []; let ri = 1, p = 0;
+  const ring = n => { const pts = []; for (let i = 0; i < n; i++, p += 2) pts.push(new THREE.Vector2(xy[p], -xy[p + 1])); return pts; };
+  for (let k = 0; k < r[0]; k++) { const rings = r[ri++], s = new THREE.Shape(ring(r[ri++])); for (let h = 1; h < rings; h++) s.holes.push(new THREE.Path(ring(r[ri++]))); shapes.push(s); }
+  const g = new THREE.ShapeGeometry(shapes).rotateX(-Math.PI / 2), P = g.attributes.position.array, N = g.attributes.normal.array, I = g.index ? g.index.array : null;
+  postMessage({ P, N, I }, [P.buffer, N.buffer].concat(I ? [I.buffer] : []));
+};`;
+      w = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+    } catch (e) { here(); return; }
+    w.onmessage = e => { w.terminate(); res(geoOf(e.data)); };
+    w.onerror = e => { e.preventDefault(); here(); };
+    w.postMessage({ r: r.slice(), xy: xy.slice() });
+  });
 }
 // polygon layer → one flat geometry on the ground
 function polyGeo(d, name) {
@@ -1125,7 +1235,11 @@ const GFX = (() => { try { return Object.assign({}, GFX_DEFAULT, JSON.parse(loca
 let dynScale = 1; // lowered by "keep 60 fps automatically" when the city gets busy
 const pixelRatio = () => Math.max(0.5, Math.min(devicePixelRatio, GFX.cap) * GFX.scale * dynScale);
 // High-end graphics: physically based materials, filmic tone mapping, sky reflections and real-time sun shadows.
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: GFX.aa, powerPreference: 'high-performance' });
+let renderer;
+try { renderer = new THREE.WebGLRenderer({ canvas, antialias: GFX.aa, powerPreference: 'high-performance' }); }
+catch (e) { Boot.noGL(e.message); throw e; }
+canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); Boot.lost(); });
+canvas.addEventListener('webglcontextrestored', () => Boot.restored());
 renderer.setPixelRatio(pixelRatio());
 renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -1163,7 +1277,8 @@ scene.add(new THREE.HemisphereLight(lin(0xdfeaff), lin(0x4d463e), 0.3));
 const SUN_DIR = new THREE.Vector3(-0.6, 0.5, 0.55).normalize(); // a lower, warmer sun for long shadows
 const sunLight = new THREE.DirectionalLight(lin(0xffeccc), 3.0);
 sunLight.castShadow = true;
-sunLight.shadow.mapSize.setScalar(GFX.shadows === 'low' ? 1024 : 2048); // Goal 25: lighter on phones
+const shadowSize = () => GFX.shadows === 'low' ? 1024 : 2048; // Goal 25: lighter on phones. Settings uses the same sizes (Goal 31)
+sunLight.shadow.mapSize.setScalar(shadowSize());
 sunLight.shadow.bias = -0.0004;
 sunLight.shadow.camera.near = 10; sunLight.shadow.camera.far = 12000;
 scene.add(sunLight, sunLight.target);
@@ -1346,7 +1461,7 @@ buildingMat.onBeforeCompile = sh => {
 const TILE = 1000, TALL = 45;
 const tiles = []; // { mesh, tall, pid: piece index of every vertex, for tapping }
 const pieces = [], groups = new Map(); // every building piece, and building number -> its pieces (used by js/property.js)
-let homeTop = 20, homeAngle = 0;
+let homeTop = 20, homeAngle = 0, homeAz = -0.5; // the studio's floor height, and the side the camera looks in from
 const towers = []; // tall buildings, for disasters
 const crowns = []; // buildings topped with battlements, a dome or a spire (built in js/city.js)
 function buildCity(d) {
@@ -1432,7 +1547,6 @@ function buildCity(d) {
     scene.add(m);
     tiles.push({ mesh: m, tall: b.tall, pid: Uint32Array.from(b.pid) });
   }
-  if (PLACE.homeSnap) PLACE.home = PLACE.homeSnap;
 }
 
 // instanced things in 800 m tiles, each with a bounding sphere covering its tile so off-screen tiles are culled
@@ -1607,7 +1721,16 @@ function cityLabels() {
   CITY.districts.forEach(([t, a, b]) => label(t, 'district', ll(a, b), 0, t === 'CENTRAL PARK' ? 1200 : 2800, 30000));
   CITY.nearby.forEach(([t, a, b]) => { label(t, 'district', ll(a, b), 0, 1500, 30000).el.style.color = '#e9f2e0'; });
   CITY.water.forEach(([t, a, b]) => label(t, 'water', ll(a, b), 0, 1200, 30000));
-  CITY.places.forEach(([t, a, b, y]) => label(t, 'place', ll(a, b), y, 0, 7000));
+  CITY.places.forEach(([t, a, b, y]) => {
+    const l = label(t, 'place', ll(a, b), y, 0, 7000);
+    if (t === 'Stock Exchange' && CITY.id === 'nyc') { l.el.classList.add('go'); l.el.innerHTML = 'Stock Exchange <i>trade shares</i>'; l.el.onclick = () => window.CSUI && CSUI.openEx(); }
+  });
+  if (CITY.id === 'nyc') { // Goal 31: your neighbourhood, and the places a beginner needs, a short walk from home
+    label('SOUTH STREET SEAPORT', 'district', PLACE.seaport, 0, 220, 2600);
+    const go = (html, at, y, f) => { const l = label(html, 'place go', at, y, 0, 2600); l.el.onclick = f; return l; };
+    go('Fulton Market <i>jobs</i>', ll(40.70645, -74.00335), 16, () => document.getElementById('earnG').click());
+    go('Wall Street <i>offices · level 5</i>', PLACE.wall, 40, () => window.Property && Property.open('sale'));
+  }
   if (CITY.id === 'nyc') { // the bank, like your apartment, is in New York
     bankLabel = label('Big Apple Bank', 'place bank', PLACE.bank, 45, 0, 9000);
     bankLabel.el.onclick = () => window.CSUI && CSUI.openBank();
@@ -1666,7 +1789,7 @@ const AZ = -0.5; // looking up the island
 const V = {
   world: () => view(PLACE.world, 6.5e6, 0.02, 0),
   city: () => view(PLACE.manhattan, CITY.view, 0.7, AZ),
-  home: () => view(PLACE.home, 70, 0.55, current().az, homeTop),
+  home: () => view(PLACE.home, 30, 0.62, homeAz, homeTop + 1), // always the same view in through the open roof, clear of the neighbours
   wall: () => view(PLACE.wall, 700, 0.5, current().az),
   bank: () => view(PLACE.bank, 260, 0.75, current().az)
 };
@@ -1795,7 +1918,7 @@ function frame(now) {
   const hs = Math.max(0.01, sink * sink * (3 - 2 * sink));
   for (const t of tiles) { t.mesh.visible = dist < (t.tall ? 120000 : 40000); t.mesh.scale.y = hs; }
   const lowDetail = GFX.detail === 'low'; // Settings: building detail
-  for (const t of cityTiles) { t.mesh.visible = dist < (t.kind === 'marks' ? 3000 : t.kind === 'props' ? (lowDetail ? 0 : 1600) : t.kind === 'detail' ? (lowDetail ? 0 : 2500) : t.kind === 'crown' ? (lowDetail ? 0 : 6000) : 40000); if (t.kind === 'roof') t.mesh.scale.y = hs; } // crowns go before the city starts sinking at 6 km
+  for (const t of cityTiles) { t.mesh.visible = dist < (t.kind === 'marks' ? 3000 : t.kind === 'props' ? (lowDetail || (t.x - controls.target.x) ** 2 + (t.z - controls.target.z) ** 2 > 1300 ** 2 ? 0 : 1600) : t.kind === 'detail' ? (lowDetail ? 0 : 2500) : t.kind === 'crown' ? (lowDetail ? 0 : 6000) : 40000); if (t.kind === 'roof') t.mesh.scale.y = hs; } // crowns go before the city starts sinking at 6 km
   for (const f of frameHooks) f(dt, dist);
   for (const t of trees) t.visible = dist < (lowDetail ? 1500 : 4500);
   for (const t of roofThings) t.visible = !lowDetail && dist < 3500;
@@ -1817,7 +1940,7 @@ function frame(now) {
   if (pin) {
     pin.visible = dist > 450 && dist < 60000;
     pin.scale.setScalar(Math.max(0.3, Math.min(30, dist / 900)));
-    pin.position.y = homeTop + 3 + (4 + Math.sin(clock * 3) * 4) * pin.scale.x;
+    pin.position.y = homeTop + 9 + (4 + Math.sin(clock * 3) * 4) * pin.scale.x;
     homeLabel.p.y = pin.position.y + 46 * pin.scale.x;
   }
   for (const l of labels) {
@@ -1850,7 +1973,7 @@ document.getElementById('bHome').onclick = () => flyTo(V.home());
 // the map button flips between the world and your apartment
 document.getElementById('bOffice').onclick = () => Office.active() ? Office.exit() : Office.enter();
 // into the game from the menu: fly somewhere (your apartment by default), then show the HUD
-function startGame(to = view(PLACE.home, 70, 0.55, AZ, homeTop), msg = window.Market && Market.state.started ? '' : 'WHERE YOU START') {
+function startGame(to = V.home(), msg = window.Market && Market.state.started ? '' : 'WHERE YOU START') {
   document.getElementById('title').hidden = true;
   flyTo(to, 5, () => {
     if (msg) shout(msg);
@@ -1864,14 +1987,25 @@ document.getElementById('play').onclick = () => window.HUD ? HUD.play() : startG
 
 (async () => {
   try {
-    const [world, nyc, countries, streets] = await Promise.all([loadBin('data/world.bin'), loadBin(`data/${CITY.id}.bin`), fetch('data/countries.json').then(r => r.json()), fetch(`data/${CITY.id}-streets.json`).then(r => r.json())]);
-    loadMsg.textContent = `Building ${CITY.name}`;
-    await new Promise(r => setTimeout(r, 30));
+    document.getElementById('loadT').textContent = `Loading ${CITY.name}…`;
+    const SIZE = { world: 408216, nyc: 6641848, london: 4355840, tokyo: 1860120, hongkong: 1268360, dubai: 1507728 }; // bytes, for the progress bar
+    const total = SIZE.world + (SIZE[CITY.id] || 4e6), mb = b => (b / 1048576).toFixed(1);
+    let got = 0;
+    const bytes = n => { got += n; Boot.step('data', `Downloading the map: ${mb(got)} of ${mb(Math.max(got, total))} MB`); Boot.progress(got / Math.max(got, total) * 0.7); };
+    Boot.step('data', 'Downloading the map');
+    const json = u => fetchBytes(u).then(b => JSON.parse(new TextDecoder().decode(b)));
+    const [world, nyc, countries, streets] = await Promise.all([loadBin('data/world.bin', bytes), loadBin(`data/${CITY.id}.bin`, bytes), json('data/countries.json'), json(`data/${CITY.id}-streets.json`)]);
+    const walkGeo = polyGeoAsync(nyc, 'walk'), roadGeo = polyGeoAsync(nyc, 'road'); // in the background while the rest is built
+    if (Boot.waiting()) Boot.step('build', 'Pick your graphics to build the city');
+    await Boot.ready;
+    const stage = async (msg, f) => { Boot.step('build', msg); Boot.progress(0.7 + 0.3 * f); if (!document.hidden) await Promise.race([new Promise(r => requestAnimationFrame(() => setTimeout(r, 0))), new Promise(r => setTimeout(r, 120))]); }; // lets the screen show the stage, but never waits long for a frame (a hidden or covered window gets none)
+    await stage(`Building ${CITY.name}: the world map`, 0);
     for (const k of ['world.xy', 'border.xy']) { // the world map is stored in degrees: lay it out around this city
       const a = world[k];
       for (let i = 0; i < a.length; i += 2) { const [x, z] = ll(a[i + 1], a[i]); a[i] = x; a[i + 1] = z; }
     }
     flat(polyGeo(world, 'world'), LAND, 1, null, true);
+    await stage('The coastline', 0.02);
     flat(polyGeo(nyc, 'rwater'), OCEAN, 1.5, null, true); // the city's real coastline, over the coarse world map
     flat(polyGeo(nyc, 'region'), LAND, 2, null, true);
     {
@@ -1880,44 +2014,58 @@ document.getElementById('play').onclick = () => window.HUD ? HUD.play() : startG
       for (let i = 1; i <= r[0]; i++) { for (let j = 0; j < r[i] - 1; j++) seg.push(xy[p + 2 * j], xy[p + 2 * j + 1], xy[p + 2 * j + 2], xy[p + 2 * j + 3]); p += 2 * r[i]; }
       borders = thickLines(seg, 2.4, 0x111111, 7);
     }
+    await stage('Land and parks', 0.04);
     manhattanLand = flat(polyGeo(nyc, 'land'), PAVEMENT, 3);
     flat(polyGeo(nyc, 'park'), 0x6aaa4c, 4);
-    flat(polyGeo(nyc, 'walk'), SIDEWALK, 4.3);
-    flat(polyGeo(nyc, 'road'), ASPHALT, 4.5);
     flat(polyGeo(nyc, 'lake'), OCEAN, 5, null, true);
+    await stage(`Raising ${(nyc['b.n'] || []).length.toLocaleString('en-US')} buildings`, 0.1);
     buildCity(nyc);
+    await stage('Roofs, chimneys and water towers', 0.35);
     buildRoofs(nyc);
     buildPitched(nyc);
     buildCrowns();
     buildSaw(nyc);
+    await stage('Parks and trees', 0.55);
     buildTrees(nyc);
+    await stage('Sidewalks and roads', 0.65);
+    flat(await walkGeo, SIDEWALK, 4.3);
+    flat(await roadGeo, ASPHALT, 4.5);
+    await stage('Streets, lamps and traffic', 0.7);
     const streetLines = lines(nyc);
     buildMarkings(nyc, streetLines);
-    buildStreetProps(nyc, streetLines);
+    if (GFX.detail !== 'low') buildStreetProps(nyc, streetLines); // Low graphics leaves the street furniture out entirely
     buildTraffic(streetLines);
+    await stage('The globe and the street names', 0.85);
     buildGlobe(world);
     await buildStreetLabels(nyc, streets);
+    await stage('Moving in', 0.95);
     // the map data can come from the offline cache before the game's other scripts have run: wait for them
     if (document.readyState === 'loading') await new Promise(r => document.addEventListener('DOMContentLoaded', r, { once: true }));
     if (window.Property) Property.init(nyc, streets);
     if (window.Land) Land.init(nyc);
     if (window.Office) Office.init(nyc);
-    if (CITY.id === 'nyc') buildApartment(PLACE.home, homeTop, homeAngle); // your studio, with the ceiling off
+    if (CITY.id === 'nyc') { // your studio, with the roof off (Goal 31); the old rooftop room only if the map has no walk-up there
+      const h = buildStarterHome(nyc, streetLines); window.HOME = h;
+      if (h) { PLACE.home = [h.x, h.z]; homeTop = h.y; homeAz = h.az + 0.4; PLACE.homeG = h.g; PLACE.door = h.door; }
+      else { if (PLACE.homeSnap) PLACE.home = PLACE.homeSnap; buildApartment(PLACE.home, homeTop, homeAngle); }
+    }
     pin = new THREE.Group();
     const mat = new THREE.MeshStandardMaterial({ color: lin(0xffcc4d), emissive: lin(0x885500), roughness: 0.35, metalness: 0.3 });
     pin.add(new THREE.Mesh(new THREE.ConeGeometry(9, 26, 16).rotateX(Math.PI).translate(0, 13, 0), mat), new THREE.Mesh(new THREE.SphereGeometry(10, 16, 12).translate(0, 30, 0), mat));
-    pin.position.set(PLACE.home[0], homeTop + 3, PLACE.home[1]); pin.renderOrder = 11;
+    pin.position.set(PLACE.home[0], homeTop + 9, PLACE.home[1]); pin.renderOrder = 11;
     if (CITY.id === 'nyc') scene.add(pin);
     homeLabel = label('<svg class="i"><use href="#i-home"/></svg>YOUR APARTMENT', 'home', PLACE.home, 70, 320, 60000); // hidden up close, where you can see the room itself
     homeLabel.hidden = true;
     cityLabels();
     countryLabels(countries);
   } catch (e) {
-    loadMsg.textContent = 'Could not load the map (' + e.message + '). Reload to try again.';
+    const net = /fetch|network|\.bin|\.json| 40\d| 50\d/i.test(e.message);
+    Boot.fail(net ? 'The map didn\'t download' : 'The city couldn\'t be built', net ? 'Check your internet connection and try again. If you\'re on a slow or metered connection, the first visit downloads about 7 MB; after that the game opens from this device.' : 'Something went wrong while building the city. Trying again usually fixes it; if not, Low graphics needs less memory.', { detail: e.message, low: !net });
     throw e;
   }
   place(view(PLACE.home, 1500, 0.8, AZ, 0)); // the menu sits over the city, like the city builders (Goal 26)
   controls.update();
+  Boot.done();
   document.getElementById('load').hidden = true;
   document.getElementById('title').hidden = false;
   window.CS = { scene, renderer, tiles, flyTo, view, V, PLACE, current, place, ll, borders, startGame, home: () => [homeTop, homeAngle],
@@ -1952,6 +2100,7 @@ document.getElementById('play').onclick = () => window.HUD ? HUD.play() : startG
 <script src="js/life.js"></script>
 <script src="js/build.js"></script>
 <script src="js/tasks.js"></script>
+<script src="js/saves.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

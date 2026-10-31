@@ -49,7 +49,7 @@ window.World = (function () {
     if (window.Office && Office.active()) Office.exit();
     flyTo(V.world(), 2.2, () => {
       $('loadMsg').textContent = `Flying to ${CITIES[id].name}`;
-      $('load').firstChild.textContent = `${CITIES[id].flag} ${CITIES[id].name}…`;
+      $('loadT').textContent = `${CITIES[id].flag} ${CITIES[id].name}…`;
       $('load').hidden = false;
       goCity(id, true);
     });
@@ -61,7 +61,6 @@ window.World = (function () {
     if (!window.CS || !$('load').hidden) return;
     clearInterval(ready);
     drawMarkers();
-    $('load').firstChild.textContent = 'Loading…';
     const arrive = () => {
       $('title').hidden = true; $('hud').hidden = false; M.start();
       place(view(PLACE.manhattan, 6.5e6, 0.02, 0));

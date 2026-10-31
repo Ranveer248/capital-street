@@ -184,9 +184,18 @@ window.Property = (function () {
     drawListing(false);
   }
   function deselect() { selected = null; highlight(null); sheet.hidden = true; }
+  // Goal 31: what a beginner can buy. Skyscrapers and luxury flats unlock with your level; floors you already own never lock
+  const TOWER_LVL = 5, LUX_LVL = 4;
+  function lockOf(it) {
+    if (PLACE.homeG != null && it.g === PLACE.homeG && CITY.id === 'nyc') return { home: true, why: 'This is the walk-up you live in. The landlord is not selling.' };
+    const lvl = window.Levels ? Levels.level : 99;
+    if (it.maxH >= 45 && lvl < TOWER_LVL) return { lvl: TOWER_LVL, why: `Skyscraper floors unlock at level ${TOWER_LVL}. Start with smaller buildings: they pay rent too.` };
+    if (it.kind === 'homes' && (it.floors > 12 || perFloor(it) > 150000) && lvl < LUX_LVL) return { lvl: LUX_LVL, why: `Luxury apartments unlock at level ${LUX_LVL}.` };
+    return null;
+  }
   function drawListing(withPhoto) {
     const it = info(selected); if (!it) return;
-    const p = owned(selected), s = M.state, mine = p ? p.floors : 0, other = theirs(selected), left = other ? 0 : it.floors - mine;
+    const p = owned(selected), s = M.state, mine = p ? p.floors : 0, other = theirs(selected), lock = mine ? null : lockOf(it), left = other || lock ? 0 : it.floors - mine;
     const income = it.floors * perFloor(it) * M.PROP_YIELD * 7;
     const pic = photos.get(it.g) || (withPhoto ? photo(it) : null);
     const A = window.Auctions, auc = !p && !other && A && A.atAuction(key(selected)), disc = !p && !other && !auc && A ? A.discount(key(selected)) : 0;
@@ -194,7 +203,7 @@ window.Property = (function () {
     const trend = (s.reIndex - 1) * 100;
     sheet.innerHTML = `
       <div class="lsh"><b>PROPERTY LISTING</b><button id="lsX" aria-label="Close">✕</button></div>
-      <div class="lpic">${pic ? `<img src="${pic}" alt="">` : isoArt(it)}<span class="tag ${p ? 'own' : other ? 'theirs' : auc ? 'auc' : disc ? 'deal' : ''}">${p ? (left ? `You own ${mine} of ${it.floors} floors` : 'YOURS') : other ? `OWNED BY ${esc(other.name).toUpperCase()}` : auc ? 'AT AUCTION' : disc ? `DEAL · ${Math.round(disc * 100)}% OFF` : 'FOR SALE'}</span></div>
+      <div class="lpic">${pic ? `<img src="${pic}" alt="">` : isoArt(it)}<span class="tag ${p ? 'own' : other ? 'theirs' : lock ? 'lock' : auc ? 'auc' : disc ? 'deal' : ''}">${p ? (left ? `You own ${mine} of ${it.floors} floors` : 'YOURS') : lock && !other ? (lock.home ? 'YOUR HOME' : `LEVEL ${lock.lvl}`) : other ? `OWNED BY ${esc(other.name).toUpperCase()}` : auc ? 'AT AUCTION' : disc ? `DEAL · ${Math.round(disc * 100)}% OFF` : 'FOR SALE'}</span></div>
       <div class="lbody">
         <div class="lt"><div><b>${it.type}</b><span>${it.name}</span></div><div class="lp"><strong>${usd(disc ? dealPrice : wholePrice(it))}</strong><span>${disc ? `<s>${usd(wholePrice(it))}</s> value` : it.floors > 1 ? usd(perFloor(it)) + ' a floor' : 'whole building'}</span></div></div>
         <div class="stats">
@@ -202,6 +211,7 @@ window.Property = (function () {
           <div>Market<b class="${trend >= 0 ? 'up' : 'dn'}">${trend >= 0 ? '+' : ''}${trend.toFixed(1)}%</b></div><div>Your cash<b>${usd(s.cash, 2)}</b></div>${p ? `<div>Your value<b>${usd(p.floors * M.floorValue(p))}</b></div><div>Rent earned<b class="up">${usd(p.earned, 2)}</b></div>` : ''}
         </div>
         <div class="lbtns">
+          ${lock && !other ? `<p class="note lock">${lock.home ? '🏠' : '🔒'} ${lock.why}${lock.lvl ? ` You're level ${window.Levels ? Levels.level : 1}.` : ''}</p>` : ''}
           ${auc ? '<button class="buy" id="lsAuc">See the auction</button>' : ''}
           ${left > 0 && !auc && it.floors > 1 ? `<button class="buy" data-buy="1">Buy 1 floor · ${usd(perFloor(it))}</button>` : ''}
           ${left > 0 && !auc ? `<button class="buy" data-buy="${left}">${mine ? `Buy the other ${left} floors` : it.floors > 1 ? 'Buy the whole building' : 'Buy it'} · ${usd(mine ? left * perFloor(it) : disc ? dealPrice : wholePrice(it))}</button>` : ''}
@@ -274,12 +284,14 @@ window.Property = (function () {
   function drawPanel() {
     const s = M.state;
     document.querySelectorAll('#props .tabs button').forEach(b => b.classList.toggle('on', b.dataset.pt === tab));
+    const shut = window.Tutorial && { business: Tutorial.lock('business'), land: Tutorial.lock('land'), auctions: Tutorial.lock('auctions') }[tab];
+    if (shut) { $('propsBody').innerHTML = `<div class="locked-tab"><b>🔒 Not yet</b><p>${shut}</p><p class="note">Trade, buy property and finish daily tasks to earn XP.</p></div>`; return; } // Goal 31: one thing at a time
     if (tab === 'business' && window.Biz) { Biz.drawTab($('propsBody')); return; }
     if (['deals', 'auctions', 'land'].includes(tab) && window.Auctions) { Auctions.drawTab(tab, $('propsBody')); wire(); return; }
     let html = '';
     if (tab === 'sale') {
       const gl = goal();
-      if (gl && !owned(gl.g)) html += `<div class="goal" data-g="${gl.g}"><small>★ YOUR GOAL</small><b>An office on Wall Street</b><span>${gl.name}: ${gl.floors} floors, from ${usd(perFloor(gl))} a floor</span></div>`;
+      if (gl && !owned(gl.g)) html += `<div class="goal" data-g="${gl.g}"><small>★ ${lockOf(gl) ? 'YOUR DREAM · LEVEL 5' : 'YOUR GOAL'}</small><b>An office on Wall Street</b><span>${gl.name}: ${gl.floors} floors, from ${usd(perFloor(gl))} a floor</span></div>`;
       html += `<div class="chips">${KINDS.map(([k, n]) => `<button data-k="${k}" class="${k === kind ? 'on' : ''}">${n}</button>`).join('')}</div>
         <div class="chips">${PRICES.map(([v, n]) => `<button data-mp="${v}" class="${v === maxPrice ? 'on' : ''}">${n}</button>`).join('')}</div>
         <div class="chips"><button id="pView" class="${inView ? 'on' : ''}">In view only</button><button data-s="cheap" class="${sort === 'cheap' ? 'on' : ''}">Cheapest</button><button data-s="big" class="${sort === 'big' ? 'on' : ''}">Biggest</button></div>`;

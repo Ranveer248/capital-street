@@ -382,7 +382,12 @@
   $('bExchange').onclick = () => { bank.hidden = true; ex.hidden ? openEx() : (ex.hidden = true); };
   $('bProps').onclick = () => { ex.hidden = true; bank.hidden = true; $('props').hidden ? Property.open() : ($('props').hidden = true); };
   $('worthV').parentElement.onclick = () => openEx(null, 'portfolio');
-  $('bHome').onclick = () => { ex.hidden = true; bank.hidden = true; closeProps(); flyTo(V.home()); };
+  $('bHome').onclick = () => { // Goal 31: from anywhere in New York, the same view in through your open roof
+    ex.hidden = true; bank.hidden = true; closeProps();
+    for (const id of ['listing', 'cityCard', 'net', 'earn']) { const e = $(id); if (e) e.hidden = true; }
+    if (window.Office && Office.active()) Office.exit();
+    flyTo(V.home(), current().dist > 20000 ? 3.6 : 2.4);
+  };
 
   // ---------- clock ----------
   let last = performance.now(), redraw = 0, early = false;

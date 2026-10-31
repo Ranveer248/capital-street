@@ -6,6 +6,15 @@ window.Tasks = (function () {
   const M = window.Market, $ = id => document.getElementById(id);
   const usd = v => '$' + Math.round(v).toLocaleString('en-US');
   const ex = () => { if ($('ex').hidden) $('bExchange').click(); };
+  // Goal 31: each task also says when it makes sense: unlocked, something to do it with, and affordable
+  const L = f => !(window.Tutorial && Tutorial.lock(f)), S = () => M.state, cash = () => S().cash;
+  const lands = () => Object.values(S().land || {}), hasBiz = () => lands().some(o => o.biz), goods = () => window.Biz && Object.values(Biz.inv() || {}).some(n => n > 0);
+  const OK = {
+    building: () => L('property') && cash() >= 3000, bid: () => L('auctions') && cash() >= 5000, land: () => L('land') && cash() >= 8000,
+    collect: () => hasBiz(), goods: () => hasBiz() && goods(), business: () => L('business') && lands().some(o => !o.biz) && cash() >= 5000,
+    ship: () => hasBiz() && goods(), rebuild: () => L('property') && Object.values(S().props).some(p => p.floors >= (p.totalFloors || 1)), hire: () => !!(S().office && S().office.g != null)
+  };
+  const fits = id => !OK[id] || OK[id]();
   // id, icon, what to do, how many, does this event count, where to go
   const POOL = [
     ['buyshare', 'chart', 'Buy shares in any company', 1, (t, d) => t === 'fill' && d.side === 'buy', ex],
@@ -26,10 +35,11 @@ window.Tasks = (function () {
   const hash = s => { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; };
   function today() {
     const s = M.state, d = M.day();
-    if (!s.tasks || s.tasks.day !== d) { // a new day: one easy task and two others, the same for everyone that day
+    if (!s.tasks || s.tasks.day !== d) { // a new day: one easy task and two others, picked from what you can do right now
       let r = hash('cs-tasks:' + d);
       const rnd = () => (r = Math.imul(r ^ (r >>> 15), 2246822507) >>> 0) / 4294967296;
-      const easy = EASY[Math.floor(rnd() * EASY.length)], rest = POOL.map(p => p[0]).filter(id => id !== easy).sort(() => rnd() - 0.5);
+      const can = POOL.map(p => p[0]).filter(fits), easies = EASY.filter(fits);
+      const easy = easies[Math.floor(rnd() * easies.length)], rest = can.filter(id => id !== easy).sort(() => rnd() - 0.5);
       s.tasks = { day: d, list: [easy, rest[0], rest[1]].map(id => ({ id, n: 0, claimed: false })), bonus: false };
       M.save();
     }

@@ -14,6 +14,7 @@ window.Net = (function () {
   const NAME_OK = /^[A-Za-z0-9][A-Za-z0-9 _.-]{1,18}[A-Za-z0-9]$/;
 
   let user = null, me = null, status = configured ? 'connecting' : 'off'; // off | connecting | signed-out | no-player | online | error
+  let why = '', conn = 'offline'; // why: what went wrong, in words; conn: live | reconnecting | offline (presence and live updates)
   const owners = new Map();   // building key, as the save stores it -> { owner, name, color, floors }
   const players = new Map();  // player id -> { name, color }
   let online = [];            // who is playing right now: [{ id, name, city, color }]
@@ -22,13 +23,15 @@ window.Net = (function () {
   const listeners = [];
   const emit = (t, d) => { for (const f of listeners) try { f(t, d); } catch (e) { console.error(e); } };
   const err = e => (e && (e.message || e.error_description)) || 'Something went wrong. Try again.';
+  const friendly = e => { const m = err(e); return /fetch|network|load failed|timed? ?out|ECONN/i.test(m) ? 'Can\'t reach the game server. Check your internet connection.' : /jwt|token|refresh/i.test(m) ? 'Your sign-in ran out. Sign in again.' : m; };
 
   // ---------- signing in ----------
   async function afterAuth() {
     me = null;
     if (!user) { status = 'signed-out'; emit('me'); return; }
     const { data, error } = await sb.from('cs_players').select('*').eq('id', user.id).maybeSingle();
-    if (error) { status = 'error'; emit('me'); return; }
+    if (error) { status = 'error'; why = friendly(error); emit('me'); retrySoon(); return; }
+    why = '';
     me = data; status = me ? 'online' : 'no-player';
     if (me) { players.set(me.id, { name: me.name, color: me.color }); if (await loadCloud()) return; await syncSave(); track(); report(); }
     emit('me');
@@ -99,7 +102,7 @@ window.Net = (function () {
   async function release(k) {
     if (status !== 'online') return;
     await sb.rpc('cs_release_building', { p_city: CITY.id, p_building: k });
-    owners.delete(k); emit('owners');
+    const o = owners.get(k); if (o && o.owner === me.id) { owners.delete(k); emit('owners'); } // sold to a player: it's theirs now, not empty
   }
   // your save and the shared world must agree: claim what you bought while playing alone; if someone else got a
   // building first, you get your money back in full
@@ -124,7 +127,11 @@ window.Net = (function () {
   const ls = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* storage blocked */ } } };
   const hash = s => { let h = 0; for (let i = 0; i < s.length; i++) h = Math.imul(h, 31) + s.charCodeAt(i) | 0; return h; };
   const marker = () => { try { return JSON.parse(ls.get(SYNC_KEY)) || {}; } catch (e) { return {}; } };
-  let cloudAt = null, cloudBusy = false;
+  // Goal 31: each upload names the version it replaces (cs_put_save), so an older copy from another tab or device can
+  // never overwrite a newer one; failures are reported (js/saves.js) and retried, never hidden.
+  let cloudAt = null, cloudBusy = null, legacy = false, retryT = 0, paused = false;
+  const cloud = { state: 'off', at: 0, why: '', fails: 0 }; // off | saving | ok | error | conflict
+  const setCloud = (state, w) => { cloud.state = state; cloud.why = w || ''; emit('cloud'); };
   function mark(at, h) { cloudAt = at; ls.set(SYNC_KEY, JSON.stringify({ uid: me.id, at, hash: h })); }
   function packSave() { // the charts keep one point per 15 game minutes, so a save is about 150 KB instead of 2.5 MB
     const S = M.state, stocks = {};
@@ -132,32 +139,69 @@ window.Net = (function () {
     return { v: 1, city: CITY.id, market: Object.assign({}, S, { stocks }) };
   }
   async function pushCloud(force) {
-    if (status !== 'online' || cloudBusy) return;
+    if (status !== 'online' || paused) return { ok: false, why: 'offline' };
+    if (cloud.state === 'conflict') return { ok: false, why: 'conflict' };
+    while (cloudBusy) await cloudBusy; // one upload at a time, in order
     const body = packSave(), h = hash(JSON.stringify(body));
-    if (force !== true && h === marker().hash) return; // nothing new since the last upload
-    cloudBusy = true;
-    const { data, error } = await sb.from('cs_saves').upsert({ player: me.id, data: body }).select('updated_at').single();
-    cloudBusy = false;
-    if (!error) { mark(data.updated_at, h); emit('cloud'); }
+    if (force !== true && h === marker().hash && cloud.state === 'ok') return { ok: true }; // nothing new since the last upload
+    let done; cloudBusy = new Promise(r => { done = r; });
+    setCloud('saving');
+    let r = null;
+    try {
+      if (!legacy) {
+        r = await sb.rpc('cs_put_save', { p_data: body, p_base: cloudAt });
+        if (r.error && /PGRST202|Could not find the function/i.test((r.error.code || '') + ' ' + r.error.message)) legacy = true; // a server from before Goal 31
+      }
+      if (legacy) { const q = await sb.from('cs_saves').upsert({ player: me.id, data: body }).select('updated_at').single(); r = { data: q.data && q.data.updated_at, error: q.error }; }
+    } catch (e) { r = { error: e }; }
+    cloudBusy = null; done();
+    if (!r.error) { mark(r.data, h); cloud.at = Date.now(); cloud.fails = 0; setCloud('ok'); return { ok: true }; }
+    if (/Newer save/.test(err(r.error))) { setCloud('conflict', 'A newer save came from another device or tab'); return { ok: false, why: 'conflict' }; }
+    cloud.fails++; setCloud('error', friendly(r.error));
+    clearTimeout(retryT); retryT = setTimeout(() => pushCloud(), Math.min(60000, 5000 * 2 ** (cloud.fails - 1)));
+    return { ok: false, why: friendly(r.error) };
+  }
+  const changedHere = () => hash(JSON.stringify(packSave())) !== marker().hash; // played on this device since the last upload
+  function useCloud(d, at, msg) { // the cloud copy replaces this device's game (which is kept as a backup), then the page reloads
+    ls.set(SAVE_KEY + '-backup', ls.get(SAVE_KEY) || '');
+    mark(at, null);
+    const S = M.state;
+    for (const k of Object.keys(S)) delete S[k];
+    Object.assign(S, d.market); M.save(); M.freeze();
+    if (CITIES[d.city] && d.market.cities && d.market.cities[d.city]) ls.set('cs-city', d.city);
+    toast('Cloud save loaded', msg || 'Your game from your account. This device\'s old save is kept as a backup.');
+    setTimeout(() => location.reload(), 1200);
+  }
+  async function resolveConflict(which) {
+    const { data, error } = await sb.from('cs_saves').select('data, updated_at').eq('player', me.id).maybeSingle();
+    if (error) return { ok: false, why: friendly(error) };
+    if (which === 'load') { if (data && data.data && data.data.market) useCloud(data.data, data.updated_at); return { ok: true }; }
+    if (data && data.data) ls.set(SAVE_KEY + '-cloud-backup', JSON.stringify(data.data)); // the account's copy is kept on this device
+    cloudAt = data ? data.updated_at : null; setCloud('saving');
+    return pushCloud(true);
   }
   async function loadCloud() { // true when the page reloads with the cloud save
     const { data, error } = await sb.from('cs_saves').select('data, updated_at').eq('player', me.id).maybeSingle();
-    if (error) return false;
+    if (error) { setCloud('error', friendly(error)); return false; }
     const mk = marker();
+    if (ls.get('cs-cloud-import')) { // you loaded a backup file (js/saves.js): it goes up to your account
+      ls.set('cs-cloud-import', ''); cloudAt = data && data.updated_at;
+      const r = await pushCloud(true); toast(r.ok ? 'Backup uploaded' : 'Backup loaded on this device', r.ok ? 'Your account now has the game from your backup file.' : 'It uploads to your account when the connection is back.');
+      return false;
+    }
     if (!data || (mk.uid === me.id && mk.at === data.updated_at)) { cloudAt = data && data.updated_at; await pushCloud(!data); return false; }
     const d = data.data;
     if (!d || !d.market || !d.market.stocks) return false;
-    ls.set(SAVE_KEY + '-backup', ls.get(SAVE_KEY) || '');
-    mark(data.updated_at, null);
-    const S = M.state; // swapped in place, so the game's own saving can only ever write the cloud copy from here on
-    for (const k of Object.keys(S)) delete S[k];
-    Object.assign(S, d.market); M.save();
-    if (CITIES[d.city] && d.market.cities && d.market.cities[d.city]) ls.set('cs-city', d.city);
-    toast('Cloud save loaded', 'Your game from your account. This device\'s old save is kept as a backup.');
-    setTimeout(() => location.reload(), 1200);
+    if (mk.uid === me.id && changedHere()) { // both this device and another one played since they last agreed: you choose
+      cloudAt = mk.at; setCloud('conflict', 'This device and another one both have new progress');
+      setTimeout(() => window.CSUI && CSUI.story(`<small>TWO SAVES</small><b>Which game do you want?</b><p>You played on another device or tab, and on this one too, since they last saved together.</p><p>The other one was saved to your account at ${new Date(data.updated_at).toLocaleString()}. Whichever you don't pick is kept on this device as a backup.</p>`,
+        [['Load my account\'s save', () => useCloud(d, data.updated_at)], ['Keep this device\'s game', () => resolveConflict('upload')]]), 1500);
+      return false;
+    }
+    useCloud(d, data.updated_at);
     return true;
   }
-  setInterval(pushCloud, 60000);
+  setInterval(() => pushCloud(), 60000);
   document.addEventListener('visibilitychange', () => { if (document.hidden) pushCloud(); });
   M.on(type => { if (type === 'property' || type === 'loan' || type === 'city' || type === 'reset') setTimeout(pushCloud, 2000); });
 
@@ -168,16 +212,40 @@ window.Net = (function () {
   });
 
   // ---------- who's online, and your entry on the rich list ----------
-  let presence = null;
-  function track() {
-    if (!me || presence) return;
-    presence = sb.channel('cs-online', { config: { presence: { key: me.id } } });
-    presence.on('presence', { event: 'sync' }, () => {
-      online = Object.values(presence.presenceState()).map(a => a[0]).filter(Boolean);
-      emit('online');
-    }).subscribe(st => { if (st === 'SUBSCRIBED') presence.track({ id: me.id, name: me.name, color: me.color, city: CITY.id }); });
+  // Goal 31: one entry per player however many tabs they have open; a dropped connection shows as reconnecting, comes
+  // back by itself, and then reloads what changed while it was away (owners, listings, auctions, your inbox).
+  let presence = null, backoff = 0, wasLive = false, rT = 0;
+  const TAB = Math.random().toString(36).slice(2, 8);
+  function setConn(c) {
+    if (c === conn) return;
+    const was = conn; conn = c; emit('conn');
+    if (c === 'live') { if (wasLive && was !== 'live') resync(); wasLive = true; }
   }
-  function untrack() { if (presence) { sb.removeChannel(presence); presence = null; online = []; emit('online'); } }
+  async function resync() { await loadOwners(); await loadChat(); if (window.Trade) { await Trade.reload(); await Trade.collect(); } pushCloud(); }
+  function track() {
+    if (!me || presence || paused) return;
+    const ch = presence = sb.channel('cs-online', { config: { presence: { key: me.id } } });
+    ch.on('presence', { event: 'sync' }, () => {
+      if (presence !== ch) return;
+      const seen = new Map();
+      for (const metas of Object.values(ch.presenceState())) for (const m of metas) if (m && m.id && !seen.has(m.id)) seen.set(m.id, m);
+      online = [...seen.values()]; emit('online');
+    }).subscribe(st => {
+      if (presence !== ch) return;
+      if (st === 'SUBSCRIBED') { backoff = 0; setConn('live'); ch.track({ id: me.id, name: me.name, color: me.color, city: CITY.id, tab: TAB }); }
+      else if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT' || st === 'CLOSED') { setConn(navigator.onLine === false ? 'offline' : 'reconnecting'); reconnectSoon(); }
+    });
+  }
+  function reconnectSoon() {
+    clearTimeout(rT);
+    rT = setTimeout(() => { if (!me || paused) return; if (presence) { const p = presence; presence = null; sb.removeChannel(p); } track(); }, Math.min(30000, 1000 * 2 ** Math.min(5, backoff++)));
+  }
+  function untrack() { clearTimeout(rT); if (presence) { const p = presence; presence = null; sb.removeChannel(p); } online = []; setConn('offline'); emit('online'); }
+  addEventListener('offline', () => { if (me) setConn('offline'); });
+  addEventListener('online', () => { backoff = 0; if (me) { reconnectSoon(); pushCloud(); } else if (status === 'error') retrySoon(1); });
+  let bootT = 0;
+  function retrySoon(ms = 10000) { clearTimeout(bootT); bootT = setTimeout(async () => { if (status !== 'error') return; status = 'connecting'; emit('me'); try { await loadOwners(); await afterAuth(); await loadChat(); } catch (e) { status = 'error'; why = friendly(e); emit('me'); retrySoon(); } }, ms); }
+  function pause() { paused = true; untrack(); setCloud('off'); } // another tab took over (js/saves.js)
   function report() { // your city and net worth, for the rich list (reported by your game until the economy runs on the server)
     if (status !== 'online') return;
     sb.from('cs_players').update({ city: CITY.id, net_worth: Math.round(M.netWorth()), last_seen: new Date().toISOString() }).eq('id', me.id).then(() => {});
@@ -185,7 +253,7 @@ window.Net = (function () {
   setInterval(report, 60000);
   async function richList() {
     if (!sb) return [];
-    const { data } = await sb.from('cs_players').select('name, color, net_worth, city').order('net_worth', { ascending: false }).limit(10);
+    const { data } = await sb.from('cs_players').select('id, name, color, net_worth, city').order('net_worth', { ascending: false }).limit(10);
     return data || [];
   }
 
@@ -216,7 +284,7 @@ window.Net = (function () {
   }
   function draw() {
     panel.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.nt === tab));
-    $('netSt').textContent = status === 'online' ? `${online.length} ONLINE` : status === 'off' ? 'NOT SET UP' : '';
+    $('netSt').textContent = status === 'online' ? (conn === 'live' ? `${online.length} ONLINE` : conn === 'reconnecting' ? 'RECONNECTING…' : 'OFFLINE') : status === 'off' ? 'NOT SET UP' : status === 'error' ? 'CAN\'T CONNECT' : '';
     const body = $('netBody');
     if (status === 'off') {
       body.innerHTML = '<div class="netp"><b>Multiplayer is coming</b><p>This copy of the game isn\'t connected to a server yet, so you\'re playing alone. Your progress is saved on this device.</p></div>';
@@ -234,12 +302,18 @@ window.Net = (function () {
         const r = await send(v); if (!r.ok && r.why) { toast('Not sent', r.why); inp.value = v; }
       };
     } else if (tab === 'players') {
-      body.innerHTML = `<div class="netp"><small>ONLINE NOW · ${online.length}</small>${online.length ? online.map(p => `<div class="prow"><i style="background:${col(p.color)}"></i><b>${esc(p.name)}</b><span>${esc((CITIES[p.city] || {}).name || '')}</span></div>`).join('') : '<p class="note">Nobody else is here right now.</p>'}
-        <small>RICHEST PLAYERS</small>${richCache.map((p, i) => `<div class="prow"><span class="rk">${i + 1}</span><i style="background:${col(p.color)}"></i><b>${esc(p.name)}</b><span>${usd(p.net_worth)}</span></div>`).join('') || '<p class="note">No players yet.</p>'}
-        <p class="note">Net worth is reported by each player's game for now. It becomes official when the economy moves to the server.</p></div>`;
+      const isMe = id => me && id === me.id, here = id => [...owners.values()].filter(o => o.owner === id).length;
+      const you = id => isMe(id) ? ' <em class="you">YOU</em>' : '';
+      const find = id => here(id) ? `<button class="lnk" data-find="${esc(id)}">Find ${here(id) > 1 ? `(${here(id)})` : ''}</button>` : '';
+      body.innerHTML = `<div class="netp">${status === 'online' ? `<div class="invite"><div><b>Play with a friend</b><small>Everyone shares one New York. Send this link: they join and land on your buildings.</small></div><button class="btn pri" id="netInv">INVITE</button></div>` : ''}
+        <small>ONLINE NOW · ${online.length}</small>${online.length ? online.map(p => `<div class="prow"><i style="background:${col(p.color)}"></i><b>${esc(p.name)}${you(p.id)}</b><span>${esc((CITIES[p.city] || {}).name || '')} · ${here(p.id)} building${here(p.id) === 1 ? '' : 's'} here</span>${find(p.id)}</div>`).join('') : '<p class="note">Nobody else is here right now.</p>'}
+        <small>RICHEST PLAYERS</small>${richCache.map((p, i) => `<div class="prow"><span class="rk">${i + 1}</span><i style="background:${col(p.color)}"></i><b>${esc(p.name)}${you(p.id)}</b><span>${usd(p.net_worth)}</span>${find(p.id)}</div>`).join('') || '<p class="note">No players yet.</p>'}
+        <p class="note">Each player's buildings carry their colour and name on the map. Net worth is reported by each player's game.</p></div>`;
+      body.querySelectorAll('[data-find]').forEach(b => b.onclick = () => findPlayer(b.dataset.find));
+      if ($('netInv')) $('netInv').onclick = invite;
       richList().then(r => { const was = JSON.stringify(richCache); richCache = r; if (tab === 'players' && !panel.hidden && JSON.stringify(r) !== was) draw(); });
     } else if (status === 'signed-out' || status === 'error' || status === 'connecting') {
-      body.innerHTML = `<div class="netp"><b>Play online</b><p>Share one world with everyone: see who owns which building, and chat. Your buildings are kept safe on the server.</p>
+      body.innerHTML = `<div class="netp">${status === 'error' ? `<p class="swarn">${esc(why || 'Can\'t reach the game server.')} Trying again by itself.</p>` : ''}<b>Play online</b><p>Share one world with everyone: see who owns which building, and chat. Your buildings are kept safe on the server.</p>
         <button class="btn pri wide" id="netGuest">PLAY ONLINE AS A GUEST</button>
         <form id="netLogin" class="cols"><small>OR USE AN EMAIL (KEEPS YOUR ACCOUNT ON EVERY DEVICE)</small><input id="netEm" type="email" autocomplete="email" placeholder="Email" aria-label="Email" required><input id="netPw" type="password" autocomplete="current-password" placeholder="Password (8+ characters)" aria-label="Password" minlength="8" required>
         <div class="row2"><button class="btn" id="netIn2" type="submit">SIGN IN</button><button class="btn" id="netUp" type="button">CREATE ACCOUNT</button></div></form>
@@ -260,6 +334,7 @@ window.Net = (function () {
     } else {
       const anon = user && user.is_anonymous, mineHere = [...owners.values()].filter(o => o.owner === me.id).length;
       body.innerHTML = `<div class="netp"><div class="prow big"><i style="background:${col(me.color)}"></i><b>${esc(me.name)}</b><span>${anon ? 'Guest' : esc(user.email || '')}</span></div>
+        <div class="split"><div><b>Only yours</b><small>Cash, shares, loans, level, tasks and your office: your own save, kept on this device and on your account.</small></div><div><b>Shared with everyone</b><small>Who owns each building and plot, listings, player auctions, the goods exchange and chat.</small></div></div>
         <p class="note">${mineHere} building${mineHere === 1 ? '' : 's'} in ${esc(CITY.name)} registered to you. ${cloudAt ? `Your game is saved to your account (last at ${new Date(cloudAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}), so it follows you to any device you sign in on.` : 'Saving your game to your account…'}</p>
         ${anon ? `<form id="netSave" class="cols"><small>KEEP THIS ACCOUNT: ADD AN EMAIL AND PASSWORD</small><input id="netEm" type="email" autocomplete="email" placeholder="Email" aria-label="Email" required><input id="netPw" type="password" autocomplete="new-password" placeholder="Password (8+ characters)" aria-label="Password" minlength="8" required><button class="btn">SAVE MY ACCOUNT</button></form>` : ''}
         <div class="row2"><button class="btn" id="netOut">SIGN OUT</button><button class="btn danger" id="netDel">DELETE MY ACCOUNT</button></div></div>`;
@@ -277,9 +352,37 @@ window.Net = (function () {
   function open(which) { if (which) tab = which; for (const id of ['ex', 'bank', 'props', 'listing']) if ($(id)) $(id).hidden = true; panel.hidden = false; draw(); if (tab === 'chat' && $('netIn')) $('netIn').focus(); }
   function chip() {
     const el = $('netV'); if (!el) return;
-    el.parentElement.onclick = () => open(status === 'online' ? 'chat' : 'account');
-    el.textContent = status === 'online' ? `${online.length} online` : status === 'off' ? 'Solo' : status === 'connecting' ? '…' : 'Sign in';
-    el.parentElement.classList.toggle('on', status === 'online');
+    el.parentElement.onclick = () => open(status === 'online' ? 'players' : 'account');
+    const live = status === 'online' && conn === 'live';
+    el.textContent = status === 'online' ? (live ? `${online.length} online` : conn === 'reconnecting' ? 'Reconnecting…' : 'Offline') : status === 'off' ? 'Solo' : status === 'connecting' ? 'Connecting…' : status === 'error' ? 'Offline' : 'Sign in';
+    el.parentElement.classList.toggle('on', live);
+    el.parentElement.classList.toggle('warn', status === 'error' || (status === 'online' && !live));
+    el.parentElement.title = status === 'error' ? why : status === 'online' && !live ? 'Your game keeps saving on this device and catches up when the connection is back.' : '';
+  }
+  // ---------- finding a player's buildings, and inviting a friend ----------
+  const findAt = new Map();
+  function findPlayer(id) {
+    const keys = [...owners.entries()].filter(([k, o]) => o.owner === id && (!window.Property || Property.isHere(k) || k.startsWith('plot:'))).map(([k]) => k);
+    if (!keys.length) { toast('Nothing here yet', 'They don\'t own anything in this city.'); return false; }
+    const i = (findAt.get(id) || 0) % keys.length, k = keys[i]; findAt.set(id, i + 1);
+    panel.hidden = true;
+    if (k.includes('plot:') && window.Land) Land.select('x:' + k.split('plot:')[1].replace(',', ':'), true);
+    else if (window.Property) Property.select(Property.gOf(k), true);
+    if (keys.length > 1) toast(`${i + 1} of ${keys.length}`, 'Press Find again for the next one.');
+    return true;
+  }
+  async function findByName(name) {
+    const lower = String(name || '').toLowerCase();
+    let id = [...players.entries()].find(([, p]) => (p.name || '').toLowerCase() === lower);
+    id = id && id[0];
+    if (!id) { const { data } = await sb.from('cs_players').select('id, name, color').eq('name', name).maybeSingle(); if (data) { players.set(data.id, data); id = data.id; } }
+    return id || null;
+  }
+  async function invite() {
+    const url = location.origin + location.pathname + '?with=' + encodeURIComponent(me.name);
+    let copied = false; try { await navigator.clipboard.writeText(url); copied = true; } catch (e) { /* not allowed: show it instead */ }
+    if (navigator.share && matchMedia('(pointer: coarse)').matches) { try { await navigator.share({ title: 'Capital Street', text: `Come and play with me in New York. I'm ${me.name}.`, url }); return; } catch (e) { /* cancelled */ } }
+    window.CSUI && CSUI.story(`<small>INVITE A FRIEND</small><b>${copied ? 'Link copied' : 'Send this link'}</b><p>When your friend opens it and picks a name, they join the same New York and the camera takes them to your buildings.</p><input class="invl" readonly value="${esc(url)}" onclick="this.select()">`, [['Done', () => {}]]);
   }
   listeners.push(t => {
     chip();
@@ -299,6 +402,7 @@ window.Net = (function () {
     await loadOwners();
     await afterAuth();
     await loadChat();
+    if (status === 'online' && !presence) track();
     sb.channel('cs-' + CITY.id)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'cs_buildings', filter: 'city=eq.' + CITY.id }, async p => {
         if (p.eventType === 'DELETE') { owners.delete(p.old.building); emit('owners'); return; }
@@ -310,10 +414,11 @@ window.Net = (function () {
       })
       .subscribe();
   }
-  const ready = setInterval(() => { if (window.CS && $('load').hidden) { clearInterval(ready); boot().catch(e => { status = 'error'; console.error(e); emit('me'); }); } }, 200);
+  const ready = setInterval(() => { if (window.CS && $('load').hidden) { clearInterval(ready); boot().catch(e => { status = 'error'; why = friendly(e); console.error(e); emit('me'); retrySoon(); }); } }, 200);
 
   return {
-    get status() { return status; }, get me() { return me; }, get online() { return online; }, get sb() { return sb; }, get user() { return user; }, configured, playerOf,
+    get status() { return status; }, get why() { return why; }, get conn() { return conn; }, get legacy() { return legacy; }, cloud, pushCloud, resolveConflict, findPlayer, findByName, invite, pause, retry: () => retrySoon(1),
+    get me() { return me; }, get online() { return online; }, get sb() { return sb; }, get user() { return user; }, configured, playerOf,
     on: f => listeners.push(f), ownerOf, owners, claim, release, setDesign, designOf: k => (owners.get(k) || {}).design || null, open, send, guest, signIn, signUp, signOut, createPlayer, deleteMe,
   };
 })();

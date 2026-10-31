@@ -116,9 +116,13 @@
     }
     return { price: +p.toFixed(2), fair: c.price, open: +p.toFixed(2), prevClose: +p.toFixed(2), hist: h, vol: 0 };
   }
-  let S;
-  try { S = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) { S = null; }
-  if (!S || !S.stocks) S = fresh();
+  let S, raw = null;
+  try { raw = localStorage.getItem(SAVE_KEY); S = JSON.parse(raw); } catch (e) { S = null; }
+  if (!S || !S.stocks) {
+    // a save that can't be read is kept to one side instead of being overwritten by a new game (Goal 31)
+    if (raw) try { localStorage.setItem(SAVE_KEY + '-unreadable', raw); } catch (e) { /* no room: nothing more we can do */ }
+    S = fresh();
+  }
   for (const c of COMPANIES) if (!S.stocks[c.t]) S.stocks[c.t] = seedStock(c, Math.floor(S.time / DAY) + 1); // companies added since this save
   if (!S.cities) S.cities = { nyc: true };
   if (S.credit === undefined) Object.assign(S, { loan: null, credit: 580, loansRepaid: 0, rateBump: 0 }); // saves from before the bank opened
@@ -126,7 +130,22 @@
   const effects = []; // live event effects (not saved: they finish quickly)
   const listeners = [];
   const emit = (type, data) => { for (const f of listeners) f(type, data); };
-  function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* private mode: progress lasts this visit */ } }
+  // Goal 31: a failed save is reported (Saves shows a warning) instead of being hidden
+  let saveErr = null, savedAt = 0, frozen = false;
+  function save() {
+    if (frozen) return false; // a backup is being loaded: never write the old game over it
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify(S)); savedAt = Date.now();
+      if (saveErr) { saveErr = null; emit('save', { ok: true }); }
+      return true;
+    } catch (e) {
+      const why = /quota|exceeded|full/i.test(e.name + ' ' + e.message) ? 'full' : 'blocked';
+      if (saveErr !== why) { saveErr = why; emit('save', { ok: false, why }); }
+      return false;
+    }
+  }
+  addEventListener('pagehide', () => save()); // closing or refreshing the tab never loses the last few seconds
+  document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
 
   const day = () => Math.floor(S.time / DAY) + 1;
   const minuteOfDay = () => ((S.time % DAY) + DAY) % DAY;
@@ -388,6 +407,7 @@
   function reset() { S = fresh(); effects.length = 0; save(); emit('reset'); }
 
   window.Market = {
+    saveStatus: () => ({ ok: !saveErr, why: saveErr, at: savedAt }), SAVE_KEY, freeze() { frozen = true; },
     COMPANIES, OPEN, CLOSE, DAY, RENT, LOANS, company, borrow, repay, loanStatus, unlockCity, listed, LISTED, dailyRate, holdings, buyProperty, sellProperty, propValue, floorValue, PROP_YIELD, PROP_FEE, step, placeOrder, cancelOrder, skipToOpen, reset, save,
     on: f => listeners.push(f), get state() { return S; }, day, minuteOfDay, isOpen, status, priceOf, netWorth,
     start() { S.started = true; save(); }, onDay: f => dayHooks.push(f), addWorth: f => worthHooks.push(f), emit, triggerEvent(kind) { const e = EVENTS.find(x => x.run().kind === kind); if (e) applyEvent(e.run()); }
