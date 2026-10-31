@@ -281,7 +281,7 @@ function buildTraffic(L) {
   const respawnCar = (w, l) => { w.l = l; w.s = Math.random() * l.len; w.dir = Math.random() < 0.5 ? 1 : -1; w.off = w.dir * (l.w / 4 + 0.2); w.seg = 0; };
   const respawnPerson = (w, l) => { w.l = l; w.s = Math.random() * l.len; w.dir = Math.random() < 0.5 ? 1 : -1; w.off = (Math.random() < 0.5 ? 1 : -1) * (l.w / 2 + 1.2 + Math.random() * 1.6); w.seg = 0; };
   const mk = (n, f) => Array.from({ length: n }, (_, i) => f(i));
-  walkers.cars = mk(2400, () => ({ l: null, s: 0, dir: 1, off: 0, v: 7 + Math.random() * 7, seg: 0 }));
+  walkers.cars = mk(1500, () => ({ l: null, s: 0, dir: 1, off: 0, v: 7 + Math.random() * 7, seg: 0 }));
   walkers.people = mk(3500, () => ({ l: null, s: 0, dir: 1, off: 0, v: 1.1 + Math.random() * 0.6, seg: 0, ph: Math.random() * 6 }));
   // a boxy low-poly car and a ball-headed person, like the reference
   const body = new THREE.BoxGeometry(4.3, 1.0, 1.85).translate(0, 0.75, 0), cab = new THREE.BoxGeometry(2.3, 0.75, 1.65).translate(-0.25, 1.62, 0);

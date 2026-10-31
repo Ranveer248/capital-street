@@ -1097,7 +1097,7 @@ function polyGeo(d, name) {
 // ---------- renderer, scene, camera ----------
 const canvas = document.getElementById('c');
 // Graphics settings (the Settings screen is in js/pc.js). Read before the renderer exists: anti-aliasing can't change later.
-const GFX_DEFAULT = { preset: 'high', cap: 2, scale: 1, auto: true, fpsCap: 60, shadows: 'high', aa: true, detail: 'high', showFps: false };
+const GFX_DEFAULT = { preset: 'high', cap: 2, scale: 1, auto: true, fpsCap: 60, shadows: 'high', aa: true, detail: 'high', showFps: false, ink: true };
 const GFX = (() => { try { return Object.assign({}, GFX_DEFAULT, JSON.parse(localStorage.getItem('cs-gfx') || '{}')); } catch (e) { return Object.assign({}, GFX_DEFAULT); } })();
 let dynScale = 1; // lowered by "keep 60 fps automatically" when the city gets busy
 const pixelRatio = () => Math.max(0.5, Math.min(devicePixelRatio, GFX.cap) * GFX.scale * dynScale);
@@ -1267,7 +1267,7 @@ buildingMat.onBeforeCompile = sh => {
         else if (typ == 7.0) { fh = 5.2; bay = 3.6; wx0 = 0.34; wx1 = 0.66; wy0 = 0.18; wy1 = 0.84; }
         if (mat == 9.0) { wx0 = 0.02; wx1 = 0.98; wy0 = 0.06; wy1 = 0.98; frame = 0.0; }
         float fy = y / fh, fx = u / bay, wy = fwidth(fy), wx = fwidth(fx), ffy = fract(fy), ffx = fract(fx);
-        float far = smoothstep(0.5, 0.95, max(wx, wy)); // windows stay crisp further out (Goal 27)
+        float far = smoothstep(0.38, 0.8, max(wx, wy)); // windows stay crisp, but blend before they shimmer
         float win = boxAA(ffy, wy0, wy1, wy) * boxAA(ffx, wx0, wx1, wx);
         if (typ == 7.0) { vec2 q = vec2((ffx - 0.5) / (wx1 - wx0) * 2.0, (ffy - wy1 + 0.1) * fh / (bay * (wx1 - wx0))); if (ffy > wy1 - 0.1) win *= 1.0 - smoothstep(0.95, 1.05, length(q)); } // arched
         float cover = (wx1 - wx0) * (wy1 - wy0);
@@ -1278,6 +1278,15 @@ buildingMat.onBeforeCompile = sh => {
           cover = 0.1; frame = 0.0;
         }
         if (frame > 0.5) c = mix(c, vec3(0.86), (boxAA(ffy, wy0 - 0.05, wy1 + 0.05, wy) * boxAA(ffx, wx0 - 0.05, wx1 + 0.05, wx) - win) * (1.0 - far)); // window frames
+        if (frame > 0.5 && typ != 7.0) { // Goal 29: a sill under every framed window, and painted shutters on many homes
+          c = mix(c, vec3(0.9, 0.88, 0.82), boxAA(ffy, wy0 - 0.1, wy0 - 0.04, wy) * boxAA(ffx, wx0 - 0.09, wx1 + 0.09, wx) * (1.0 - far));
+          float sh = fract(sin(dot(floor(base * 255.0), vec3(3.17, 7.71, 11.3))) * 4375.85);
+          if (typ < 2.5 && mat != 9.0 && sh < 0.55) {
+            vec3 shc = sh < 0.2 ? vec3(0.06, 0.2, 0.1) : sh < 0.38 ? vec3(0.04, 0.17, 0.2) : vec3(0.22, 0.09, 0.04);
+            float sw = (wx1 - wx0) * 0.42, shut = (boxAA(ffx, wx0 - sw, wx0 - 0.015, wx) + boxAA(ffx, wx1 + 0.015, wx1 + sw, wx)) * boxAA(ffy, wy0, wy1, wy);
+            c = mix(c, shc * (1.0 - 0.25 * lineAA(fract(y / 0.35), 0.18, fwidth(y / 0.35))), shut * (1.0 - far));
+          }
+        }
         if (typ == 5.0 && mat != 9.0) c *= 1.0 - 0.18 * lineAA(fract(u / 4.5), 0.06, fwidth(u / 4.5)) * (1.0 - far); // piers up stone towers
         win = mix(win, cover, far);
         // ground floor: front doors on houses, shopfronts and fascias where there are shops
@@ -1293,7 +1302,7 @@ buildingMat.onBeforeCompile = sh => {
           win = boxAA(y, 0.4, 3.9, fwidth(y)) * (1.0 - lineAA(fract(u / 3.0), 0.03, fwidth(u / 3.0))) * (1.0 - far) + 0.5 * far; // lobby glass
         }
         gMask = win;
-        vec3 gl = mat == 9.0 ? base * 0.75 : (typ > 3.5 && typ < 5.5) ? vec3(0.10, 0.24, 0.50) : vec3(0.10, 0.20, 0.38); // bluer, brighter glass
+        vec3 gl = mat == 9.0 ? mix(base, vec3(0.32, 0.42, 0.5), 0.4) * 0.8 : (typ > 3.5 && typ < 5.5) ? vec3(0.14, 0.24, 0.36) : vec3(0.12, 0.18, 0.28); // softer, greyer glass
         c = mix(c, gl, win);
         c *= mix(0.62, 1.0, smoothstep(0.0, 16.0, y)); // a little ambient occlusion near the street
       }

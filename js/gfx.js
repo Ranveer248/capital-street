@@ -162,7 +162,7 @@ window.Post = (function () {
       else if (same(m.color, LAND) || same(m.color, 0x6aaa4c) || same(m.color, PAVEMENT)) grassy(m);
       else if (m.isMeshStandardMaterial && (same(m.color, ASPHALT) || same(m.color, SIDEWALK))) {
         if (same(m.color, SIDEWALK)) m.color.copy(lin(0xa8a397)); // pale pavements read as white from afar
-        if (m.color.equals(lin(ASPHALT))) streets.push(m);
+        if (m.color.equals(lin(ASPHALT))) { m.color.copy(lin(0x4a4a4f)); streets.push(m); } // neutral dark asphalt, so the white markings pop
       }
     });
     upgraded = true;
@@ -229,7 +229,21 @@ window.Post = (function () {
       + texture2D(t, vUv + vec2(0.0, -px.y * 2.0)).rgb + texture2D(t, vUv + vec2(0.0, px.y * 2.0)).rgb
       + (texture2D(t, vUv + px).rgb + texture2D(t, vUv - px).rgb + texture2D(t, vUv + vec2(px.x, -px.y)).rgb + texture2D(t, vUv + vec2(-px.x, px.y)).rgb) * 2.0;
       gl_FragColor = vec4(c / 12.0 * k, 1.0); }`, { t: { value: null }, px: { value: new THREE.Vector2() }, k: { value: 1 } }, { blending: THREE.AdditiveBlending });
-  const comp = pass(`uniform sampler2D tS, tB; uniform float exposure, bloom, vig, time; varying vec2 vUv;
+  // Goal 29: ink outlines, like an illustrated city. Edges are found where the depth bends (silhouettes, roof lines,
+  // corners): 1/depth is flat across any flat surface on screen, so its second difference is zero there and jumps at edges.
+  // The picture has no multisampling when outlines are on (a depth texture needs a plain target), so FXAA smooths it.
+  const comp = pass(`uniform sampler2D tS, tB, tD; uniform float exposure, bloom, vig, time, ink, cn, cf, fadeA, fadeB, thr; uniform vec2 px; varying vec2 vUv;
+    float iz(vec2 uv) { float z = texture2D(tD, uv).x * 2.0 - 1.0; return (cf + cn - z * (cf - cn)) / (2.0 * cn * cf); } // 1 / view depth
+    vec3 fxaa(vec2 uv) {
+      vec3 L = vec3(0.299, 0.587, 0.114), nw = texture2D(tS, uv - px).rgb, ne = texture2D(tS, uv + vec2(px.x, -px.y)).rgb, sw = texture2D(tS, uv + vec2(-px.x, px.y)).rgb, se = texture2D(tS, uv + px).rgb, m = texture2D(tS, uv).rgb;
+      float a = dot(nw, L), b = dot(ne, L), c = dot(sw, L), d = dot(se, L), e = dot(m, L), lo = min(e, min(min(a, b), min(c, d))), hi = max(e, max(max(a, b), max(c, d)));
+      vec2 dir = vec2(-((a + b) - (c + d)), (a + c) - (b + d));
+      float red = max((a + b + c + d) * 0.03125, 0.0078125), rcp = 1.0 / (min(abs(dir.x), abs(dir.y)) + red);
+      dir = clamp(dir * rcp, -8.0, 8.0) * px;
+      vec3 A = 0.5 * (texture2D(tS, uv + dir * (1.0 / 3.0 - 0.5)).rgb + texture2D(tS, uv + dir * (2.0 / 3.0 - 0.5)).rgb);
+      vec3 B = A * 0.5 + 0.25 * (texture2D(tS, uv - dir * 0.5).rgb + texture2D(tS, uv + dir * 0.5).rgb);
+      float lb = dot(B, L); return (lb < lo || lb > hi) ? A : B;
+    }
     vec3 rrt(vec3 v) { vec3 a = v * (v + 0.0245786) - 0.000090537; vec3 b = v * (0.983729 * v + 0.4329510) + 0.238081; return a / b; }
     vec3 aces(vec3 c) {
       const mat3 I = mat3(vec3(0.59719, 0.07600, 0.02840), vec3(0.35458, 0.90834, 0.13383), vec3(0.04823, 0.01566, 0.83777));
@@ -237,19 +251,28 @@ window.Post = (function () {
       return clamp(O * rrt(I * (c / 0.6)), 0.0, 1.0);
     }
     void main(){
-      vec3 c = texture2D(tS, vUv).rgb + texture2D(tB, vUv).rgb * bloom;
+      vec3 c = (ink > 0.0 ? fxaa(vUv) : texture2D(tS, vUv).rgb) + texture2D(tB, vUv).rgb * bloom;
+      float edge = 0.0;
+      if (ink > 0.0) {
+        float z0 = iz(vUv), zl = iz(vUv - vec2(px.x, 0.0)), zr = iz(vUv + vec2(px.x, 0.0)), zu = iz(vUv + vec2(0.0, px.y)), zd = iz(vUv - vec2(0.0, px.y));
+        float k = (abs(zl + zr - 2.0 * z0) + abs(zu + zd - 2.0 * z0)) / max(z0, 1e-9);
+        edge = smoothstep(thr, thr * 3.0, k) * (1.0 - smoothstep(fadeA, fadeB, 1.0 / max(z0, 1e-9))) * ink;
+      }
       c = aces(c * exposure);
       float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
       c = mix(c, c * c * (3.0 - 2.0 * c), 0.15); // a gentle S-curve
       l = dot(c, vec3(0.2126, 0.7152, 0.0722));
-      c = mix(vec3(l), c, 1.32); // bright, toy-like colour
-      c *= mix(vec3(0.95, 0.99, 1.06), vec3(1.05, 1.0, 0.93), smoothstep(0.05, 0.75, l));
+      c = mix(vec3(l), c, 1.12); // rich but not neon (Goal 29: the warmer palette of illustrated city builders)
+      c *= mix(vec3(0.97, 0.97, 1.0), vec3(1.06, 1.01, 0.9), smoothstep(0.05, 0.75, l)); // warm light, soft cool shade
+      c = mix(c, vec3(0.035, 0.03, 0.05), edge * 0.85); // the ink
       vec2 q = vUv - 0.5; c *= 1.0 - vig * dot(q, q) * 1.5;
       c = max(c, 0.0);
       c = mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c));
       c += (fract(sin(dot(gl_FragCoord.xy + fract(time) * 61.0, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;
       gl_FragColor = vec4(c, 1.0);
-    }`, { tS: { value: null }, tB: { value: null }, exposure: { value: 1 }, bloom: { value: 0 }, vig: { value: 0.18 }, time: U.time });
+    }`, { tS: { value: null }, tB: { value: null }, tD: { value: null }, exposure: { value: 1 }, bloom: { value: 0 }, vig: { value: 0.18 }, time: U.time,
+      ink: { value: 0 }, cn: { value: 1 }, cf: { value: 1e5 }, fadeA: { value: 1e4 }, fadeB: { value: 2e4 }, thr: { value: 0.0012 }, px: { value: new THREE.Vector2() } });
+  const INK = GFX.ink !== false; // outlines on unless turned off in Settings
 
   const opts = { type: hdr ? THREE.HalfFloatType : THREE.UnsignedByteType, format: THREE.RGBAFormat, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, depthBuffer: false, stencilBuffer: false };
   let main = null, w = 0, h = 0;
@@ -262,12 +285,18 @@ window.Post = (function () {
     for (const c of chain) c.dispose();
     chain.length = 0;
     const o = Object.assign({}, opts, { depthBuffer: true });
-    if (caps.isWebGL2 && GFX.aa && THREE.WebGLMultisampleRenderTarget) { main = new THREE.WebGLMultisampleRenderTarget(w, h, o); main.samples = 4; } else main = new THREE.WebGLRenderTarget(w, h, o);
+    if (INK) { main = new THREE.WebGLRenderTarget(w, h, o); main.depthTexture = new THREE.DepthTexture(w, h); main.depthTexture.type = THREE.UnsignedIntType; }
+    else if (caps.isWebGL2 && GFX.aa && THREE.WebGLMultisampleRenderTarget) { main = new THREE.WebGLMultisampleRenderTarget(w, h, o); main.samples = 4; } else main = new THREE.WebGLRenderTarget(w, h, o);
+    comp.uniforms.px.value.set(1 / w, 1 / h);
     let bw = w >> 1, bh = h >> 1;
     for (let i = 0; i < 6 && bw > 8 && bh > 8 && comp.uniforms.bloom.value > 0; i++) { chain.push(new THREE.WebGLRenderTarget(bw, bh, opts)); bw >>= 1; bh >>= 1; }
   }
   function blit(mat, target) { quad.material = mat; renderer.setRenderTarget(target); renderer.render(quadScene, quadCam); }
+  let inkDist = 0, inkCam = null;
   function finish() {
+    const u = comp.uniforms, cam = inkCam || camera;
+    u.tD.value = INK ? main.depthTexture : null; u.ink.value = INK && inkDist < 12000 ? 1 - Math.max(0, Math.min(1, (inkDist - 6000) / 6000)) : 0;
+    u.cn.value = cam.near; u.cf.value = cam.far; u.fadeA.value = inkDist * 2.2 + 300; u.fadeB.value = inkDist * 4.5 + 900;
     if (!chain.length) { comp.uniforms.tS.value = comp.uniforms.tB.value = main.texture; comp.uniforms.exposure.value = exposure * renderer.toneMappingExposure; blit(comp, null); return; } // no bloom: one pass
     pre.uniforms.t.value = main.texture; blit(pre, chain[0]);
     for (let i = 1; i < chain.length; i++) { down.uniforms.t.value = chain[i - 1].texture; down.uniforms.px.value.set(1 / chain[i - 1].width, 1 / chain[i - 1].height); blit(down, chain[i]); }
@@ -278,6 +307,7 @@ window.Post = (function () {
   // draw(): clears and draws the world (index.html's renderGlobeAndCity), here into the HDR picture
   function frame(dist, draw) {
     if (!on) { draw(dist); return; }
+    inkDist = dist; inkCam = null;
     size();
     renderer.setRenderTarget(main);
     draw(dist);
@@ -286,10 +316,11 @@ window.Post = (function () {
   function shot(cam) { // a still of the city from another camera, finished the same way (property photos)
     size();
     renderer.setRenderTarget(main); renderer.clear(); renderer.render(scene, cam);
+    inkCam = cam; inkDist = cam.position.distanceTo(controls.target);
     finish();
   }
   // tone mapping moves into the finish above: the scene itself is drawn in plain linear light
   renderer.toneMapping = THREE.NoToneMapping;
 
-  return { frame, shot, U, set hour(h) { force = h; }, get hour() { return force; }, get on() { return on; }, hdr, light, bakeEnv };
+  return { frame, shot, U, comp: comp.uniforms, set hour(h) { force = h; }, get hour() { return force; }, get on() { return on; }, hdr, light, bakeEnv };
 })();

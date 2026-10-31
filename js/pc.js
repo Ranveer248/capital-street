@@ -75,6 +75,7 @@
         ${row('Frame rate limit', null, seg('fpsCap', [[30, '30'], [60, '60'], [120, '120'], [0, 'Max']], GFX.fpsCap))}
         ${row('Sun shadows', null, seg('shadows', [['off', 'Off'], ['low', 'Low'], ['high', 'High']], GFX.shadows))}
         ${row('Anti-aliasing', GFX.aa !== aaAtStart ? '<span class="note2">Takes effect when you reload the game</span>' : 'Smooths jagged edges', tog('aa', GFX.aa, 'Anti-aliasing'))}
+        ${row('Ink outlines', 'Drawn edges, like an illustrated city. Takes effect when you reload', tog('ink', GFX.ink !== false, 'Ink outlines'))}
         ${row('Building detail', 'Attics, chimneys, domes, solar panels and trees', seg('detail', [['low', 'Low'], ['high', 'High']], GFX.detail))}
         ${row('Show frame rate', `Or press ${K('F3')}`, tog('showFps', GFX.showFps, 'Show frame rate'))}
         ${foot(true)}`;

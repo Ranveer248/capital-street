@@ -333,6 +333,19 @@ Designed first in Figma ([Capital Street — Game UI](https://www.figma.com/desi
 | Rewards | ✅ each pays 0.5% of your net worth ($300 to $20,000) and 25 XP; all three pay a double bonus and 60 XP |
 | Where | ✅ at the top of the Jobs sheet with Go and Collect buttons, a red badge on the JOBS button when a reward is waiting, and a Tasks card in the lobby |
 
+## Goal 29: an illustrated city ✅
+
+Learned from the look of illustrated city builders (CityRT, SimCity BuildIt, Cities: Skylines): drawn, not realistic.
+
+| Check | Result |
+|---|---|
+| Ink outlines | ✅ every building, roof line, tree, car and kerb gets a dark drawn edge, found from the depth of the picture (where 1/depth bends). The lines fade out as you zoom out so the city doesn't turn grey with ink |
+| Smoothing | ✅ FXAA smooths edges instead of multisampling (a depth picture needs a plain target) |
+| Warmer palette | ✅ less neon colour, warm light and soft cool shade, neutral dark asphalt so the white road markings stand out, softer grey-blue glass |
+| Building fronts | ✅ a sill under every framed window, and painted shutters (green, teal or brown) on about half the houses and apartment blocks |
+| Calmer streets | ✅ 1,500 cars round the camera instead of 2,400, so junctions don't clog |
+| Setting | ✅ Settings → Graphics → Ink outlines, for slower devices |
+
 ## Roadmap
 
 1. ✅ The New York map
@@ -363,6 +376,7 @@ From the 5 new reference videos (a player-run economy game on the real world map
 21. ✅ **High-end graphics:** bloom, grading, a sun that follows the clock, clouds, glass, water, night lights
 22. ✅ **Simpler:** a new menu, online-only play, a clean map and screen, a tutorial
 23. ✅ **Surprises:** more market events, planes in the sky, plane crashes
+29. ✅ **Illustrated city:** ink outlines, a warmer palette, window sills and shutters
 28. ✅ **Daily tasks:** three a day across every job, with rewards and a bonus
 27. ✅ **Toy-city buildings:** coloured roofs, crisper windows
 26. ✅ **City-builder screen:** designed in Figma; corner JOBS button, tiles and a rail instead of the dock, a lobby over the city, a flatter camera
