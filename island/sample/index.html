@@ -116,6 +116,10 @@ svg.i { width: 22px; height: 22px; fill: currentColor; flex: none; }
 .chain { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; font-size: 11.5px; font-weight: 800; color: #1b2350; } .chain span { background: #fff; border: 2px solid #e3dccb; border-radius: 8px; padding: 3px 6px; } .chain i { color: #9aa1c8; font-style: normal; }
 table.t { width: 100%; border-collapse: collapse; font-size: 11px; } table.t td { padding: 4px 3px; border-bottom: 1px solid #e3dccb; vertical-align: top; } table.t td:last-child { text-align: right; white-space: nowrap; }
 .ok { color: #1d8a4a; font-weight: 800; } .bad { color: var(--red); font-weight: 800; }
+.bar { height: 8px; border-radius: 99px; background: #e3dccb; overflow: hidden; margin-top: 4px; } .bar i { display: block; height: 100%; background: linear-gradient(90deg, #2fbf6a, #9be15d); }
+.step { background: #fff; border: 2px solid #e3dccb; border-radius: 14px; padding: 8px; display: grid; gap: 6px; } .step .sh { display: flex; align-items: center; gap: 8px; } .step .sh div { flex: 1; min-width: 0; } .step .sh b { display: block; font-size: 13.5px; } .step .sh small { color: #5b6390; font-size: 11px; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; }
+.step .n { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--navy); color: var(--gold); font: 400 16px 'Lilita One', sans-serif; flex: none; } .step .kv { display: block; color: #5b6390; font-size: 11.5px; font-weight: 700; } .step .row { border-width: 1.5px; padding: 6px; } .step > .btn { width: 100%; }
+.note.bad { color: var(--red); font-weight: 800; }
 #fps { position: fixed; right: 6px; bottom: 2px; z-index: 60; font: 700 10px monospace; color: rgba(10,15,46,.65); pointer-events: none; }
 </style>
 </head>
