@@ -394,6 +394,7 @@ begin
   select * into ex from public.ci_shipments where id = p_id;
   if found then if ex.player <> u then raise exception 'Not your shipment'; end if; return public.ci_state(); end if; -- the same booking sent twice books once
   perform 1 from public.ci_players where id = u for update;
+  if exists (select 1 from public.ci_shipments where id = p_id) then return public.ci_state(); end if; -- a copy sent at the same moment got in first
   perform public.ci_settle(u);
   select public.ci_level(xp) into lvl from public.ci_players where id = u;
   if p_qty is null or p_qty < 1 or p_qty > 40 then raise exception 'A vehicle takes 1 to 40'; end if;
@@ -463,8 +464,8 @@ end $$;
 create or replace function public.ci_list_food(p_id uuid, p_qty int, p_price numeric) returns jsonb language plpgsql security definer set search_path = '' as $$
 declare u uuid := public.ci_me(); basis numeric;
 begin
-  if exists (select 1 from public.ci_listings where id = p_id) then return public.ci_state(); end if;
   perform 1 from public.ci_players where id = u for update;
+  if exists (select 1 from public.ci_listings where id = p_id) then return public.ci_state(); end if; -- the same offer sent twice is listed once
   perform public.ci_settle(u);
   if p_qty is null or p_qty < 1 or p_qty > 200 then raise exception 'Offer 1 to 200 boxes'; end if;
   if p_price is null or p_price < 1 or p_price > 100 then raise exception 'Prices are $1 to $100 a box'; end if;
@@ -507,3 +508,11 @@ end $$;
 revoke execute on function public.ci_take(uuid, text, int) from public, anon, authenticated;
 revoke execute on function public.ci_finish(uuid) from public, anon, authenticated;
 revoke execute on function public.ci_settle(uuid) from public, anon, authenticated;
+-- the game's own functions are for signed-in players (guests count): nothing can be called without a session
+do $$ declare f text; begin
+  foreach f in array array['ci_me()', 'ci_state()', 'ci_join(text, text)', 'ci_grow(int)', 'ci_process(int)', 'ci_ship(uuid, text, int, text)',
+    'ci_deliver(uuid)', 'ci_buy_property(text)', 'ci_list_food(uuid, int, numeric)', 'ci_cancel_listing(uuid)', 'ci_buy_listing(uuid)'] loop
+    execute format('revoke execute on function public.%s from public, anon', f);
+    execute format('grant execute on function public.%s to authenticated', f);
+  end loop;
+end $$;
