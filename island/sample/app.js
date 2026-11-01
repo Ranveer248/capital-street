@@ -30,24 +30,92 @@
   const level = () => { let l = 0; while (l + 1 < LEVELS.length && S.xp >= LEVELS[l + 1].xp) l++; return l; };
   const FLEET = () => ({ truck: level() >= 3 ? 2 : 1, van: level() >= 1 ? 1 : 0 });
   const CAP = () => ({ farm: level() >= 3 ? 240 : 120, plantIn: 200, plantOut: 200, truck: 40, van: 20 });
-  function xp(n, why) { if (n <= 0) return; const before = level(); S.xp += n; save(); toast(`+${n} XP`, why); if (level() > before) setTimeout(() => toast(`Level ${level() + 1}!`, 'Unlocked: ' + LEVELS[level()].reward), 1800); draw(); }
+  function xp(n, why) { if (n <= 0 || NET.online) return; /* online, XP is the server's to give */ const before = level(); S.xp += n; save(); toast(`+${n} XP`, why); if (level() > before) setTimeout(() => toast(`Level ${level() + 1}!`, 'Unlocked: ' + LEVELS[level()].reward), 1800); draw(); }
   function once(key, n, why) { if (S.done[key]) return; S.done[key] = true; xp(n, why); } // one-off rewards can't be repeated
 
   let toastT = 0;
   function toast(t, b = '') { $('toastT').textContent = t; $('toastB').textContent = b; $('toast').classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => $('toast').classList.remove('on'), 2800); }
 
-  // ---------- start: the cover is a picture; the world is built only after Play ----------
-  let started = false;
-  $('play').onclick = () => {
-    if (started) return; started = true; $('play').disabled = true; $('play').textContent = 'LOADING…';
-    setTimeout(() => {
-      try { $('c').hidden = false; const t0 = performance.now(); World.init($('c'), quality); window.buildMs = Math.round(performance.now() - t0); }
-      catch (e) { console.error(e); $('play').textContent = 'TRY AGAIN'; $('play').disabled = false; started = false; return; }
-      $('cover').hidden = true; World.place(World.overview()); resume(); loop(performance.now());
-      World.flyTo(World.homeView(), 2, () => { $('hud').hidden = false; draw(); objective(); });
-    }, 50);
-  };
-  if (new URLSearchParams(location.search).has('play')) $('play').click();
+  // ---------- multiplayer: when the island server is reachable, money, stores, shipments, ownership and the market live
+  // there and every action is checked there; the game shows what the server says. Offline, the same game runs locally.
+  const NET = (() => {
+    const cfg = window.CS_NET || {}, ok = !!(cfg.url && cfg.key && window.supabase && supabase.createClient);
+    const sb = ok ? supabase.createClient(cfg.url, cfg.key, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'cs-auth' } }) : null; // the same guest account as Capital Street
+    const N = { ok, online: false, me: null, status: 'offline', players: new Map() };
+    const msgOf = e => (e && e.message) || 'Something went wrong';
+    N.call = async (fn, args) => {
+      let r; try { r = await sb.rpc(fn, args || {}); } catch (e) { r = { error: { message: 'Failed to fetch' } }; }
+      if (r.error) { const err = new Error(msgOf(r.error)); err.net = !r.error.code && /fetch|network|timeout|load failed/i.test(msgOf(r.error)); throw err; }
+      return r.data;
+    };
+    N.join = async (name, color) => {
+      try {
+        let { data } = await sb.auth.getSession(), session = data && data.session;
+        if (!session) { const r = await sb.auth.signInAnonymously(); if (r.error) return { ok: false, net: !/anonymous/i.test(msgOf(r.error)), why: /anonymous/i.test(msgOf(r.error)) ? 'Guest play is switched off on this server.' : 'Can\'t reach the island server. Check your connection and try again.' }; session = r.data.session; }
+        N.me = session.user.id;
+        const st = await N.call('ci_join', { p_name: name, p_color: color });
+        N.online = true; return { ok: true, state: st };
+      } catch (e) { if (/Could not find the function|does not exist/i.test(e.message)) return { ok: false, missing: true }; return { ok: false, net: e.net, why: e.net ? 'Can\'t reach the island server. Check your connection and try again.' : e.message }; }
+    };
+    let busyRefresh = false, again = false;
+    N.refresh = async () => { // fetch the whole state; one request at a time, the latest wins
+      if (!N.online) return; if (busyRefresh) { again = true; return; } busyRefresh = true;
+      try { applyState(await N.call('ci_state')); if (N.status === 'reconnecting' && live && live.ok) setStatus('live'); } catch (e) { if (e.net) setStatus('reconnecting'); }
+      busyRefresh = false; if (again) { again = false; N.refresh(); }
+    };
+    let live = null, pres = null, backoff = 0, rT = 0, lastTrack = 0, lastPos = null;
+    function setStatus(st) { N.status = st; const el = $('netp'); if (el) { el.className = 'pill net ' + st; $('netT').textContent = st === 'live' ? `Online · ${N.players.size + 1} here` : st === 'reconnecting' ? 'Reconnecting…' : 'Offline'; } }
+    N.setStatus = setStatus;
+    function connect() { // live updates for what everyone shares, and who is on the island; reconnects on its own
+      clearTimeout(rT); if (live) { const o = live; live = null; sb.removeChannel(o); } if (pres) { const o = pres; pres = null; sb.removeChannel(o); }
+      const ch = live = sb.channel('ci-island'); ch.ok = false;
+      for (const t of ['ci_buyers', 'ci_property', 'ci_listings', 'ci_players']) ch.on('postgres_changes', { event: '*', schema: 'public', table: t }, () => N.refresh());
+      ch.subscribe(st => { if (live !== ch) return; if (st === 'SUBSCRIBED') { ch.ok = true; backoff = 0; setStatus('live'); N.refresh(); } else if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT' || st === 'CLOSED') { ch.ok = false; setStatus('reconnecting'); rT = setTimeout(connect, Math.min(30000, 1000 * 2 ** Math.min(5, backoff++))); } });
+      const pc = pres = sb.channel('ci-online', { config: { presence: { key: N.me } } });
+      pc.on('presence', { event: 'sync' }, () => { if (pres !== pc) return; const m = new Map(); for (const metas of Object.values(pc.presenceState())) for (const x of metas) if (x && x.id && x.id !== N.me) m.set(x.id, x); N.players = m; setStatus(N.status); if (panel === 'map') refresh(); });
+      pc.subscribe(st => { if (pres === pc && st === 'SUBSCRIBED') { lastTrack = 0; N.track(); } });
+    }
+    N.track = () => { // where you are looking, so friends can see you and visit
+      if (!pres || !World.controls) return; const t = World.controls.target, moved = !lastPos || Math.hypot(t.x - lastPos[0], t.z - lastPos[1]) > 25;
+      if (!moved && performance.now() - lastTrack < 20000) return; lastPos = [t.x, t.z]; lastTrack = performance.now();
+      pres.track({ id: N.me, name: S.name, color: S.color, x: Math.round(t.x), z: Math.round(t.z), at: Date.now() });
+    };
+    N.live = () => { connect(); setInterval(() => { N.refresh(); }, 5000); setInterval(() => N.track(), 3000); addEventListener('online', () => connect()); };
+    return N;
+  })();
+
+  // ---------- start: the cover is a picture; your name, then the island. The world is built only after Play ----------
+  const NAME_RE = /^[A-Za-z0-9][A-Za-z0-9 _.-]{1,18}[A-Za-z0-9]$/, COLORS = ['#ffc93c', '#4c8dff', '#f04e5e', '#2fbf6a', '#a970ff', '#ff9f43', '#2fd0c0', '#ff8fb1'];
+  S.color = S.color || COLORS[1];
+  $('nm').value = S.name || ''; $('sw').innerHTML = COLORS.map(c => `<button type="button" data-c="${c}" style="background:${c}" class="${c === S.color ? 'on' : ''}" aria-label="Colour"></button>`).join('');
+  $('sw').querySelectorAll('[data-c]').forEach(b => b.onclick = () => { S.color = b.dataset.c; $('sw').querySelectorAll('[data-c]').forEach(x => x.classList.toggle('on', x === b)); });
+  const jmsg = (t, bad) => { $('jmsg').textContent = t; $('jmsg').classList.toggle('bad', !!bad); };
+  let started = false, joining = false, offline = !NET.ok;
+  async function join() {
+    if (joining || started) return; // one join at a time, however often Play is pressed
+    const name = $('nm').value.trim();
+    if (!NAME_RE.test(name)) { jmsg('Names are 3 to 20 letters or numbers (spaces, dots and dashes in the middle are fine).', true); return; }
+    joining = true; S.name = name; save(); $('play').disabled = true; $('offline').hidden = true;
+    if (!offline) {
+      $('play').textContent = 'JOINING…'; jmsg('Connecting to Capital Island…');
+      const r = await NET.join(name, S.color);
+      if (r.missing) { offline = true; jmsg('Multiplayer is not switched on for the island yet: playing offline.'); } // the island tables aren't on this server yet
+      else if (!r.ok) { jmsg(r.why, true); $('play').textContent = 'TRY AGAIN'; $('play').disabled = false; if (r.net) $('offline').hidden = false; joining = false; return; }
+      else applyState(r.state);
+    }
+    jmsg(offline ? 'Playing offline: your progress stays on this device.' : 'Building the island…'); $('play').textContent = 'LOADING…';
+    setTimeout(startWorld, 50);
+  }
+  function startWorld() {
+    started = true;
+    try { $('c').hidden = false; const t0 = performance.now(); World.init($('c'), quality); window.buildMs = Math.round(performance.now() - t0); }
+    catch (e) { console.error(e); jmsg('The island couldn\'t be built (' + (e.message || e) + '). Try Low graphics in Settings.', true); $('play').textContent = 'TRY AGAIN'; $('play').disabled = false; started = joining = false; return; }
+    $('cover').hidden = true; World.place(World.overview()); if (NET.online) { NET.live(); applyState(lastState); } else { NET.setStatus('offline'); resume(); } loop(performance.now());
+    World.flyTo(World.homeView(), 2, () => { $('hud').hidden = false; draw(); objective(); });
+  }
+  $('play').onclick = join; $('nm').onkeydown = e => { if (e.key === 'Enter') join(); };
+  $('offline').onclick = () => { offline = true; joining = false; join(); };
+  { const q = new URLSearchParams(location.search); if (q.get('name')) $('nm').value = q.get('name'); if (q.has('offline')) offline = true; if (q.has('play')) join(); }
 
   let last = 0, frames = 0, fpsT = 0, follow = null;
   function loop(t) {
@@ -71,8 +139,8 @@
   const PLACE = { FA: 'Greenfields Co-op', P: 'Processing Plant', C: 'Old Quarter shops', J: 'Hotel Azure', K: 'Harbour quay', G: 'Delivery depot' };
   const SEED = 3, GROW_S = 0.8, PROC_FEE = 2, PROC_S = 0.6;
   const BUYER = { shops: { name: 'Old Quarter shops', base: 16, max: 60, refill: 5 }, hotel: { name: 'Hotel Azure', base: 21, max: 40, refill: 7 } };
-  const matchOn = () => now() > E.match && now() < E.match + 90e3;
-  const priceOf = k => { const B = BUYER[k]; return Math.round(B.base * (0.7 + 0.3 * E.demand[k] / B.max) * (k === 'shops' && matchOn() ? 1.15 : 1) * 100) / 100; };
+  const matchOn = () => NET.online ? !!E.matchOn : now() > E.match && now() < E.match + 90e3;
+  const priceOf = k => { if (NET.online && E.prices) return E.prices[k]; const B = BUYER[k]; return Math.round(B.base * (0.7 + 0.3 * E.demand[k] / B.max) * (k === 'shops' && matchOn() ? 1.15 : 1) * 100) / 100; };
   const shipFee = (type, len) => Math.round((type === 'van' ? 8 : 12) + len * (type === 'van' ? 0.03 : 0.035));
   const eta = len => Math.round(len / 8.5 + 8); // seconds: average road speed with junctions, plus loading
   const growing = () => E.grows.reduce((a, g) => a + g.qty, 0), inbound = to => E.ships.filter(s => s.to === to && s.status !== 'delivered').reduce((a, s) => a + s.qty, 0);
@@ -81,6 +149,8 @@
   const take = (st, n) => { const c = avg(st) * n; st.qty -= n; st.cost -= c; if (st.qty <= 0) { st.qty = 0; st.cost = 0; } return c; };
   const handles = new Map(); // shipment id -> the vehicle on the road
   function economy() { // timers, demand refills, the stadium's match day, finished jobs
+    for (const x of E.ships) { const hd = handles.get(x.id); if (hd && x.status !== 'delivered') { x.status = hd.status === 'delivered' ? x.status : hd.status; x.why = hd.why; x.frac = hd.progress(); } }
+    if (NET.online) { save(); return; } // online, the server settles jobs, demand and the queue
     const t = now(), mins = (t - E.at) / 1000; E.at = t;
     for (const k in BUYER) { const B = BUYER[k]; E.demand[k] = Math.min(B.max, E.demand[k] + mins / B.refill); }
     if (t > E.match + 90e3) { E.match = t + 6 * 60e3; E.matchSaid = false; } else if (t > E.match && !E.matchSaid) { E.matchSaid = true; E.demand.shops = Math.min(BUYER.shops.max + 30, E.demand.shops + 30); toast('Match day at Capital Stadium!', 'Shops want more food, and pay 15% more for 90 s'); }
@@ -95,7 +165,12 @@
     const h = World.dispatch({ type: s.vehicle, from: s.from, to: s.to, frac: s.frac || 0, paint: s.kind === 'crop' ? 0x8fd16a : 0xffc93c, onArrive: () => arrive(s) });
     handles.set(s.id, h); s.status = h.status; s.why = h.why;
   }
+  async function deliverOnline(s, tries = 0) { // the vehicle is there: the server checks the trip and pays once
+    try { const st = await NET.call('ci_deliver', { p_id: s.id }), r = st.result; applyState(st); if (r && r.kind === 'food') toast(`Sold ${r.qty} boxes for ${usd(r.revenue)}`, `profit ${usd(r.profit)} · +${r.xp} XP`); else if (r) toast(`${r.qty} crates delivered`, 'In the Processing Plant store'); }
+    catch (e) { if (tries < 80) setTimeout(() => deliverOnline(s, tries + 1), 3000); } // offline or not quite there yet: try again shortly
+  }
   function arrive(s) {
+    if (NET.online) { handles.delete(s.id); s.arrived = true; s.frac = 1; deliverOnline(s); return; }
     handles.delete(s.id); s.status = 'delivered'; s.done = now(); s.frac = 1;
     if (s.kind === 'crop') { E.plantIn.qty += s.qty; E.plantIn.cost += s.basis + s.fee; E.stats.shipped += s.qty; toast(`${s.qty} crates delivered`, 'In the Processing Plant store'); }
     else { const rev = s.qty * s.price, profit = rev - s.basis - s.fee; S.cash += rev; E.demand[s.buyer] = Math.max(0, E.demand[s.buyer] - s.qty); E.stats.sold += s.qty; E.stats.revenue += rev; E.stats.profit += profit; toast(`Sold ${s.qty} boxes for ${usd(rev)}`, `${BUYER[s.buyer].name} · profit ${usd(profit)}`); xp(Math.min(60, Math.round(profit / 10)), 'Profit from a delivery'); once('firstSale', 20, 'Your first complete food chain'); }
@@ -103,6 +178,29 @@
   }
   function resume() { for (const s of E.ships) if (s.status !== 'delivered' && s.status !== 'queued') send(s); } // after a reload, trips carry on from where they were
   const R = (a, b) => World.routeInfo(a, b);
+  let OWN = new Map(), MARKET = [], skew = 0, lastState = null, seenJobs = null;
+  const srv = t => Date.parse(t) - skew; // server time, in this device's clock
+  const lotOf = b => `${b.type}@${Math.round(b.x)},${Math.round(b.z)}`;
+  function applyState(st) {
+    if (!st || !st.player) return; lastState = st; skew = Date.parse(st.now) - Date.now();
+    const lvl0 = level(); S.cash = +st.player.cash; S.xp = st.player.xp; S.name = st.player.name; S.color = st.player.color;
+    const sk = k => ({ qty: st.stock[k] ? +st.stock[k].qty : 0, cost: st.stock[k] ? +st.stock[k].cost : 0 });
+    E.farm = sk('farm'); E.plantIn = sk('plant_in'); E.plantOut = sk('plant_out');
+    const jobs = st.jobs.map(j => ({ id: j.id, kind: j.kind, qty: j.qty, cost: +j.cost, end: srv(j.ends_at), start: srv(j.ends_at) - j.qty * (j.kind === 'grow' ? GROW_S : PROC_S) * 1000 }));
+    if (seenJobs) for (const [id, j] of seenJobs) if (!jobs.some(x => x.id === id)) toast(j.kind === 'grow' ? `${j.qty} crates harvested` : `${j.qty} boxes of food packed`, j.kind === 'grow' ? 'Ready at Greenfields Co-op' : 'Ready at the Processing Plant');
+    seenJobs = new Map(jobs.map(j => [j.id, j])); E.grows = jobs.filter(j => j.kind === 'grow'); E.procs = jobs.filter(j => j.kind === 'process');
+    const routes = new Map((st.routes || []).map(r => [r.from_node + r.to_node, +r.meters]));
+    E.ships = st.ships.map(x => { const old = E.ships.find(o => o.id === x.id), meters = routes.get(x.from_node + x.to_node) || 800;
+      const est = x.depart_at ? Math.min(0.95, Math.max(0, (Date.now() - srv(x.depart_at)) / 1000 * 8.5 / meters)) : 0;
+      return { id: x.id, kind: x.kind, from: x.from_node, to: x.to_node, buyer: x.buyer, qty: x.qty, fee: +x.fee, price: +x.price, basis: +x.basis, vehicle: x.vehicle, status: old && old.status === 'failed' && x.status === 'travelling' ? 'failed' : x.status, why: old ? old.why : '', frac: old && old.frac ? old.frac : est, done: x.delivered_at ? srv(x.delivered_at) : 0 }; });
+    for (const b of st.buyers) { E.demand[b.buyer] = +b.demand; (E.prices = E.prices || {})[b.buyer] = +b.price; }
+    E.matchOn = st.match; E.matchAt = Date.now() + st.match_in * 1000;
+    OWN = new Map(st.property.map(p => [p.lot, p])); MARKET = st.listings;
+    if (World.cars) for (const x of E.ships) if (x.status === 'travelling' && !handles.has(x.id) && !x.arrived) send(x); // trips on the road get their vehicle (after a reload too)
+    if (level() > lvl0) toast(`Level ${level() + 1}!`, 'Unlocked: ' + LEVELS[level()].reward);
+    save(); if (!$('hud').hidden) { draw(); objective(); }
+  }
+  const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); }));
 
   // what each action costs and earns, worked out before you confirm
   function quote(act, qty, buyer) {
@@ -132,8 +230,16 @@
     }
     return q;
   }
+  let pendingCall = false;
+  async function confirmOnline(q, buyer) { // the server books it, or says why not; nothing changes here until it answers
+    if (pendingCall) return; pendingCall = true; const ok = $('qok'); if (ok) { ok.disabled = true; ok.textContent = 'SENDING…'; }
+    const id = uuid(), call = q.act === 'grow' ? ['ci_grow', { p_qty: q.qty }] : q.act === 'process' ? ['ci_process', { p_qty: q.qty }] : ['ci_ship', { p_id: id, p_kind: q.act === 'ship' ? 'crop' : 'food', p_qty: q.qty, p_buyer: q.act === 'deliver' ? buyer : null }];
+    try { applyState(await NET.call(call[0], call[1])); toast({ grow: `Planting ${q.qty} crates`, process: `Processing ${q.qty} crates`, ship: `Truck booked: ${q.qty} crates`, deliver: `Delivery booked: ${q.qty} boxes` }[q.act], 'Confirmed by the island server'); pendingCall = false; open('jobs'); }
+    catch (e) { pendingCall = false; toast(e.net ? 'No connection' : 'Not done', e.net ? 'Check Jobs when you are back online: it may or may not have gone through.' : e.message); if (ok) { ok.disabled = false; ok.textContent = 'CONFIRM'; } NET.refresh(); }
+  }
   function confirm(q, buyer) {
     if (!q.ok) return;
+    if (NET.online) return confirmOnline(q, buyer);
     const id = 's' + now() + Math.floor(Math.random() * 1000);
     if (q.act === 'grow') { S.cash -= q.cost; E.grows.push({ qty: q.qty, cost: q.cost, start: now(), end: now() + q.qty * GROW_S * 1000 }); toast(`Planting ${q.qty} crates`, `Ready in ${clock(q.qty * GROW_S)}`); }
     else if (q.act === 'process') { S.cash -= q.cost; const basis = take(E.plantIn, q.qty); E.procs.push({ qty: q.qty, cost: basis + q.cost, start: now(), end: now() + q.qty * PROC_S * 1000 }); toast(`Processing ${q.qty} crates`, `Food ready in ${clock(q.qty * PROC_S)}`); }
@@ -159,16 +265,25 @@
 
   // ---------- labels: island name far out, district names in between, a few useful places up close; no overlaps ----------
   const els = new Map(); let sel = null;
-  function labelEl(L) { let el = els.get(L); if (!el) { el = document.createElement('div'); el.className = `lab ${L.level}${L.minor ? ' minor' : ''}${L.small ? ' small' : ''}${L.home ? ' home' : ''}`; el.textContent = L.text; $('labels').appendChild(el); els.set(L, el); L.w = 0; } return el; }
+  function labelEl(L) { let el = els.get(L); if (!el) { el = document.createElement('div'); el.className = `lab ${L.friend ? 'place friend' : L.level}${L.minor ? ' minor' : ''}${L.small ? ' small' : ''}${L.home ? ' home' : ''}`; el.textContent = L.text; if (L.color) el.style.setProperty('--c', L.color); $('labels').appendChild(el); els.set(L, el); L.w = 0; } return el; }
+  const FRIENDS = new Map(), OWNERS = new Map();
+  function friendLabels(lvl) { // other players (district and close views) and, close up, who owns the buildings nearby
+    if (!NET.online) return [];
+    const out = [];
+    for (const [id, p] of NET.players) { let L = FRIENDS.get(id); if (!L) { L = { text: p.name, level: 'friend', friend: true }; FRIENDS.set(id, L); } L.x = p.x; L.z = p.z; L.y = 14; if (L.text !== p.name) { L.text = p.name; const el = els.get(L); if (el) el.textContent = p.name, L.w = 0; } L.color = p.color; if (lvl !== 'island') out.push(L); }
+    for (const [id, L] of FRIENDS) if (!NET.players.has(id)) { const el = els.get(L); if (el) el.remove(); els.delete(L); FRIENDS.delete(id); }
+    if (lvl === 'place') for (const b of World.buildings) { if (!b.sale) continue; const o = OWN.get(lotOf(b)); if (!o) continue; let L = OWNERS.get(b.id); if (!L || L.text !== (o.owner === NET.me ? 'Yours' : o.name)) { if (L && els.get(L)) { els.get(L).remove(); els.delete(L); } L = { text: o.owner === NET.me ? 'Yours' : o.name, level: 'place', small: true, owner: true, x: b.x, y: b.h + 3, z: b.z, color: o.color }; OWNERS.set(b.id, L); } out.push(L); }
+    return out;
+  }
   const v3 = new THREE.Vector3();
   function labels() {
     if (!World.camera || $('hud').hidden) return;
     const d = World.dist, lvl = d > 760 ? 'island' : d > 230 ? 'district' : 'place', t = World.controls.target, placed = [], W = innerWidth, H = innerHeight, pr = !P.hidden ? P.getBoundingClientRect() : null;
     if (lvl === 'island') once('zoom', 10, 'You found the whole island');
-    const want = World.LABELS.filter(L => L.level === lvl || (L.home && lvl !== 'island') || (sel && L.b === sel)).map(L => ({ L, pri: (L.b && L.b === sel ? 0 : L.home ? 1 : 2) + (lvl === 'place' ? Math.hypot(L.x - t.x, L.z - t.z) / 1000 : 0) })).sort((a, b) => a.pri - b.pri);
+    const FL = friendLabels(lvl), want = World.LABELS.concat(FL).filter(L => L.level === lvl || (L.friend && lvl !== 'island') || (L.home && lvl !== 'island') || (sel && L.b === sel)).map(L => ({ L, pri: (L.b && L.b === sel ? 0 : L.home ? 1 : 2) + (lvl === 'place' ? Math.hypot(L.x - t.x, L.z - t.z) / 1000 : 0) })).sort((a, b) => a.pri - b.pri);
     const shown = new Set();
     for (const { L } of want) {
-      if (lvl === 'place' && !L.home && !(L.b && L.b === sel) && Math.hypot(L.x - t.x, L.z - t.z) > 170) continue;
+      if (lvl === 'place' && !L.home && !L.friend && !(L.b && L.b === sel) && Math.hypot(L.x - t.x, L.z - t.z) > 170) continue;
       v3.set(L.x, L.y, L.z).project(World.camera); if (v3.z > 1 || Math.abs(v3.x) > 1.05 || Math.abs(v3.y) > 1.05) continue;
       const el = labelEl(L); if (!L.w) { L.w = el.offsetWidth || 80; L.h = el.offsetHeight || 20; }
       const x = (v3.x + 1) / 2 * W - L.w / 2, y = (1 - v3.y) / 2 * H - L.h, r = [x - 4, y - 3, x + L.w + 4, y + L.h + 3];
@@ -209,7 +324,9 @@
   const AREAS = [['Beachfront', -130, 140, 'Hotel Azure, the promenade and the beach. Buys food (level 3).'], ['Old Quarter', -20, -20, 'Flats, houses and the shops that buy your food'], ['Business Centre', 40, -160, 'City Hall, Capital Bank, the Exchange and offices'],
     ['Stadium', 130, -320, 'Capital Stadium: match days raise food demand'], ['Greenfields', -300, -300, 'Farms and the co-op where your crops grow'], ['Villa Point', -450, 90, 'Villas with pools, the marina and the yacht club'],
     ['Harbour', 190, 20, 'Quay, cranes and the ship to Industrial Isle'], ['Industrial Isle', 540, -180, 'The processing plant, over the bridge'], ['Lighthouse Point', -440, -320, 'Cliffs, pines and the lighthouse']];
-  const card = b => `<button class="pc" data-b="${b.id}"><div class="ph" data-ph="${b.id}"></div>${S.owned[b.id] || b.owner === 'you' ? '<span class="tag yours">YOURS</span>' : ''}<div class="tx"><b>${esc(b.name)}</b><small>${esc(b.area)}</small><em>${S.owned[b.id] || b.owner === 'you' ? 'Yours' : usd(valueOf(b))}</em></div></button>`;
+  const ownerOf = b => NET.online ? OWN.get(lotOf(b)) : (S.owned[b.id] ? { owner: 'me', name: S.name } : null);
+  const isMine = b => b.owner === 'you' || (ownerOf(b) && (ownerOf(b).owner === NET.me || ownerOf(b).owner === 'me'));
+  const card = b => { const o = ownerOf(b), mine = isMine(b); return `<button class="pc" data-b="${b.id}"><div class="ph" data-ph="${b.id}"></div>${mine ? '<span class="tag yours">YOURS</span>' : o ? `<span class="tag" style="background:${esc(o.color)}">${esc(o.name)}</span>` : ''}<div class="tx"><b>${esc(b.name)}</b><small>${esc(b.area)}</small><em>${mine ? 'Yours' : o ? 'Owned by ' + esc(o.name) : usd(valueOf(b))}</em></div></button>`; };
   const bindCards = r => { r.querySelectorAll('[data-ph]').forEach(el => picture(el, byId(el.dataset.ph))); r.querySelectorAll('[data-b]').forEach(el => el.onclick = () => open('card', el.dataset.b, true)); };
   let filter = 'homes', qtyPick = {};
   const bar = (n, cap) => `<div class="bar"><i style="width:${Math.min(100, n / cap * 100)}%"></i></div>`;
@@ -226,16 +343,17 @@
       <div class="stats"><div>Net profit<b>${usd(st.profit)}</b></div><div>Rent value<b>${usd(inc)}/wk</b></div><div>Loans<b>None</b></div></div><p class="note">Loans arrive with the next stage. Rent from property is shown but not yet paid out.</p>`,
       bind: () => {} }; },
     office: () => ({ title: 'Office', html: `<div class="row lock"><span class="ic">${ic('lock')}</span><div><b>Opens at level 5</b><small>${LEVELS[4].reward}</small></div></div><p class="note">From your office you'll run the companies you start in Jobs.</p>` }),
-    build: () => { const G = { homes: ['house', 'flat'], villas: ['villa'], shops: ['shophouse', 'kiosk'], offices: ['tower'], harbour: ['warehouse'] }, list = World.buildings.filter(b => b.sale && !S.owned[b.id] && G[filter].includes(b.type)).sort((a, b) => valueOf(a) - valueOf(b)).slice(0, 10), own = Object.keys(S.owned).map(byId).filter(Boolean);
+    build: () => { const G = { homes: ['house', 'flat'], villas: ['villa'], shops: ['shophouse', 'kiosk'], offices: ['tower'], harbour: ['warehouse'] }, list = World.buildings.filter(b => b.sale && !ownerOf(b) && G[filter].includes(b.type)).sort((a, b) => valueOf(a) - valueOf(b)).slice(0, 10), own = World.buildings.filter(b => b.sale && isMine(b));
       return { title: 'Build & property', html: `<div class="seg">${[['homes', 'Homes'], ['villas', 'Villas'], ['shops', 'Shops'], ['offices', 'Offices'], ['harbour', 'Harbour']].map(([k, n]) => `<button data-f="${k}" class="${k === filter ? 'on' : ''}">${n}</button>`).join('')}</div>
         ${own.length ? `<p class="sec">Yours</p><div class="cards">${own.map(card).join('')}</div>` : ''}<p class="sec">For sale · cheapest first</p><div class="cards">${list.map(card).join('')}</div>`,
         bind: r => { r.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { filter = b.dataset.f; open('build'); }); bindCards(r); } }; },
-    card: id => { const b = byId(id), mine = S.owned[b.id] || b.owner === 'you', p = valueOf(b); sel = b; World.mark(b); return { title: { warehouse: 'Warehouse', shophouse: 'Shop with flats', kiosk: 'Kiosk', house: 'House', villa: 'Villa', tower: 'Offices', flat: 'Flats' }[b.type] || 'Landmark',
+    card: id => { const b = byId(id), mine = isMine(b), other = !mine && ownerOf(b), p = valueOf(b); sel = b; World.mark(b); return { title: { warehouse: 'Warehouse', shophouse: 'Shop with flats', kiosk: 'Kiosk', house: 'House', villa: 'Villa', tower: 'Offices', flat: 'Flats' }[b.type] || 'Landmark',
       html: `<div class="ph" data-ph="${b.id}"></div><b class="big">${esc(b.name)}</b><p class="note">${esc(b.area)}</p>
         ${b.sale || mine ? `<div class="stats"><div>Price<b>${usd(p)}</b></div><div>Rent<b>${usd(rentOf(b))}/wk</b></div><div>Floors<b>${b.floors || (b.type === 'house' || b.type === 'villa' ? 2 : 1)}</b></div></div>` : '<p class="note">Owned by the island; not for sale.</p>'}
-        <div class="acts"><button class="btn" id="cv">${ic('map')}VISIT</button>${mine ? '<button class="btn" disabled>YOURS</button>' : b.sale ? `<button class="btn go" id="cb" ${S.cash < p ? 'disabled' : ''}>${S.cash < p ? 'NEED ' + usd(p - S.cash) : 'BUY ' + usd(p)}</button>` : '<button class="btn" disabled>NOT FOR SALE</button>'}</div>
+        ${other ? `<p class="note">Owned by <b style="color:${esc(other.color)}">${esc(other.name)}</b>. You can visit; only the owner can change it.</p>` : ''}
+        <div class="acts"><button class="btn" id="cv">${ic('map')}VISIT</button>${mine ? '<button class="btn" disabled>YOURS</button>' : other ? '<button class="btn" disabled>OWNED</button>' : b.sale ? `<button class="btn go" id="cb" ${S.cash < p ? 'disabled' : ''}>${S.cash < p ? 'NEED ' + usd(p - S.cash) : 'BUY ' + usd(p)}</button>` : '<button class="btn" disabled>NOT FOR SALE</button>'}</div>
         <p class="note">Visit moves the camera there and marks it. It never buys anything.</p>`,
-      bind: r => { picture(r.querySelector('[data-ph]'), b); $('cv').onclick = () => visit(b); if ($('cb')) $('cb').onclick = () => { if (S.cash < p || S.owned[b.id]) return; S.cash -= p; S.owned[b.id] = { at: now() }; save(); toast('Bought ' + b.name, `Rent ${usd(rentOf(b))} a week`); once('buy:' + b.id, 25, 'First purchase of ' + b.name); open('card', id, true); stack.pop(); }; } }; },
+      bind: r => { picture(r.querySelector('[data-ph]'), b); $('cv').onclick = () => visit(b); if ($('cb')) $('cb').onclick = async () => { if (NET.online) { if (pendingCall) return; pendingCall = true; $('cb').disabled = true; $('cb').textContent = 'BUYING…'; try { applyState(await NET.call('ci_buy_property', { p_lot: lotOf(b) })); toast('Bought ' + b.name, 'Confirmed by the island server'); } catch (e) { toast(e.net ? 'No connection' : 'Not bought', e.net ? 'Try again when you are back online.' : e.message); NET.refresh(); } pendingCall = false; open('card', id, true); stack.pop(); return; } if (S.cash < p || S.owned[b.id]) return; S.cash -= p; S.owned[b.id] = { at: now() }; save(); toast('Bought ' + b.name, `Rent ${usd(rentOf(b))} a week`); once('buy:' + b.id, 25, 'First purchase of ' + b.name); open('card', id, true); stack.pop(); }; } }; },
     jobs: () => { const c = CAP(), F = FLEET(), run = (list, verb) => list.map(j => `<div class="row"><span class="ic">${ic('jobs')}</span><div><b>${verb} ${j.qty}</b>${bar(now() - j.start, j.end - j.start)}</div><span class="lockt">${clock((j.end - now()) / 1000)}</span></div>`).join('');
       const step = (n, role, title, where, stock, btn, act, extra = '') => `<div class="step"><div class="sh"><span class="n">${n}</span><div><b>${title}</b><small>${role} · ${where}</small></div>${btn ? `<button class="btn go" data-act="${act}">${btn}</button>` : ''}</div>${stock}${extra}</div>`;
       return { title: 'Jobs · food chain', html: `<div class="chain"><span>Grow</span><i>→</i><span>Truck</span><i>→</i><span>Process</span><i>→</i><span>Deliver &amp; sell</span></div>
@@ -255,25 +373,43 @@
     trade: () => { const mine = E.ships.slice().reverse(); return { title: 'Trade', html: `<p class="sec">Your shipments</p>${mine.length ? mine.map(shipRow).join('') : '<p class="note">None yet: start in Jobs.</p>'}
       <p class="sec">Buyers</p><div class="row"><span class="ic">${ic('home')}</span><div><b>Old Quarter shops</b><small>${usd(priceOf('shops'))} a box · want ${Math.max(0, Math.floor(E.demand.shops))}${matchOn() ? ' · match day +15%' : ` · next match in ${clock((E.match - now()) / 1000)}`}</small>${bar(E.demand.shops, BUYER.shops.max)}</div></div>
       <div class="row ${level() < 2 ? 'lock' : ''}"><span class="ic">${ic('home')}</span><div><b>Hotel Azure</b><small>${usd(priceOf('hotel'))} a box · want ${Math.max(0, Math.floor(E.demand.hotel))}</small>${bar(E.demand.hotel, BUYER.hotel.max)}</div>${level() < 2 ? '<span class="lockt">LEVEL 3</span>' : ''}</div>
+      ${NET.online ? `<p class="sec">Market between players</p>
+      ${MARKET.filter(l => l.seller !== NET.me).map(l => `<div class="row"><span class="ic">${ic('trade')}</span><div><b>${l.qty} boxes from ${esc(l.name)}</b><small>${usd(l.price)} a box · ${usd(l.qty * l.price)} in all · into your plant store at once</small></div><button class="btn go" data-mbuy="${l.id}">BUY</button></div>`).join('') || '<p class="note">No offers from other players right now.</p>'}
+      ${MARKET.filter(l => l.seller === NET.me).map(l => `<div class="row"><span class="ic">${ic('trade')}</span><div><b>Your offer: ${l.qty} boxes</b><small>${usd(l.price)} a box · waiting for a buyer</small></div><button class="btn" data-mcan="${l.id}">CANCEL</button></div>`).join('')}
+      <button class="btn" id="mlist" ${E.plantOut.qty ? '' : 'disabled'} style="width:100%">OFFER FOOD TO PLAYERS</button>` : ''}
       <p class="sec">Routes</p><div class="row"><span class="ic">${ic('trade')}</span><div><b>Sea route: harbour ⇄ Industrial Isle</b><small>Cargo boat ${World.SEA ? World.SEA.state() : ''}</small></div></div>
       <div class="row"><span class="ic">${ic('trade')}</span><div><b>Bridge to Industrial Isle</b><small>${bridgeClosed ? 'Closed: trucks wait and re-plan' : 'Open both ways'}</small></div><button class="btn" id="tb">${bridgeClosed ? 'REOPEN' : 'CLOSE (TEST)'}</button></div>
       <p class="sec">Island deliveries</p>${World.SHIP.map(s => `<div class="row"><span class="ic">${ic('truck')}</span><div><b>${esc(PLACE[s.from] || s.from)} → ${esc(PLACE[s.to] || s.to)}</b><small>${s.runs} delivered</small></div>${chipOf({ status: s.status === 'loading' ? 'queued' : s.status })}</div>`).join('')}`,
-      bind: r => { bindTrack(r); $('tb').onclick = () => { bridgeClosed = !bridgeClosed; World.setClosed('bridge', bridgeClosed); toast(bridgeClosed ? 'Bridge closed' : 'Bridge reopened', bridgeClosed ? 'Traffic turns back at the barrier' : 'Deliveries resume'); refresh(); }; } }; },
-    map: () => ({ title: 'Map', html: `<div class="acts"><button class="btn gold" id="mi">ISLAND VIEW</button><button class="btn" id="mh">MY HOME</button></div><p class="sec">Areas</p>
+      bind: r => { bindTrack(r);
+        r.querySelectorAll('[data-mbuy]').forEach(b => b.onclick = () => open('mbuy', b.dataset.mbuy, true)); r.querySelectorAll('[data-mcan]').forEach(b => b.onclick = () => market('ci_cancel_listing', { p_id: b.dataset.mcan }, 'Offer cancelled', 'The boxes are back in your store'));
+        if ($('mlist')) $('mlist').onclick = () => open('mlist', null, true);
+        $('tb').onclick = () => { bridgeClosed = !bridgeClosed; World.setClosed('bridge', bridgeClosed); toast(bridgeClosed ? 'Bridge closed' : 'Bridge reopened', bridgeClosed ? 'Traffic turns back at the barrier' : 'Deliveries resume'); refresh(); }; } }; },
+    mbuy: id => { const l = MARKET.find(x => x.id === id); if (!l) return { title: 'Offer', html: '<p class="note">That offer has gone.</p>' }; const total = l.qty * l.price, shop = priceOf('shops'); return { title: 'Buy from a player', html: `<table class="t"><tr><td>Seller</td><td>${esc(l.name)}</td></tr><tr><td>Food boxes</td><td>${l.qty}</td></tr><tr><td>Price</td><td>${usd(l.price)} a box</td></tr><tr><td>Total</td><td>${usd(total)}</td></tr><tr><td>Delivery</td><td>At once, into your plant store</td></tr><tr><td>Shops pay today</td><td>${usd(shop)} a box (before shipping)</td></tr></table>${S.cash < total ? '<p class="note bad">Not enough cash.</p>' : ''}<div class="acts"><button class="btn" id="qc">CANCEL</button><button class="btn go" id="qok" ${S.cash < total ? 'disabled' : ''}>BUY ${usd(total)}</button></div>`,
+      bind: () => { $('qc').onclick = () => $('pBack').click(); $('qok').onclick = () => market('ci_buy_listing', { p_id: id }, `Bought ${l.qty} boxes from ${l.name}`, 'They are in your plant store', true); } }; },
+    mlist: () => { const max = E.plantOut.qty, shop = priceOf('shops'), prices = [Math.max(1, Math.round(shop - 2)), Math.round(shop), Math.round(shop + 2)], k = mlistPick; k.qty = Math.min(k.qty || 10, max) || max; k.price = k.price || prices[1]; const basis = avg(E.plantOut) * k.qty;
+      return { title: 'Offer food to players', html: `<p class="sec">How many</p><div class="seg">${[...new Set([5, 10, 20, max].filter(n => n > 0 && n <= max))].map(n => `<button data-q="${n}" class="${n === k.qty ? 'on' : ''}">${n}</button>`).join('')}</div><p class="sec">Price a box</p><div class="seg">${prices.map(n => `<button data-p="${n}" class="${n === k.price ? 'on' : ''}">${usd(n)}</button>`).join('')}</div>
+        <table class="t"><tr><td>Boxes</td><td>${k.qty} of ${max}</td></tr><tr><td>What they cost you</td><td>${usd(basis)}</td></tr><tr><td>If sold</td><td>${usd(k.qty * k.price)}</td></tr><tr><td>Net profit</td><td class="${k.qty * k.price - basis > 0 ? 'ok' : 'bad'}">${usd(k.qty * k.price - basis)}</td></tr><tr><td>While on offer</td><td>The boxes are held; cancel any time</td></tr></table>
+        <div class="acts"><button class="btn" id="qc">CANCEL</button><button class="btn go" id="qok" ${max ? '' : 'disabled'}>OFFER</button></div>`,
+      bind: r => { r.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { k.qty = +b.dataset.q; open('mlist', null, true); stack.pop(); }); r.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { k.price = +b.dataset.p; open('mlist', null, true); stack.pop(); }); $('qc').onclick = () => $('pBack').click(); $('qok').onclick = () => market('ci_list_food', { p_id: uuid(), p_qty: k.qty, p_price: k.price }, `Offered ${k.qty} boxes`, 'Other players can buy them now', true); } }; },
+    map: () => ({ title: 'Map', html: `<div class="acts"><button class="btn gold" id="mi">ISLAND VIEW</button><button class="btn" id="mh">MY HOME</button></div>
+      ${NET.online ? `<p class="sec">On the island now</p>${[...NET.players.values()].map(p => `<div class="row"><span class="ic" style="background:${esc(p.color)}">${ic('home')}</span><div><b>${esc(p.name)}</b><small>Looking around near ${esc(areaAt(p.x, p.z))}</small></div><button class="btn" data-pv="${esc(p.id)}">VISIT</button></div>`).join('') || '<p class="note">Nobody else is here right now. Share the link with a friend.</p>'}` : ''}<p class="sec">Areas</p>
       ${AREAS.map(([n, , , d], i) => `<div class="row"><span class="ic">${ic('map')}</span><div><b>${n}${S.seen[n] ? '' : ' · new'}</b><small>${d}</small></div><button class="btn" data-a="${i}">GO</button></div>`).join('')}
       <p class="sec">Road checks</p><div class="row"><span class="ic">${ic('truck')}</span><div><b>Traffic</b><small>${World.cars.length} vehicles · ${World.stats.teleports} jumps · ${World.stats.stuck} stuck</small></div><button class="btn" id="mt">RUN ROUTE TEST</button></div><div id="rt"></div>`,
       bind: () => { $('mi').onclick = () => { World.mark(null); World.flyTo(World.overview(), 1.5); if (innerWidth < 760) close(); }; $('mh').onclick = () => visit(World.home);
+        document.querySelectorAll('[data-pv]').forEach(b => b.onclick = () => { const p = NET.players.get(b.dataset.pv); if (!p) return; World.mark(null); World.flyTo(World.view(p.x, p.z, 160, 0.9, 0.5), 1.4); if (innerWidth < 760) close(); });
         document.querySelectorAll('[data-a]').forEach(b => b.onclick = () => { const [n, x, z] = AREAS[+b.dataset.a]; World.mark(null); World.flyTo(World.view(x, z, 320, 0.85, 0.4), 1.4); seeArea(n); if (innerWidth < 760) close(); });
         $('mt').onclick = () => { const res = World.routeTest(), rep = World.roadReport(); $('rt').innerHTML = `<p class="note">${rep.connected ? '<span class="ok">All roads connected.</span>' : '<span class="bad">Some roads are not connected.</span>'} Dead ends, each with a turning circle: ${rep.deadEnds.length}. Road points over water: ${rep.roadPointsOverWater}. Steepest grade ${rep.maxGrade}.</p><table class="t">${res.map(t => `<tr><td>${esc(t.route)}</td><td class="${t.ok ? 'ok' : 'bad'}">${t.ok ? 'PASS' : 'FAIL'} · ${t.length || ''} m</td></tr>`).join('')}</table>`; }; } }),
     settings: () => ({ title: 'Settings', html: `<div class="row"><div><b>Graphics</b><small>After a reload</small></div><div class="seg">${['low', 'medium', 'high'].map(k => `<button data-q="${k}" class="${k === quality ? 'on' : ''}">${k}</button>`).join('')}</div></div>
       <div class="row"><div><b>Frame rate</b><small>In the corner</small></div><button class="btn" id="sf">${$('fps').hidden ? 'SHOW' : 'HIDE'}</button></div><div class="row"><div><b>Reset this preview</b><small>Your real game is never touched</small></div><button class="btn" id="sr">RESET</button></div><p class="note">© 2026 Pocket Rocket Studio</p>`,
       bind: r => { r.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { quality = b.dataset.q; try { localStorage.setItem('cs-sample3-q', quality); } catch (e) { /* fine */ } open('settings'); toast('Graphics: ' + quality, 'Reload to apply'); }); $('sf').onclick = () => { $('fps').hidden = !$('fps').hidden; open('settings'); }; $('sr').onclick = () => { try { localStorage.removeItem(KEY); } catch (e) { /* fine */ } location.reload(); }; } }),
   };
-  let bridgeClosed = false;
+  let bridgeClosed = false, mlistPick = {};
+  const areaAt = (x, z) => { let best = AREAS[0][0], d = 1e9; for (const [n, ax, az] of AREAS) { const e = Math.hypot(ax - x, az - z); if (e < d) { d = e; best = n; } } return best; };
+  async function market(fn, args, ok, sub, back) { if (pendingCall) return; pendingCall = true; try { applyState(await NET.call(fn, args)); toast(ok, sub); if (back) open('trade'); else refresh(); } catch (e) { toast(e.net ? 'No connection' : 'Not done', e.net ? 'Try again when you are back online.' : e.message); NET.refresh(); } pendingCall = false; }
 
   // tap a building: its card
   let down = null;
   $('c').addEventListener('pointerdown', e => { down = [e.clientX, e.clientY, performance.now()]; follow = null; });
   $('c').addEventListener('pointerup', e => { if (!down || $('hud').hidden || World.flying) return; const moved = Math.hypot(e.clientX - down[0], e.clientY - down[1]), quick = performance.now() - down[2] < 450; down = null; if (moved > 8 || !quick) return; const b = World.pickAt(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); if (b) open('card', b.id); else if (!P.hidden && innerWidth >= 760) close(); });
-  window.App = { S, E, open, close, visit, level, quote, confirm, economy, handles, frame: () => loop(performance.now()) }; // frame(): one step by hand, for tests in a hidden tab
+  window.App = { S, E, NET, open, close, visit, level, quote, confirm, economy, handles, lotOf, market, get OWN() { return OWN; }, get MARKET() { return MARKET; }, frame: () => loop(performance.now()) }; // frame(): one step by hand, for tests in a hidden tab
 })();

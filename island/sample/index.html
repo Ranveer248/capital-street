@@ -120,6 +120,12 @@ table.t { width: 100%; border-collapse: collapse; font-size: 11px; } table.t td 
 .step { background: #fff; border: 2px solid #e3dccb; border-radius: 14px; padding: 8px; display: grid; gap: 6px; } .step .sh { display: flex; align-items: center; gap: 8px; } .step .sh div { flex: 1; min-width: 0; } .step .sh b { display: block; font-size: 13.5px; } .step .sh small { color: #5b6390; font-size: 11px; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; }
 .step .n { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--navy); color: var(--gold); font: 400 16px 'Lilita One', sans-serif; flex: none; } .step .kv { display: block; color: #5b6390; font-size: 11.5px; font-weight: 700; } .step .row { border-width: 1.5px; padding: 6px; } .step > .btn { width: 100%; }
 .note.bad { color: var(--red); font-weight: 800; }
+.join { width: min(360px, 100%); display: grid; gap: 6px; } .join label { font-weight: 800; font-size: 12px; color: #fff; } .join input { min-height: 48px; border-radius: 12px; border: 3px solid var(--gold); background: #0d1640; color: #fff; font: 700 17px Inter, sans-serif; padding: 0 12px; user-select: text; -webkit-user-select: text; }
+.sw { display: flex; gap: 6px; flex-wrap: wrap; } .sw button { width: 28px; height: 28px; border-radius: 50%; border: 2.5px solid var(--ol); } .sw button.on { outline: 3px solid #fff; outline-offset: 2px; }
+.jmsg { margin: 0; font-size: 12px; color: var(--dim); text-align: left !important; } .jmsg.bad { color: #ffb3bb; font-weight: 800; }
+#netp { position: absolute; top: calc(52px + var(--st)); right: calc(8px + var(--sr)); height: 26px; padding: 0 9px; gap: 6px; font: 800 10.5px Inter, sans-serif; color: #fff; }
+#netp i { width: 8px; height: 8px; border-radius: 50%; background: #9aa1c8; } #netp.live i { background: #2fbf6a; box-shadow: 0 0 6px #2fbf6a; } #netp.reconnecting i { background: #f2a900; animation: blink 1s infinite; } @keyframes blink { 50% { opacity: .3; } }
+.lab.place.friend { background: var(--c, #4c8dff); color: #fff; border-color: var(--ol); } .lab.place.friend::before { content: '● '; }
 #fps { position: fixed; right: 6px; bottom: 2px; z-index: 60; font: 700 10px monospace; color: rgba(10,15,46,.65); pointer-events: none; }
 </style>
 </head>
@@ -147,7 +153,8 @@ table.t { width: 100%; border-collapse: collapse; font-size: 11px; } table.t td 
     <h1><svg class="i sun"><use href="#i-sun"/></svg>CAPITAL ISLAND</h1>
     <div class="art"><img src="art/cover.jpg" alt="Capital Island sample: a beachfront hotel, the Old Quarter, the harbour and the bridge to Industrial Isle" width="1600" height="1000"></div>
     <p>Review sample: one finished corner of the island. Your current game is not touched.</p>
-    <button class="btn gold" id="play">PLAY</button>
+    <div class="join"><label for="nm">Your name</label><input id="nm" maxlength="20" placeholder="Your name" autocomplete="nickname" spellcheck="false"><div class="sw" id="sw"></div><p class="jmsg" id="jmsg">Everyone on Capital Island sees this name.</p></div>
+    <button class="btn gold" id="play">PLAY</button><button class="btn" id="offline" hidden>PLAY OFFLINE</button>
     <p style="font-size:12px">© 2026 Pocket Rocket Studio</p>
   </div>
 </section>
@@ -155,6 +162,7 @@ table.t { width: 100%; border-collapse: collapse; font-size: 11px; } table.t td 
 <div id="hud" hidden>
   <div class="pill" id="lv"><span class="ring" id="lvRing"><b id="lvN">1</b></span><span class="tx"><b id="lvT">Level 1</b><small id="lvNext">Next: delivery van</small></span></div>
   <div class="pill" id="money"><span class="coin"></span><b id="cash">$2,340</b></div>
+  <button class="pill net offline" id="netp" aria-label="Connection"><i></i><span id="netT">Offline</span></button>
   <button id="gear" aria-label="Settings"><svg class="i"><use href="#i-gear"/></svg></button>
   <button id="obj"><span class="t"><svg class="i"><use href="#i-target"/></svg></span><span class="txt"><b id="objT">Explore the sample</b><small id="objS">Map → zoom out to see the island</small></span></button>
   <nav id="nav" aria-label="Main">
@@ -172,6 +180,8 @@ table.t { width: 100%; border-collapse: collapse; font-size: 11px; } table.t td 
 
 <script src="../../lib/three.min.js"></script>
 <script src="../../lib/OrbitControls.js"></script>
+<script src="../../lib/supabase.js"></script>
+<script src="../../js/net-config.js"></script>
 <script src="world.js"></script>
 <script src="app.js"></script>
 </body>
