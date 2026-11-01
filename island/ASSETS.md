@@ -6,7 +6,9 @@ Kept up to date as the island is built, so the credits and licence notices at re
 |---|---|---|
 | Island layout: coastline, terrain, districts, roads, bridge | Hand-placed points and rules in `js/world.js`, generated in the browser | Original, © 2026 Pocket Rocket Studio |
 | Buildings, roofs, facades, window textures | Generated in code (`js/world.js`); facade textures are drawn on a canvas at runtime | Original, © 2026 Pocket Rocket Studio |
-| Harbour, cranes, containers, ships, lighthouse, trees, cars | Generated in code from simple shapes | Original, © 2026 Pocket Rocket Studio |
+| Harbour, cranes, containers, ships, lighthouse, trees, cars, trucks, farms, golf course, stadium, Big Wheel, wind turbines | Generated in code from simple shapes | Original, © 2026 Pocket Rocket Studio |
+| Pine Isle, Coral Key, Gull Rock | Generated in code (`js/world.js`) when you first travel there | Original, © 2026 Pocket Rocket Studio |
+| Shop and billboard signs (CAFÉ, BAKERY, CAPITAL COLA, TIMBER CO. …) | Drawn as text on a canvas in `js/world.js`; all names are made up | Original, © 2026 Pocket Rocket Studio |
 | Cover pictures `art/cover-wide.jpg`, `art/cover-tall.jpg` | Rendered from this island in the game's own renderer | Original, © 2026 Pocket Rocket Studio |
 | Ollie the otter (guide) | Drawn as SVG in `js/app.js` | Original, © 2026 Pocket Rocket Studio |
 | Interface icons | Drawn as SVG symbols in `index.html` | Original, © 2026 Pocket Rocket Studio |
