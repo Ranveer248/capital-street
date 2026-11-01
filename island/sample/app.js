@@ -57,11 +57,13 @@
         N.online = true; return { ok: true, state: st };
       } catch (e) { if (/Could not find the function|does not exist/i.test(e.message)) return { ok: false, missing: true }; return { ok: false, net: e.net, why: e.net ? 'Can\'t reach the island server. Check your connection and try again.' : e.message }; }
     };
-    let busyRefresh = false, again = false;
-    N.refresh = async () => { // fetch the whole state; one request at a time, the latest wins
-      if (!N.online) return; if (busyRefresh) { again = true; return; } busyRefresh = true;
-      try { applyState(await N.call('ci_state')); if (N.status === 'reconnecting' && live && live.ok) setStatus('live'); } catch (e) { if (e.net) setStatus('reconnecting'); }
-      busyRefresh = false; if (again) { again = false; N.refresh(); }
+    let pend = null, again = false;
+    N.refresh = () => { // fetch the whole state; one request at a time, and a call made meanwhile waits for a fresh one
+      if (!N.online) return Promise.resolve(); if (pend) { again = true; return pend; }
+      pend = (async () => { do { again = false;
+        try { applyState(await N.call('ci_state')); if (N.status === 'reconnecting' && live && live.ok) setStatus('live'); } catch (e) { if (e.net) setStatus('reconnecting'); }
+      } while (again); pend = null; })();
+      return pend;
     };
     let live = null, pres = null, backoff = 0, rT = 0, lastTrack = 0, lastPos = null;
     function setStatus(st) { N.status = st; const el = $('netp'); if (el) { el.className = 'pill net ' + st; $('netT').textContent = st === 'live' ? `Online · ${N.players.size + 1} here` : st === 'reconnecting' ? 'Reconnecting…' : 'Offline'; } }
@@ -69,7 +71,8 @@
     function connect() { // live updates for what everyone shares, and who is on the island; reconnects on its own
       clearTimeout(rT); if (live) { const o = live; live = null; sb.removeChannel(o); } if (pres) { const o = pres; pres = null; sb.removeChannel(o); }
       const ch = live = sb.channel('ci-island'); ch.ok = false;
-      for (const t of ['ci_buyers', 'ci_property', 'ci_listings', 'ci_players']) ch.on('postgres_changes', { event: '*', schema: 'public', table: t }, () => N.refresh());
+      /* not ci_players: every refresh stamps last_seen there, so open games would keep refreshing each other */
+      for (const t of ['ci_buyers', 'ci_property', 'ci_listings']) ch.on('postgres_changes', { event: '*', schema: 'public', table: t }, () => N.refresh());
       ch.subscribe(st => { if (live !== ch) return; if (st === 'SUBSCRIBED') { ch.ok = true; backoff = 0; setStatus('live'); N.refresh(); } else if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT' || st === 'CLOSED') { ch.ok = false; setStatus('reconnecting'); rT = setTimeout(connect, Math.min(30000, 1000 * 2 ** Math.min(5, backoff++))); } });
       const pc = pres = sb.channel('ci-online', { config: { presence: { key: N.me } } });
       pc.on('presence', { event: 'sync' }, () => { if (pres !== pc) return; const m = new Map(); for (const metas of Object.values(pc.presenceState())) for (const x of metas) if (x && x.id && x.id !== N.me) m.set(x.id, x); N.players = m; setStatus(N.status); if (panel === 'map') refresh(); });
@@ -182,7 +185,7 @@
   const srv = t => Date.parse(t) - skew; // server time, in this device's clock
   const lotOf = b => `${b.type}@${Math.round(b.x)},${Math.round(b.z)}`;
   function applyState(st) {
-    if (!st || !st.player) return; lastState = st; skew = Date.parse(st.now) - Date.now();
+    if (!st || !st.player || (lastState && Date.parse(st.now) < Date.parse(lastState.now))) return; lastState = st; /* an answer older than one already shown is dropped */ skew = Date.parse(st.now) - Date.now();
     const lvl0 = level(); S.cash = +st.player.cash; S.xp = st.player.xp; S.name = st.player.name; S.color = st.player.color;
     const sk = k => ({ qty: st.stock[k] ? +st.stock[k].qty : 0, cost: st.stock[k] ? +st.stock[k].cost : 0 });
     E.farm = sk('farm'); E.plantIn = sk('plant_in'); E.plantOut = sk('plant_out');
