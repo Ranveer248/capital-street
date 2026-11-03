@@ -191,6 +191,17 @@ window.World = (function () {
     resize(); addEventListener('resize', resize);
   }
   function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
+  // a weak graphics card draws fewer pixels instead of dropping frames: slow for a few seconds -> a little lower, comfortable for a while -> a little higher
+  let pxMax = 0, px = 0, pxCap = 0, pxMs = 16.7, pxN = 0, pxCalm = 0, pxAt = 0;
+  function adapt(dt) {
+    if (!(dt > 0 && dt < 0.1)) return; // a pause or a hidden tab says nothing about speed
+    if (!pxMax) pxMax = px = pxCap = renderer.getPixelRatio();
+    pxMs += (dt * 1000 - pxMs) * 0.06; if (++pxN < 120) return; // let the first frames settle
+    const now = performance.now();
+    if (pxMs > 21 && px > 0.6) { px = Math.max(0.6, px * 0.85); pxCap = Math.min(pxCap, px * 1.12); pxAt = now; pxN = 60; pxCalm = 0; renderer.setPixelRatio(px); }
+    else if (pxMs < 18 && px < Math.min(pxMax, pxCap) - 0.01 && ++pxCalm > 360) { px = Math.min(pxMax, pxCap, px * 1.12); pxN = 60; pxCalm = 0; renderer.setPixelRatio(px); }
+    if (pxCap < pxMax && now - pxAt > 60000) pxCap = pxMax; // try the full picture again now and then
+  }
 
   // one ground mesh: sea floor, warm beaches, grass, forest on the hill, grey rock on the cliffs
   const COL = { sand: lin(0xf0cf86), wet: lin(0xd4ae6a), grass: lin(0x5cb447), grass2: lin(0x47a23c), grass3: lin(0x78c457), forest: lin(0x2f8a3a), rock: lin(0x8f8a84), rock2: lin(0x6f6c6a), floor: lin(0xc9b27a), lawn: lin(0x63bb4b) };
@@ -866,7 +877,7 @@ window.World = (function () {
   // ---------- each frame ----------
   const SUN = new THREE.Vector3(-0.5, 0.68, 0.53).normalize();
   function frame(dt) {
-    clock += dt; controls.update();
+    clock += dt; adapt(dt); controls.update();
     const t = controls.target; if (!fly) { t.x = clamp(t.x, -620, 620); t.z = clamp(t.z, -470, 280); } t.y = TOWN_Y;
     const dist = camDist = camera.position.distanceTo(t);
     camera.near = clamp(dist * 0.03, 0.5, 30); camera.far = dist * 5 + 2500; camera.updateProjectionMatrix();
@@ -953,5 +964,5 @@ window.World = (function () {
 
   function simulate(seconds, dt = 1 / 60) { for (let t = 0; t < seconds; t += dt) { clock += dt; for (const f of tick) f(dt, clock); } return stats; } // the same traffic code without drawing, for tests
   return { simulate, dispatch, routeInfo, SPARE, init: (c, q) => { init(c, q); buildPeople(); }, step, frame, place, view, flyTo, current, overview, viewOf, homeView, pickAt, mark, photo, buildings, LABELS, nodes, edges, cars, SHIP, stats, roadReport, routeTest, setClosed, colourReport, route, land, heightAt,
-    get camera() { return camera; }, get renderer() { return renderer; }, get scene() { return scene; }, get controls() { return controls; }, get flying() { return !!fly; }, get dist() { return camDist; } };
+    get camera() { return camera; }, get renderer() { return renderer; }, get scene() { return scene; }, get controls() { return controls; }, get flying() { return !!fly; }, get dist() { return camDist; }, get pixelRatio() { return renderer.getPixelRatio(); }, get pixelRatioMax() { return pxMax; } };
 })();

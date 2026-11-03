@@ -355,6 +355,29 @@ Learned from the look of illustrated city builders (CityRT, SimCity BuildIt, Cit
 | Balconies | ✅ flats without shutters get balconies on alternate bays: a slab and a white, dark or terracotta rail, drawn in the wall shader |
 | Cream panels | ✅ every sheet (Exchange, Property, Bank, Jobs, Settings, join, stories) is warm cream with navy type and the same chunky navy outline; coloured headers and buttons stay |
 
+## Goals 32 and 33: Capital Island (a preview beside the game, multiplayer on the live server)
+
+Open it at `island/sample/index.html` (live: `/island/sample/`). It is a separate preview: the New York game isn't changed and doesn't link to it yet.
+
+| Check | Result |
+|---|---|
+| An irregular island with districts | ✅ a coast with a northern lobe, Villa Point peninsula, marina cove and beaches; Old Quarter, Beachfront (Hotel Azure), Business Centre, Capital Stadium, Greenfields farms, the Harbour and Villa Point; industry on **Industrial Isle**, reached by a bridge and by a cargo boat on a sea route |
+| Colour | ✅ the pale look came from ACES tone mapping over about 2.5× too much light; now linear tone mapping with the sun and sky adding up to about 1×. Measured on screen with `World.colourReport()` (grass #5cb447 shows as #58ac44) |
+| One road network | ✅ the roads you see are the roads the cars drive: 26 routes between every district and the harbour (and the bridge both ways) all pass with nothing over water. Traffic soak: 0 teleports, 0 stuck vehicles (300 s earlier, 120 s again after the latest change) |
+| Vehicles | ✅ compact car, sedan, van, bus and cargo truck, each its own shape; your own trucks and vans are the ones in the traffic |
+| Labels by zoom | ✅ district names far out, place names and "Your home" mid-range, owner and friend names close up |
+| Navigation | ✅ Home, Build, Jobs, Trade and Map in one bar; panels are sheets on a phone and side panels on a computer |
+| Progression | ✅ five levels; XP comes from real profit (capped per delivery) and a one-off 25 per building bought, so there is nothing to repeat for XP. Levels unlock the van, the hotel contract, a second truck and a bigger co-op |
+| Production and selling | ✅ grow, truck to the plant, process, deliver and sell, each with a quote before you confirm and the statuses queued, travelling, delivered and failed (a closed bridge shows failed and recovers) |
+| Multiplayer rules on the server | ✅ (`server/island.sql`, applied to the live project) money, stores, ownership, shipments and the market between players are changed only by checked server functions; players can read, never write |
+| What the two-player tests showed | ✅ tested with two separate guests on the **live** server: one building, one owner when both buy at once; shop demand can't be oversold; a booking sent twice books once; a delivery pays once and not before a truck could get there; one buyer per market offer and not your own; a reload keeps everything; after a dropped connection the player reconnects and catches up; both screens agree |
+| Joining | ✅ name and colour as a guest; a taken name says so and lets you pick another; if the server can't be reached the game plays offline and says so |
+| Friends | ✅ "On the island now" in Map with Visit, name labels on the island, and "Owned by …" on every building card. Every area is open to visit; there are no private areas yet |
+| Speed | ✅ measured in headless Edge on an Intel UHD 620 laptop graphics chip (a weak one) at 1280×800: 40–57 fps before, 56–60 fps after automatic resolution scaling (the picture is drawn at fewer pixels when frames run slow, and back up when they don't). 48–298 draw calls and 220–380 thousand triangles per frame. The same scaling is why it should hold on phones, but see below |
+| Phone layout | ✅ checked at 390×844 (touch, 2× pixels): join screen, Map, Trade, Jobs and the friend view fit with no sideways scroll |
+
+**Not done or not tested yet:** a real phone and a real touch screen; two real people over a long session; many players at once; private areas; linking the island from the main menu; the old tests used a local copy of the server first, and the same checks were then repeated on the live one.
+
 ## Goal 31: a real start, safer saves, working multiplayer ✅
 
 | Check | Result |
@@ -412,6 +435,8 @@ From the 5 new reference videos (a player-run economy game on the real world map
 21. ✅ **High-end graphics:** bloom, grading, a sun that follows the clock, clouds, glass, water, night lights
 22. ✅ **Simpler:** a new menu, online-only play, a clean map and screen, a tutorial
 23. ✅ **Surprises:** more market events, planes in the sky, plane crashes
+33. ✅ **Capital Island multiplayer:** a shared economy on the live server, checked by the database, tested with two players (see Goals 32 and 33)
+32. ✅ **Capital Island preview:** an irregular island with districts, one road network, working traffic and a food chain from farm to shop
 31. ✅ **A real start:** a walk-up at the Seaport, loading that explains itself, safe saves and backups, multiplayer that reconnects and is checked on the server, a short first mission
 30. ✅ **Streets, roofs and cream panels**
 29. ✅ **Illustrated city:** ink outlines, a warmer palette, window sills and shutters
