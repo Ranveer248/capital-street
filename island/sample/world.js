@@ -192,13 +192,15 @@ window.World = (function () {
   }
   function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
   // a weak graphics card draws fewer pixels instead of dropping frames: slow for a few seconds -> a little lower, comfortable for a while -> a little higher
-  let pxMax = 0, px = 0, pxCap = 0, pxMs = 16.7, pxN = 0, pxCalm = 0, pxAt = 0;
+  let pxMax = 0, px = 0, pxCap = 0, pxMs = 16.7, pxN = 0, pxCalm = 0, pxAt = 0, pxTry = null, pxStop = false;
   function adapt(dt) {
     if (!(dt > 0 && dt < 0.1)) return; // a pause or a hidden tab says nothing about speed
     if (!pxMax) pxMax = px = pxCap = renderer.getPixelRatio();
     pxMs += (dt * 1000 - pxMs) * 0.06; if (++pxN < 120) return; // let the first frames settle
     const now = performance.now();
-    if (pxMs > 21 && px > 0.6) { px = Math.max(0.6, px * 0.85); pxCap = Math.min(pxCap, px * 1.12); pxAt = now; pxN = 60; pxCalm = 0; renderer.setPixelRatio(px); }
+    if (pxTry) { const t = pxTry; pxTry = null; if (pxMs > t.ms * 0.92) { px = t.from; pxStop = true; pxN = 60; renderer.setPixelRatio(px); return; } } // fewer pixels did not help (a 30 Hz screen, a slow CPU): put them back, stop trying
+    if (pxStop) return;
+    if (pxMs > 21 && px > 0.6) { pxTry = { from: px, ms: pxMs }; px = Math.max(0.6, px * 0.85); pxCap = Math.min(pxCap, px * 1.12); pxAt = now; pxN = 60; pxCalm = 0; renderer.setPixelRatio(px); }
     else if (pxMs < 18 && px < Math.min(pxMax, pxCap) - 0.01 && ++pxCalm > 360) { px = Math.min(pxMax, pxCap, px * 1.12); pxN = 60; pxCalm = 0; renderer.setPixelRatio(px); }
     if (pxCap < pxMax && now - pxAt > 60000) pxCap = pxMax; // try the full picture again now and then
   }
