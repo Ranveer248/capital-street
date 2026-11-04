@@ -34,7 +34,7 @@
   function once(key, n, why) { if (S.done[key]) return; S.done[key] = true; xp(n, why); } // one-off rewards can't be repeated
 
   let toastT = 0;
-  function toast(t, b = '') { $('toastT').textContent = t; $('toastB').textContent = b; $('toast').classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => $('toast').classList.remove('on'), 2800); }
+  function toast(t, b = '', bad) { $('toastT').textContent = t; $('toastB').textContent = b; $('toast').classList.toggle('bad', !!bad); $('toast').classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => $('toast').classList.remove('on'), 2800); }
 
   // ---------- multiplayer: when the island server is reachable, money, stores, shipments, ownership and the market live
   // there and every action is checked there; the game shows what the server says. Offline, the same game runs locally.
@@ -90,49 +90,57 @@
   // ---------- start: the cover is a picture; your name, then the island. The world is built only after Play ----------
   const NAME_RE = /^[A-Za-z0-9][A-Za-z0-9 _.-]{1,18}[A-Za-z0-9]$/, COLORS = ['#ffc93c', '#4c8dff', '#f04e5e', '#2fbf6a', '#a970ff', '#ff9f43', '#2fd0c0', '#ff8fb1'];
   S.color = S.color || COLORS[1];
-  $('nm').value = S.name || ''; $('sw').innerHTML = COLORS.map(c => `<button type="button" data-c="${c}" style="background:${c}" class="${c === S.color ? 'on' : ''}" aria-label="Colour"></button>`).join('');
-  $('sw').querySelectorAll('[data-c]').forEach(b => b.onclick = () => { S.color = b.dataset.c; $('sw').querySelectorAll('[data-c]').forEach(x => x.classList.toggle('on', x === b)); });
-  const jmsg = (t, bad) => { $('jmsg').textContent = t; $('jmsg').classList.toggle('bad', !!bad); };
+  const nm = $('nm'), cnt = () => { $('nmCount').textContent = `${nm.value.trim().length} / 20`; };
+  nm.value = S.name || ''; cnt();
+  $('sw').insertAdjacentHTML('beforeend', COLORS.map(c => `<button type="button" data-c="${c}" style="background:${c}" class="${c === S.color ? 'on' : ''}" aria-label="Colour" aria-pressed="${c === S.color}"></button>`).join(''));
+  $('sw').querySelectorAll('[data-c]').forEach(b => b.onclick = () => { S.color = b.dataset.c; $('sw').querySelectorAll('[data-c]').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-pressed', x === b); }); });
+  const jmsg = (t, bad) => { $('jmsg').textContent = t; $('jmsg').classList.toggle('bad', !!bad); nm.classList.toggle('bad', !!bad); };
+  const nameProblem = n => n.length < 3 ? 'Use at least 3 characters.' : n.length > 20 ? 'Use at most 20 characters.' : !/^[A-Za-z0-9 _.-]+$/.test(n) ? 'Only letters, numbers, spaces, dots, dashes and underscores.' : !NAME_RE.test(n) ? 'Start and end with a letter or a number.' : '';
+  nm.oninput = () => { cnt(); const n = nm.value.trim(), p = n.length >= 3 || n.length > 20 ? nameProblem(n) : ''; jmsg(p, !!p); }; // say what's wrong while typing, but not before there's a name to judge
+  const playBtn = (on, label) => { const b = $('play'); b.disabled = on; b.innerHTML = on ? `<span class="spin"></span>${label}` : label; };
   let started = false, joining = false, offline = !NET.ok;
   async function join() {
     if (joining || started) return; // one join at a time, however often Play is pressed
-    const name = $('nm').value.trim();
-    if (!NAME_RE.test(name)) { jmsg('Names are 3 to 20 letters or numbers (spaces, dots and dashes in the middle are fine).', true); return; }
-    joining = true; S.name = name; save(); $('play').disabled = true; $('offline').hidden = true;
+    const name = nm.value.trim(), bad = nameProblem(name);
+    if (bad) { jmsg(bad, true); nm.focus(); return; } // what was typed stays, so it can be fixed
+    joining = true; S.name = name; save(); $('offline').hidden = true;
     if (!offline) {
-      $('play').textContent = 'JOINING…'; jmsg('Connecting to Capital Island…');
+      playBtn(true, 'CONNECTING…'); jmsg('Connecting to the island server…');
       const r = await NET.join(name, S.color);
-      if (r.missing) { offline = true; jmsg('Multiplayer is not switched on for the island yet: playing offline.'); } // the island tables aren't on this server yet
-      else if (!r.ok) { jmsg(r.why, true); $('play').textContent = 'TRY AGAIN'; $('play').disabled = false; if (r.net) $('offline').hidden = false; joining = false; return; }
+      if (r.missing) { offline = true; jmsg('The island server isn\'t switched on: playing offline on this device.'); } // the island tables aren't on this server yet
+      else if (!r.ok) { const taken = /taken|in use|already/i.test(r.why || ''); jmsg(taken ? `Someone on the island is already called "${name}". Pick another name, like ${name.slice(0, 17)}${10 + Math.floor(Math.random() * 90)}.` : r.why, true); playBtn(false, 'TRY AGAIN'); if (r.net) $('offline').hidden = false; joining = false; nm.focus(); if (taken) nm.select(); return; }
       else applyState(r.state);
     }
-    jmsg(offline ? 'Playing offline: your progress stays on this device.' : 'Building the island…'); $('play').textContent = 'LOADING…';
+    jmsg(offline ? 'Playing offline: your progress stays on this device.' : 'Joined. Building the island…'); playBtn(true, 'LOADING…');
     setTimeout(startWorld, 50);
   }
   function startWorld() {
     started = true;
     try { $('c').hidden = false; const t0 = performance.now(); World.init($('c'), quality); window.buildMs = Math.round(performance.now() - t0); }
-    catch (e) { console.error(e); jmsg('The island couldn\'t be built (' + (e.message || e) + '). Try Low graphics in Settings.', true); $('play').textContent = 'TRY AGAIN'; $('play').disabled = false; started = joining = false; return; }
+    catch (e) { console.error(e); jmsg('The island couldn\'t be built (' + (e.message || e) + '). Try Low graphics in Settings.', true); playBtn(false, 'TRY AGAIN'); started = joining = false; return; }
     $('cover').hidden = true; World.place(World.overview()); if (NET.online) { NET.live(); applyState(lastState); } else { NET.setStatus('offline'); resume(); } loop(performance.now());
     World.flyTo(World.homeView(), 2, () => { $('hud').hidden = false; draw(); objective(); });
   }
-  $('play').onclick = join; $('nm').onkeydown = e => { if (e.key === 'Enter') join(); };
+  $('play').onclick = join; nm.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); join(); } };
   $('offline').onclick = () => { offline = true; joining = false; join(); };
+  if (matchMedia('(pointer: fine)').matches && !new URLSearchParams(location.search).has('play')) setTimeout(() => nm.focus(), 200); // a keyboard is there: start typing (on phones the keyboard would cover the picture)
   { const q = new URLSearchParams(location.search); if (q.get('name')) $('nm').value = q.get('name'); if (q.has('offline')) offline = true; if (q.has('play')) join(); }
 
   let last = 0, frames = 0, fpsT = 0, follow = null;
   function loop(t) {
     const dt = Math.max(0, Math.min(0.1, (t - (last || t)) / 1000)); last = t;
-    if (follow) { follow.t -= dt; const c = follow.h.car; if (c && c.last && follow.t > 0) { const v = World.current(); v.t.set(c.last.x, 3, c.last.z); World.place(v); } else follow = null; }
+    if (follow) { const c = follow.h.car; if (c && c.last) { const v = World.current(); v.t.lerp(new THREE.Vector3(c.last.x, 3, c.last.z), 0.25); World.place(v); } else unfollow(); } // until it arrives, or you move the map
     World.step(dt); labels();
     frames++; fpsT += dt; if (fpsT > 1) { $('fps').textContent = Math.round(frames / fpsT) + ' fps'; frames = 0; fpsT = 0; }
     requestAnimationFrame(loop);
   }
-  setInterval(() => { if (!$('hud').hidden) { economy(); draw(); objective(); if (panel === 'trade' || panel === 'jobs') refresh(); } }, 1000);
+  function world() { const g = E.grows[0]; World.farm({ grow: g ? clamp01((now() - g.start) / ((g.end - g.start) || 1)) : -1, harvested: E.farm.qty > 0 || E.plantIn.qty > 0 || E.plantOut.qty > 0 || E.ships.length > 0 || E.stats.grown > 0, farm: E.farm.qty, plantIn: E.plantIn.qty, plantOut: E.plantOut.qty, proc: E.procs.length > 0 }); World.event({ match: matchOn() }); } // the world shows your farm, stores and the match
+  const clamp01 = v => Math.max(0, Math.min(1, v));
+  setInterval(() => { if (!$('hud').hidden) { economy(); world(); draw(); objective(); if (panel === 'trade' || panel === 'jobs') refresh(); } }, 1000);
   function draw() {
     const l = level(), nx = LEVELS[l + 1];
-    $('lvN').textContent = l + 1; $('lvT').textContent = `Level ${l + 1}`; $('lvNext').textContent = nx ? `Next: ${nx.reward.split(':')[0]} · ${nx.xp - S.xp} XP` : 'Top level';
-    $('lvRing').style.setProperty('--p', (nx ? (S.xp - LEVELS[l].xp) / (nx.xp - LEVELS[l].xp) * 100 : 100) + '%');
+    $('lvN').textContent = l + 1; $('lvT').textContent = `Level ${l + 1}`; $('lvNext').textContent = nx ? `${S.xp} / ${nx.xp} XP · ${nx.reward.split(':')[0]}` : `${S.xp} XP · top level`; // XP so far against the total the next level needs
+    $('lvBar').style.setProperty('--p', (nx ? (S.xp - LEVELS[l].xp) / (nx.xp - LEVELS[l].xp) * 100 : 100) + '%');
     $('cash').textContent = usd(S.cash);
     const sec = stack.length ? stack[0][0] : panel; document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.p === sec));
   }
@@ -165,7 +173,7 @@
     save();
   }
   function send(s) { // put the shipment on the road: a real vehicle drives the route
-    const h = World.dispatch({ type: s.vehicle, from: s.from, to: s.to, frac: s.frac || 0, paint: s.kind === 'crop' ? 0x8fd16a : 0xffc93c, onArrive: () => arrive(s) });
+    const h = World.dispatch({ type: s.kind === 'crop' && s.vehicle === 'truck' ? 'flatbed' : s.vehicle, from: s.from, to: s.to, frac: s.frac || 0, paint: s.kind === 'crop' ? 0x8fd16a : 0xffc93c, onArrive: () => arrive(s) });
     handles.set(s.id, h); s.status = h.status; s.why = h.why;
   }
   async function deliverOnline(s, tries = 0) { // the vehicle is there: the server checks the trip and pays once
@@ -176,7 +184,7 @@
     if (NET.online) { handles.delete(s.id); s.arrived = true; s.frac = 1; deliverOnline(s); return; }
     handles.delete(s.id); s.status = 'delivered'; s.done = now(); s.frac = 1;
     if (s.kind === 'crop') { E.plantIn.qty += s.qty; E.plantIn.cost += s.basis + s.fee; E.stats.shipped += s.qty; toast(`${s.qty} crates delivered`, 'In the Processing Plant store'); }
-    else { const rev = s.qty * s.price, profit = rev - s.basis - s.fee; S.cash += rev; E.demand[s.buyer] = Math.max(0, E.demand[s.buyer] - s.qty); E.stats.sold += s.qty; E.stats.revenue += rev; E.stats.profit += profit; toast(`Sold ${s.qty} boxes for ${usd(rev)}`, `${BUYER[s.buyer].name} · profit ${usd(profit)}`); xp(Math.min(60, Math.round(profit / 10)), 'Profit from a delivery'); once('firstSale', 20, 'Your first complete food chain'); }
+    else { const rev = s.qty * s.price, profit = rev - s.basis - s.fee; S.cash += rev; E.demand[s.buyer] = Math.max(0, E.demand[s.buyer] - s.qty); E.stats.sold += s.qty; E.stats.revenue += rev; E.stats.profit += profit; toast(`Sold ${s.qty} boxes for ${usd(rev)}`, `${BUYER[s.buyer].name} · profit ${usd(profit)}`); xp(Math.min(60, Math.max(0, Math.floor(profit / 10))), 'Profit from a delivery') /* the same rule as the server */; once('firstSale', 20, 'Your first complete food chain'); }
     save(); refresh();
   }
   function resume() { for (const s of E.ships) if (s.status !== 'delivered' && s.status !== 'queued') send(s); } // after a reload, trips carry on from where they were
@@ -205,31 +213,34 @@
   }
   const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); }));
 
-  // what each action costs and earns, worked out before you confirm
+  // what each action costs and earns, worked out before you confirm: what you pay now is kept apart from what you already
+  // spent on the goods, and anything that depends on a later price is marked as an estimate
   function quote(act, qty, buyer) {
-    const c = CAP(), F = FLEET(), q = { act, qty, rows: [], ok: true, why: '' }, row = (k, v, cls = '') => q.rows.push([k, v, cls]);
+    const c = CAP(), F = FLEET(), q = { act, qty, rows: [], ok: true, why: '', note: '' }, row = (k, v, cls = '') => q.rows.push([k, v, cls]), shopP = priceOf('shops');
     if (act === 'grow') {
-      const room = c.farm - E.farm.qty - growing(); q.max = room; const cost = qty * SEED, r1 = R('FA', 'P'), r2 = R('P', 'C'), estShip = shipFee('truck', r1 ? r1.len : 900) * Math.ceil(qty / 40) + shipFee('truck', r2 ? r2.len : 900) * Math.ceil(qty / 40), est = qty * priceOf('shops') - cost - qty * PROC_FEE - estShip;
-      row('Seed and labour', `${usd(SEED)} × ${qty} = ${usd(cost)}`); row('Ready in', clock(qty * GROW_S)); row('Co-op storage after', `${E.farm.qty + growing() + qty} / ${c.farm} crates`);
-      row('Whole chain, at today\'s shop price', `${usd(qty * priceOf('shops'))} revenue`); row('Estimated net profit', usd(est), est > 0 ? 'ok' : 'bad');
-      q.cost = cost; if (qty > room) { q.ok = false; q.why = 'Not enough room at the co-op.'; } else if (S.cash < cost) { q.ok = false; q.why = `You need ${usd(cost)}.`; }
+      const room = c.farm - E.farm.qty - growing(); q.max = Math.max(0, room); const cost = qty * SEED, r1 = R('FA', 'P'), r2 = R('P', 'C'), trips = Math.ceil(qty / c.truck), estShip = shipFee('truck', r1 ? r1.len : 900) * trips + shipFee(F.van && qty <= c.van ? 'van' : 'truck', r2 ? r2.len : 900) * trips, est = qty * shopP - cost - qty * PROC_FEE - estShip;
+      row('You pay now', `${usd(cost)} (seed and labour, ${usd(SEED)} × ${qty})`, 'key'); row('Ready in', `${clock(qty * GROW_S)}, on your field at Greenfields`); row('Co-op store after', `${E.farm.qty + growing() + qty} of ${c.farm} crates`); row('Next', 'Truck the crates to the plant');
+      row('If all of it sells to the shops at today\'s price', `about ${usd(qty * shopP)} back, ${usd(est)} profit after every step (estimate)`, 'est');
+      q.cost = cost; if (qty > room) { q.ok = false; q.why = room <= 0 ? 'The co-op store is full. Truck crates to the plant first.' : `There's room for ${room} more crates.`; } else if (S.cash < cost) { q.ok = false; q.why = `You need ${usd(cost)}; you have ${usd(S.cash)}. Try fewer crates.`; }
     } else if (act === 'ship') {
-      const r = R('FA', 'P'), room = c.plantIn - E.plantIn.qty - inbound('P'), max = Math.min(E.farm.qty, c.truck, room); q.max = max; q.vehicle = 'truck';
-      const fee = shipFee('truck', r ? r.len : 0); q.cost = fee;
-      row('Crates', `${qty} of ${E.farm.qty} at the co-op · truck takes ${c.truck}`); row('Cost of the crates so far', usd(avg(E.farm) * qty)); row('Shipping', `${usd(fee)} · ${r ? (r.len / 1000).toFixed(2) + ' km over the bridge' : 'no route'}`); row('Delivery time', r ? '~' + clock(eta(r.len)) : '—');
-      row('Selling price', 'None yet: the crates go into the plant\'s store'); row('Trucks free', `${F.truck - busy('truck')} of ${F.truck}${F.truck - busy('truck') <= 0 ? ' (it will queue)' : ''}`);
-      if (!r) { q.ok = false; q.why = 'No open route to the plant.'; } else if (!qty || qty > max) { q.ok = false; q.why = !E.farm.qty ? 'No crates at the co-op yet.' : room <= 0 ? 'The plant\'s store is full.' : 'Too many for one truck.'; } else if (S.cash < fee) { q.ok = false; q.why = `You need ${usd(fee)}.`; }
+      const r = R('FA', 'P'), room = c.plantIn - E.plantIn.qty - inbound('P'), max = Math.min(E.farm.qty, c.truck, Math.max(0, room)); q.max = max; q.vehicle = 'truck';
+      const fee = shipFee('truck', r ? r.len : 0), free = F.truck - busy('truck'); q.cost = fee;
+      row('Crates', `${qty} of ${E.farm.qty} at the co-op (a truck carries ${c.truck})`); row('Already spent on them', usd(avg(E.farm) * qty)); row('You pay now', `${usd(fee)} shipping`, 'key');
+      row('Route', r ? `${(r.len / 1000).toFixed(1)} km by road, over the bridge, about ${clock(eta(r.len))}` : 'No open route'); row('Truck', free > 0 ? 'Sets off now' : 'Your truck is on another trip: this one waits for it');
+      row('Sale', 'None yet: this moves the crates to your store at the plant'); row('Worth as food at today\'s shop price', `about ${usd(qty * shopP)} (estimate)`, 'est');
+      if (!r) { q.ok = false; q.why = 'The road to the plant is closed. Try again when it reopens.'; } else if (!qty || qty > max) { q.ok = false; q.why = !E.farm.qty ? 'No crates at the co-op yet.' : room <= 0 ? 'Your store at the plant is full: process what is there first.' : 'Too many for one truck.'; } else if (S.cash < fee) { q.ok = false; q.why = `Shipping costs ${usd(fee)}; you have ${usd(S.cash)}.`; }
     } else if (act === 'process') {
-      const room = c.plantOut - E.plantOut.qty - E.procs.reduce((a, p) => a + p.qty, 0), max = Math.min(E.plantIn.qty, room); q.max = max; const fee = qty * PROC_FEE; q.cost = fee;
-      row('Crates in', `${qty} of ${E.plantIn.qty} in the store`); row('Processing fee', `${usd(PROC_FEE)} × ${qty} = ${usd(fee)}`); row('Ready in', clock(qty * PROC_S)); row('Food out', `${qty} boxes`);
-      if (!qty || qty > max) { q.ok = false; q.why = !E.plantIn.qty ? 'No crates at the plant yet.' : 'Not enough room for the food.'; } else if (S.cash < fee) { q.ok = false; q.why = `You need ${usd(fee)}.`; }
+      const room = c.plantOut - E.plantOut.qty - E.procs.reduce((a, p) => a + p.qty, 0), max = Math.min(E.plantIn.qty, Math.max(0, room)); q.max = max; const fee = qty * PROC_FEE; q.cost = fee;
+      row('Crates in', `${qty} of ${E.plantIn.qty} in your plant store`); row('Already spent on them', usd(avg(E.plantIn) * qty)); row('You pay now', `${usd(fee)} processing (${usd(PROC_FEE)} × ${qty})`, 'key'); row('Ready in', clock(qty * PROC_S)); row('Makes', `${qty} boxes of food, in the same store`); row('Next', 'Deliver the food to a buyer');
+      if (!qty || qty > max) { q.ok = false; q.why = !E.plantIn.qty ? 'No crates at the plant yet.' : 'Not enough room for the food: deliver some first.'; } else if (S.cash < fee) { q.ok = false; q.why = `Processing costs ${usd(fee)}; you have ${usd(S.cash)}.`; }
     } else if (act === 'deliver') {
       const B = BUYER[buyer], r = R('P', NODE[buyer]), want = Math.floor(E.demand[buyer] - inbound(NODE[buyer])), vehicle = qty <= c.van && F.van ? 'van' : 'truck', max = Math.max(0, Math.min(E.plantOut.qty, want, F.van ? Math.max(c.truck, c.van) : c.truck)); q.max = max; q.vehicle = vehicle;
       const fee = shipFee(vehicle, r ? r.len : 0), price = priceOf(buyer), basis = avg(E.plantOut) * qty, rev = qty * price, net = rev - basis - fee; q.cost = fee; q.price = price;
-      row('Food boxes', `${qty} of ${E.plantOut.qty} at the plant`); row('What they cost you', `${usd(basis)} (crops, trucking, processing)`); row('Shipping', `${usd(fee)} by ${vehicle} · ${r ? (r.len / 1000).toFixed(2) + ' km' : 'no route'}`);
-      row('Delivery time', r ? '~' + clock(eta(r.len)) : '—'); row('Selling price', `${usd(price)} a box, agreed now${buyer === 'shops' && matchOn() ? ' (match day +15%)' : ''}`); row(`${B.name} want`, `${Math.max(0, want)} more boxes`);
-      row('Revenue', usd(rev)); row('Net profit', usd(net), net > 0 ? 'ok' : 'bad');
-      if (buyer === 'hotel' && level() < 2) { q.ok = false; q.why = 'The Hotel Azure contract opens at level 3.'; } else if (!r) { q.ok = false; q.why = 'No open route.'; } else if (!qty || qty > max) { q.ok = false; q.why = !E.plantOut.qty ? 'No food at the plant yet.' : want <= 0 ? `${B.name} don't need more right now: demand refills over time.` : 'Too many for this order.'; } else if (S.cash < fee) { q.ok = false; q.why = `You need ${usd(fee)}.`; }
+      row('Food boxes', `${qty} of ${E.plantOut.qty} at the plant`); row('Price, fixed now', `${usd(price)} a box${buyer === 'shops' && matchOn() ? ' (match day +15%)' : ''}`); row('Paid to you on arrival', usd(rev));
+      row('Already spent on this food', usd(basis)); row('You pay now', `${usd(fee)} shipping by ${vehicle}`, 'key'); row('Route', r ? `${(r.len / 1000).toFixed(1)} km, about ${clock(eta(r.len))}` : 'No open route');
+      row('Profit when it arrives', usd(net), net > 0 ? 'ok' : 'bad'); row(`${B.name} still want`, `${Math.max(0, want)} boxes`);
+      q.note = 'Every player sells to the same buyers. Booking reserves these boxes of demand and fixes the price, so it stays the same while the food travels.';
+      if (buyer === 'hotel' && level() < 2) { q.ok = false; q.why = 'The Hotel Azure contract opens at level 3.'; } else if (!r) { q.ok = false; q.why = 'No open route.'; } else if (!qty || qty > max) { q.ok = false; q.why = !E.plantOut.qty ? 'No food at the plant yet.' : want <= 0 ? `${B.name} don't need more right now: demand refills over a few minutes.` : 'Too many for one trip.'; } else if (S.cash < fee) { q.ok = false; q.why = `Shipping costs ${usd(fee)}; you have ${usd(S.cash)}.`; }
     }
     return q;
   }
@@ -238,7 +249,7 @@
     if (pendingCall) return; pendingCall = true; const ok = $('qok'); if (ok) { ok.disabled = true; ok.textContent = 'SENDING…'; }
     const id = uuid(), call = q.act === 'grow' ? ['ci_grow', { p_qty: q.qty }] : q.act === 'process' ? ['ci_process', { p_qty: q.qty }] : ['ci_ship', { p_id: id, p_kind: q.act === 'ship' ? 'crop' : 'food', p_qty: q.qty, p_buyer: q.act === 'deliver' ? buyer : null }];
     try { applyState(await NET.call(call[0], call[1])); toast({ grow: `Planting ${q.qty} crates`, process: `Processing ${q.qty} crates`, ship: `Truck booked: ${q.qty} crates`, deliver: `Delivery booked: ${q.qty} boxes` }[q.act], 'Confirmed by the island server'); pendingCall = false; open('jobs'); }
-    catch (e) { pendingCall = false; toast(e.net ? 'No connection' : 'Not done', e.net ? 'Check Jobs when you are back online: it may or may not have gone through.' : e.message); if (ok) { ok.disabled = false; ok.textContent = 'CONFIRM'; } NET.refresh(); }
+    catch (e) { pendingCall = false; toast(e.net ? 'No connection' : 'Not done', e.net ? 'Check Jobs when you are back online: it may or may not have gone through.' : e.message, true); if (ok) { ok.disabled = false; ok.textContent = 'CONFIRM'; } NET.refresh(); }
   }
   function confirm(q, buyer) {
     if (!q.ok) return;
@@ -257,10 +268,10 @@
     if (E.grows.length) { const g = E.grows[0]; t = `Crops growing: ${g.qty} crates`; s = `${clock((g.end - now()) / 1000)} left · Greenfields`; }
     else if (sh) { t = `${sh.kind === 'crop' ? 'Crates' : 'Food'} ${sh.status === 'queued' ? 'waiting for a vehicle' : sh.status === 'failed' ? 'held up' : 'on the way'}`; s = `${PLACE[sh.from]} → ${PLACE[sh.to]} · ${Math.round((sh.frac || 0) * 100)}%`; }
     else if (E.procs.length) { const p = E.procs[0]; t = `Processing ${p.qty} crates`; s = `${clock((p.end - now()) / 1000)} left · Industrial Isle`; }
-    else if (E.plantOut.qty) { t = 'Deliver food to the shops'; s = `Jobs → Seller · ${E.plantOut.qty} boxes ready`; }
-    else if (E.plantIn.qty) { t = 'Process the crates into food'; s = `Jobs → Manufacturer · ${E.plantIn.qty} crates at the plant`; }
-    else if (E.farm.qty) { t = 'Truck the crates to the plant'; s = `Jobs → Shipper · ${E.farm.qty} crates at the co-op`; }
-    else if (!E.stats.sold) { t = 'Grow your first crops'; s = 'Jobs → Producer → Grow'; }
+    else if (E.plantOut.qty) { t = 'Deliver food to the shops'; s = `${E.plantOut.qty} boxes at the plant · Jobs, step 4`; }
+    else if (E.plantIn.qty) { t = 'Process the crates into food'; s = `${E.plantIn.qty} crates at the plant · Jobs, step 3`; }
+    else if (E.farm.qty) { t = 'Truck the crates to the plant'; s = `${E.farm.qty} crates at the co-op · Jobs, step 2`; }
+    else if (!E.stats.sold) { t = 'Grow your first crops'; s = 'Seed costs $3 a crate · Jobs, step 1'; }
     else { const nx = LEVELS[level() + 1]; t = nx ? `Run the chain again: ${nx.xp - S.xp} XP to level ${level() + 2}` : 'Run your food business'; s = `Profit so far ${usd(E.stats.profit)}`; }
     $('objT').textContent = t; $('objS').textContent = s;
   }
@@ -268,12 +279,13 @@
 
   // ---------- labels: island name far out, district names in between, a few useful places up close; no overlaps ----------
   const els = new Map(); let sel = null;
-  function labelEl(L) { let el = els.get(L); if (!el) { el = document.createElement('div'); el.className = `lab ${L.friend ? 'place friend' : L.level}${L.minor ? ' minor' : ''}${L.small ? ' small' : ''}${L.home ? ' home' : ''}`; el.textContent = L.text; if (L.color) el.style.setProperty('--c', L.color); $('labels').appendChild(el); els.set(L, el); L.w = 0; } return el; }
+  function labelEl(L) { let el = els.get(L); if (!el) { el = document.createElement('div'); el.className = `lab ${L.friend ? 'place friend' : L.level}${L.minor ? ' minor' : ''}${L.small ? ' small' : ''}${L.home ? ' home' : ''}${L.mine ? ' mine' : ''}`; if (L.friend) el.innerHTML = `<em>${esc(String(L.text)[0] || '?').toUpperCase()}</em>${esc(L.text)}`; else el.textContent = L.text; if (L.color) el.style.setProperty('--c', L.color); $('labels').appendChild(el); els.set(L, el); L.w = 0; } return el; }
   const FRIENDS = new Map(), OWNERS = new Map();
   function friendLabels(lvl) { // other players (district and close views) and, close up, who owns the buildings nearby
-    if (!NET.online) return [];
+    if (!NET.online) { World.players([]); return []; }
     const out = [];
-    for (const [id, p] of NET.players) { let L = FRIENDS.get(id); if (!L) { L = { text: p.name, level: 'friend', friend: true }; FRIENDS.set(id, L); } L.x = p.x; L.z = p.z; L.y = 14; if (L.text !== p.name) { L.text = p.name; const el = els.get(L); if (el) el.textContent = p.name, L.w = 0; } L.color = p.color; if (lvl !== 'island') out.push(L); }
+    const list = [...NET.players.entries()], at = World.players(list.map(([, p]) => p));
+    list.forEach(([id, p], i) => { let L = FRIENDS.get(id); if (!L) { L = { text: p.name, level: 'friend', friend: true }; FRIENDS.set(id, L); } if (at[i]) { L.x = at[i].x; L.y = at[i].y; L.z = at[i].z; } if (L.text !== p.name) { L.text = p.name; const el = els.get(L); if (el) { el.innerHTML = `<em>${esc(String(p.name)[0] || '?').toUpperCase()}</em>${esc(p.name)}`; L.w = 0; } } if (L.color !== p.color) { L.color = p.color; const el = els.get(L); if (el) el.style.setProperty('--c', p.color); } if (lvl !== 'island') out.push(L); });
     for (const [id, L] of FRIENDS) if (!NET.players.has(id)) { const el = els.get(L); if (el) el.remove(); els.delete(L); FRIENDS.delete(id); }
     if (lvl === 'place') for (const b of World.buildings) { if (!b.sale) continue; const o = OWN.get(lotOf(b)); if (!o) continue; let L = OWNERS.get(b.id); if (!L || L.text !== (o.owner === NET.me ? 'Yours' : o.name)) { if (L && els.get(L)) { els.get(L).remove(); els.delete(L); } L = { text: o.owner === NET.me ? 'Yours' : o.name, level: 'place', small: true, owner: true, x: b.x, y: b.h + 3, z: b.z, color: o.color }; OWNERS.set(b.id, L); } out.push(L); }
     return out;
@@ -313,6 +325,7 @@
   const refresh = () => { if (panel && !P.hidden && panel !== 'quote') { const st = stack.slice(); open(panel, arg, true); stack = st; $('pBack').hidden = !stack.length; } };
   function close() { P.hidden = true; panel = ''; stack = []; sel = null; World.mark(null); draw(); }
   $('pX').onclick = close;
+  $('pExp').onclick = () => { P.classList.toggle('big'); $('pExp').setAttribute('aria-label', P.classList.contains('big') ? 'Make smaller' : 'Expand'); }; // phones: half height, or nearly full
   $('pBack').onclick = () => { const [n, a] = stack.pop() || []; if (n) { const st = stack.slice(); panel = ''; open(n, a); stack = st; $('pBack').hidden = !stack.length; } };
   document.querySelectorAll('#nav button').forEach(b => b.onclick = () => { const p = b.dataset.p; if (panel === p && !stack.length) close(); else open(p); });
   $('gear').onclick = () => panel === 'settings' ? close() : open('settings');
@@ -332,87 +345,108 @@
   const card = b => { const o = ownerOf(b), mine = isMine(b); return `<button class="pc" data-b="${b.id}"><div class="ph" data-ph="${b.id}"></div>${mine ? '<span class="tag yours">YOURS</span>' : o ? `<span class="tag" style="background:${esc(o.color)}">${esc(o.name)}</span>` : ''}<div class="tx"><b>${esc(b.name)}</b><small>${esc(b.area)}</small><em>${mine ? 'Yours' : o ? 'Owned by ' + esc(o.name) : usd(valueOf(b))}</em></div></button>`; };
   const bindCards = r => { r.querySelectorAll('[data-ph]').forEach(el => picture(el, byId(el.dataset.ph))); r.querySelectorAll('[data-b]').forEach(el => el.onclick = () => open('card', el.dataset.b, true)); };
   let filter = 'homes', qtyPick = {};
-  const bar = (n, cap) => `<div class="bar"><i style="width:${Math.min(100, n / cap * 100)}%"></i></div>`;
-  const chipOf = s => `<span class="chip ${s.status}">${{ queued: 'QUEUED', travelling: 'TRAVELLING', delivered: 'DELIVERED', failed: 'FAILED' }[s.status] || s.status.toUpperCase()}</span>`;
-  const shipRow = s => `<div class="row"><span class="ic">${ic('truck')}</span><div><b>${s.qty} ${s.kind === 'crop' ? 'crates' : 'boxes'} → ${esc(PLACE[s.to])}</b><small>from ${esc(PLACE[s.from])} · ${s.status === 'travelling' ? Math.round((s.frac || 0) * 100) + '% of the way' : s.status === 'queued' ? 'Waiting for a free ' + s.vehicle : s.status === 'failed' ? esc(s.why || 'Route closed') : 'Arrived'} · ${s.vehicle}</small></div>${chipOf(s)}${handles.get(s.id) && handles.get(s.id).car ? `<button class="btn" data-track="${s.id}">TRACK</button>` : ''}</div>`;
-  const bindTrack = r => r.querySelectorAll('[data-track]').forEach(b => b.onclick = () => { const h = handles.get(b.dataset.track); if (!h || !h.car) return; follow = { h, t: 15 }; const v = World.current(); v.dist = 110; v.polar = 0.9; World.place(v); if (innerWidth < 760) close(); once('track', 5, 'You followed a delivery'); });
+  const bar = (n, cap) => `<div class="bar"><i style="width:${Math.max(0, Math.min(100, n / (cap || 1) * 100))}%"></i></div>`;
+  const STATUS = { queued: 'QUEUED', travelling: 'TRAVELLING', delivered: 'DELIVERED', failed: 'HELD UP' };
+  const chipOf = s => `<span class="chip ${s.status}">${STATUS[s.status] || String(s.status).toUpperCase()}</span>`;
+  const shipRow = s => { const h = handles.get(s.id), what = `${s.qty} ${s.kind === 'crop' ? 'crates' : 'boxes of food'}`, how = s.status === 'travelling' ? `${Math.round((s.frac || 0) * 100)}% of the way` : s.status === 'queued' ? `waiting for your ${s.vehicle}` : s.status === 'failed' ? (s.why || 'route closed: waiting') : s.kind === 'food' ? `sold for ${usd(s.qty * s.price)}` : 'in your plant store';
+    return `<div class="ship"><div class="rt">${esc(PLACE[s.from])}<i>→</i>${esc(PLACE[s.to])}</div>${chipOf(s)}<div class="meta">${what} · by ${s.vehicle} · ${esc(how)}</div>${s.status === 'travelling' ? bar(s.frac || 0, 1) : ''}${h && h.car ? `<button class="btn ghost" data-track="${s.id}">${ic('target')}FOLLOW IT</button>` : ''}</div>`; };
+  function follow0(h, what) { follow = { h }; $('fol').hidden = false; $('folT').textContent = 'Following ' + what; }
+  function unfollow() { follow = null; $('fol').hidden = true; }
+  $('folX').onclick = unfollow;
+  const bindTrack = r => r.querySelectorAll('[data-track]').forEach(b => b.onclick = () => { const h = handles.get(b.dataset.track), s = E.ships.find(x => x.id === b.dataset.track); if (!h || !h.car) return; follow0(h, `your ${s ? s.vehicle : 'truck'} to ${s ? PLACE[s.to] : 'its stop'}`); const v = World.current(); v.dist = 70; v.polar = 0.95; World.place(v); if (innerWidth < 760) close(); once('track', 5, 'You followed a delivery'); });
+  const kv = rows => `<dl class="kv">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>`;
+  const DEV = new URLSearchParams(location.search).has('dev'); // test tools (road checks, closing the bridge) only with ?dev
+  function nextStep() { if (E.plantOut.qty) return 4; if (E.plantIn.qty && !E.procs.length) return 3; if (E.farm.qty) return 2; return E.grows.length || E.ships.some(s => s.status !== 'delivered') || E.procs.length ? 0 : 1; }
+  const broke = () => S.cash < SEED * 5 && !E.farm.qty && !E.plantIn.qty && !E.plantOut.qty && !E.grows.length && !E.procs.length && !E.ships.some(s => s.status !== 'delivered');
   const PANELS = {
-    home: () => { const h = World.home; return { title: 'Home', html: `<div class="ph" data-ph="home"></div><div class="row"><span class="ic">${ic('home')}</span><div><b>${esc(h.name)}</b><small>Your flat in the Old Quarter</small></div><button class="btn" id="hv">VISIT</button></div>
-      <div class="stats"><div>Cash<b>${usd(S.cash)}</b></div><div>Food profit<b>${usd(E.stats.profit)}</b></div><div>Level<b>${level() + 1}</b></div></div>
-      <p class="sec">Money and business</p><button class="row" id="hBank" style="text-align:left"><span class="ic">${ic('bank')}</span><div><b>Capital Bank</b><small>Your accounts, income and costs</small></div></button>
-      <button class="row ${level() < 4 ? 'lock' : ''}" id="hOffice" style="text-align:left"><span class="ic">${ic('office')}</span><div><b>Office</b><small>Run your companies from the business centre</small></div>${level() < 4 ? '<span class="lockt">LEVEL 5</span>' : ''}</button>`,
-      bind: r => { picture(r.querySelector('[data-ph]'), h); $('hv').onclick = () => visit(h); $('hBank').onclick = () => open('bank', null, true); $('hOffice').onclick = () => open('office', null, true); } }; },
-    bank: () => { const inc = Object.keys(S.owned).map(byId).filter(Boolean).reduce((a, b) => a + rentOf(b), 0), st = E.stats; return { title: 'Capital Bank', html: `<div class="stats"><div>Cash<b>${usd(S.cash)}</b></div><div>Food sold<b>${st.sold} boxes</b></div><div>Revenue<b>${usd(st.revenue)}</b></div></div>
-      <div class="stats"><div>Net profit<b>${usd(st.profit)}</b></div><div>Rent value<b>${usd(inc)}/wk</b></div><div>Loans<b>None</b></div></div><p class="note">Loans arrive with the next stage. Rent from property is shown but not yet paid out.</p>`,
-      bind: () => {} }; },
-    office: () => ({ title: 'Office', html: `<div class="row lock"><span class="ic">${ic('lock')}</span><div><b>Opens at level 5</b><small>${LEVELS[4].reward}</small></div></div><p class="note">From your office you'll run the companies you start in Jobs.</p>` }),
-    build: () => { const G = { homes: ['house', 'flat'], villas: ['villa'], shops: ['shophouse', 'kiosk'], offices: ['tower'], harbour: ['warehouse'] }, list = World.buildings.filter(b => b.sale && !ownerOf(b) && G[filter].includes(b.type)).sort((a, b) => valueOf(a) - valueOf(b)).slice(0, 10), own = World.buildings.filter(b => b.sale && isMine(b));
+    home: () => { const h = World.home, own = World.buildings.filter(b => b.sale && isMine(b)), worth = own.reduce((a, b) => a + valueOf(b), 0), l = level();
+      return { title: 'Home', html: `<div class="ph" data-ph="home"></div><div class="row"><span class="ic">${ic('home')}</span><div><b>${esc(h.name)}</b><small>Your flat in the Old Quarter</small></div><button class="btn ghost" id="hv">${ic('map')}VIEW</button></div>
+      <div class="stats"><div>Cash<b>${usd(S.cash)}</b></div><div>Property<b>${own.length ? usd(worth) : 'None yet'}</b></div><div>Food profit<b>${usd(E.stats.profit)}</b></div></div>
+      <p class="sec">Your goods</p><div class="inv"><div>Co-op store<b>${E.farm.qty}</b>crates</div><div>At the plant<b>${E.plantIn.qty}</b>crates</div><div>At the plant<b>${E.plantOut.qty}</b>boxes of food</div><div>On the road<b>${E.ships.filter(s => s.status !== 'delivered').reduce((a, s) => a + s.qty, 0)}</b>crates or boxes</div></div>
+      <p class="sec">Level ${l + 1} · ${S.xp} XP</p>${LEVELS.map((L, i) => `<div class="row ${i > l ? 'lock' : ''}"><span class="ic">${i <= l ? '✓' : i + 1}</span><div><b>Level ${i + 1}${i ? ` · ${L.xp} XP` : ''}</b><small>${esc(L.reward)}</small></div>${i === l + 1 ? `<span class="lockt">${L.xp - S.xp} XP TO GO</span>` : ''}</div>`).join('')}
+      <p class="note">XP comes from profit on food you deliver (up to 60 a delivery), first visits and first purchases. It can't be farmed by repeating one step.</p>
+      ${own.length ? `<p class="sec">Your property</p><div class="cards">${own.map(card).join('')}</div>` : ''}
+      <button class="row" id="hBank"><span class="ic">${ic('bank')}</span><div><b>Capital Bank</b><small>Income, costs and what you've sold</small></div></button>`,
+      bind: r => { picture(r.querySelector('[data-ph="home"]'), h); $('hv').onclick = () => visit(h); $('hBank').onclick = () => open('bank', null, true); bindCards(r); } }; },
+    bank: () => { const own = World.buildings.filter(b => b.sale && isMine(b)), inc = own.reduce((a, b) => a + rentOf(b), 0), st = E.stats; return { title: 'Capital Bank', html: `<div class="stats"><div>Cash<b>${usd(S.cash)}</b></div><div>Food sold<b>${st.sold} boxes</b></div><div>Revenue<b>${usd(st.revenue)}</b></div></div>
+      <div class="stats"><div>Net profit<b>${usd(st.profit)}</b></div><div>Rent value<b>${usd(inc)}/wk</b></div><div>Loans<b>None</b></div></div><p class="note">Rent is shown as each property's value to a tenant; it isn't paid out yet in this version. Loans aren't available yet.</p>` }; },
+    build: () => { const G = { homes: ['house', 'flat'], villas: ['villa'], shops: ['shophouse', 'kiosk'], offices: ['tower'], harbour: ['warehouse'] }, list = World.buildings.filter(b => b.sale && !ownerOf(b) && G[filter].includes(b.type)).sort((a, b) => valueOf(a) - valueOf(b)).slice(0, 12), own = World.buildings.filter(b => b.sale && isMine(b));
       return { title: 'Build & property', html: `<div class="seg">${[['homes', 'Homes'], ['villas', 'Villas'], ['shops', 'Shops'], ['offices', 'Offices'], ['harbour', 'Harbour']].map(([k, n]) => `<button data-f="${k}" class="${k === filter ? 'on' : ''}">${n}</button>`).join('')}</div>
-        ${own.length ? `<p class="sec">Yours</p><div class="cards">${own.map(card).join('')}</div>` : ''}<p class="sec">For sale · cheapest first</p><div class="cards">${list.map(card).join('')}</div>`,
+        ${own.length ? `<p class="sec">Yours</p><div class="cards">${own.map(card).join('')}</div>` : ''}<p class="sec">For sale · cheapest first</p>${list.length ? `<div class="cards">${list.map(card).join('')}</div>` : '<p class="note">Everything here has an owner. Try another kind.</p>'}<p class="note">Buying puts your name on it for everyone. Property doesn't earn rent yet; it counts towards your worth.</p>`,
         bind: r => { r.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { filter = b.dataset.f; open('build'); }); bindCards(r); } }; },
-    card: id => { const b = byId(id), mine = isMine(b), other = !mine && ownerOf(b), p = valueOf(b); sel = b; World.mark(b); return { title: { warehouse: 'Warehouse', shophouse: 'Shop with flats', kiosk: 'Kiosk', house: 'House', villa: 'Villa', tower: 'Offices', flat: 'Flats' }[b.type] || 'Landmark',
-      html: `<div class="ph" data-ph="${b.id}"></div><b class="big">${esc(b.name)}</b><p class="note">${esc(b.area)}</p>
-        ${b.sale || mine ? `<div class="stats"><div>Price<b>${usd(p)}</b></div><div>Rent<b>${usd(rentOf(b))}/wk</b></div><div>Floors<b>${b.floors || (b.type === 'house' || b.type === 'villa' ? 2 : 1)}</b></div></div>` : '<p class="note">Owned by the island; not for sale.</p>'}
-        ${other ? `<p class="note">Owned by <b style="color:${esc(other.color)}">${esc(other.name)}</b>. You can visit; only the owner can change it.</p>` : ''}
-        <div class="acts"><button class="btn" id="cv">${ic('map')}VISIT</button>${mine ? '<button class="btn" disabled>YOURS</button>' : other ? '<button class="btn" disabled>OWNED</button>' : b.sale ? `<button class="btn go" id="cb" ${S.cash < p ? 'disabled' : ''}>${S.cash < p ? 'NEED ' + usd(p - S.cash) : 'BUY ' + usd(p)}</button>` : '<button class="btn" disabled>NOT FOR SALE</button>'}</div>
-        <p class="note">Visit moves the camera there and marks it. It never buys anything.</p>`,
-      bind: r => { picture(r.querySelector('[data-ph]'), b); $('cv').onclick = () => visit(b); if ($('cb')) $('cb').onclick = async () => { if (NET.online) { if (pendingCall) return; pendingCall = true; $('cb').disabled = true; $('cb').textContent = 'BUYING…'; try { applyState(await NET.call('ci_buy_property', { p_lot: lotOf(b) })); toast('Bought ' + b.name, 'Confirmed by the island server'); } catch (e) { toast(e.net ? 'No connection' : 'Not bought', e.net ? 'Try again when you are back online.' : e.message); NET.refresh(); } pendingCall = false; open('card', id, true); stack.pop(); return; } if (S.cash < p || S.owned[b.id]) return; S.cash -= p; S.owned[b.id] = { at: now() }; save(); toast('Bought ' + b.name, `Rent ${usd(rentOf(b))} a week`); once('buy:' + b.id, 25, 'First purchase of ' + b.name); open('card', id, true); stack.pop(); }; } }; },
-    jobs: () => { const c = CAP(), F = FLEET(), run = (list, verb) => list.map(j => `<div class="row"><span class="ic">${ic('jobs')}</span><div><b>${verb} ${j.qty}</b>${bar(now() - j.start, j.end - j.start)}</div><span class="lockt">${clock((j.end - now()) / 1000)}</span></div>`).join('');
-      const step = (n, role, title, where, stock, btn, act, extra = '') => `<div class="step"><div class="sh"><span class="n">${n}</span><div><b>${title}</b><small>${role} · ${where}</small></div>${btn ? `<button class="btn go" data-act="${act}">${btn}</button>` : ''}</div>${stock}${extra}</div>`;
-      return { title: 'Jobs · food chain', html: `<div class="chain"><span>Grow</span><i>→</i><span>Truck</span><i>→</i><span>Process</span><i>→</i><span>Deliver &amp; sell</span></div>
-        ${step(1, 'Producer', 'Grow crops', 'Greenfields Co-op', `<small class="kv">Co-op store: ${E.farm.qty} / ${c.farm} crates${growing() ? ` · ${growing()} growing` : ''}</small>${bar(E.farm.qty + growing(), c.farm)}`, 'GROW', 'grow', run(E.grows, 'Growing'))}
-        ${step(2, 'Shipper', 'Truck crates to the plant', 'over the bridge', `<small class="kv">Trucks: ${F.truck - busy('truck')} free of ${F.truck} · ${c.truck} crates each${F.van ? ` · van: ${F.van - busy('van')} free` : ''}</small>`, E.farm.qty ? 'SHIP' : '', 'ship', E.ships.filter(s => s.status !== 'delivered').map(shipRow).join(''))}
-        ${step(3, 'Manufacturer', 'Process crops into food', 'Industrial Isle', `<small class="kv">Plant store: ${E.plantIn.qty} crates in · ${E.plantOut.qty} boxes of food out</small>${bar(E.plantIn.qty, c.plantIn)}`, E.plantIn.qty ? 'PROCESS' : '', 'process', run(E.procs, 'Packing'))}
-        ${step(4, 'Seller', 'Deliver and sell food', 'shops and hotel', `<small class="kv">Old Quarter shops pay ${usd(priceOf('shops'))} a box · want ${Math.max(0, Math.floor(E.demand.shops - inbound('C')))}${matchOn() ? ' · MATCH DAY' : ''}</small><small class="kv">Hotel Azure pays ${usd(priceOf('hotel'))} · ${level() >= 2 ? `want ${Math.max(0, Math.floor(E.demand.hotel - inbound('J')))}` : 'opens at level 3'}</small>`, E.plantOut.qty ? 'SHOPS' : '', 'deliver:shops', E.plantOut.qty && level() >= 2 ? `<button class="btn" data-act="deliver:hotel">DELIVER TO HOTEL AZURE</button>` : '')}
-        <p class="sec">Other jobs</p><div class="row ${level() < 2 ? 'lock' : ''}"><span class="ic">${ic('home')}</span><div><b>Hotel owner</b><small>Supply Hotel Azure; buy and upgrade hotels next</small></div><span class="lockt">${level() >= 2 ? 'OPEN' : 'LEVEL 3'}</span></div>
-        <div class="row"><span class="ic">${ic('build')}</span><div><b>Property owner</b><small>Buy homes, villas, shops and offices in Build</small></div><span class="lockt">OPEN</span></div>
-        <p class="note">Every step is quoted before you confirm. Profit earns XP; a completed chain earns more than any single step.</p>`,
-        bind: r => { r.querySelectorAll('[data-act]').forEach(b => b.onclick = () => { const [act, buyer] = b.dataset.act.split(':'); open('quote', { act, buyer }, true); }); bindTrack(r); } }; },
-    quote: a => { const opts = [5, 10, 20, 40, 80], probe = quote(a.act, 1, a.buyer), max = Math.max(0, probe.max || 0), choices = opts.filter(n => n <= Math.max(max, 5)); let qty = qtyPick[a.act + (a.buyer || '')] || Math.min(max || 5, a.act === 'grow' ? 40 : 40); if (qty > max && max) qty = choices.filter(n => n <= max).pop() || max; const q = quote(a.act, qty, a.buyer);
-      return { title: { grow: 'Grow crops', ship: 'Truck crates', process: 'Process food', deliver: 'Deliver food' }[a.act], html: `<p class="sec">How many</p><div class="seg">${[...new Set([...choices.filter(n => n <= max), max].filter(n => n > 0))].sort((x, y) => x - y).map(n => `<button data-q="${n}" class="${n === qty ? 'on' : ''}">${n === max && !opts.includes(n) ? 'All ' + n : n}</button>`).join('') || '<span class="note">Nothing available</span>'}</div>
-        <table class="t">${q.rows.map(([k, v, cls]) => `<tr><td>${esc(k)}</td><td class="${cls}">${esc(v)}</td></tr>`).join('')}</table>${q.ok ? '' : `<p class="note bad">${esc(q.why)}</p>`}
-        <div class="acts"><button class="btn" id="qc">CANCEL</button><button class="btn go" id="qok" ${q.ok ? '' : 'disabled'}>CONFIRM ${q.cost ? usd(q.cost) : ''}</button></div>`,
+    card: id => { const b = byId(id), mine = isMine(b), other = !mine && ownerOf(b), p = valueOf(b); sel = b; World.mark(b); const fl = b.floors || (b.type === 'villa' ? 2 : 1);
+      return { title: { warehouse: 'Warehouse', shophouse: 'Shop with flats', kiosk: 'Kiosk', house: 'House', villa: 'Villa', tower: 'Offices', flat: 'Flats' }[b.type] || 'Landmark',
+      html: `<div class="ph" data-ph="${b.id}"></div><b class="big">${esc(b.name)}</b><p class="note">${esc(b.area)}${mine ? ' · <b class="ok">yours</b>' : other ? ` · owned by <b style="color:${esc(other.color)}">${esc(other.name)}</b>` : b.sale ? ' · for sale' : ' · owned by the island'}</p>
+        ${b.sale || mine ? `<div class="stats"><div>Price<b>${usd(p)}</b></div><div>Floors<b>${fl}</b></div><div>Rent value<b>${usd(rentOf(b))}/wk</b></div></div>` : ''}
+        <div class="acts sticky"><button class="btn ghost" id="cv">${ic('map')}VIEW ON MAP</button>${mine ? '<button class="btn" disabled>YOURS</button>' : other ? '<button class="btn" disabled>OWNED</button>' : b.sale ? `<button class="btn go" id="cb" ${S.cash < p ? 'disabled' : ''}>${S.cash < p ? 'NEED ' + usd(p - S.cash) + ' MORE' : 'BUY ' + usd(p)}</button>` : '<button class="btn" disabled>NOT FOR SALE</button>'}</div>`,
+      bind: r => { picture(r.querySelector('[data-ph]'), b); $('cv').onclick = () => visit(b); if ($('cb')) $('cb').onclick = async () => { if (NET.online) { if (pendingCall) return; pendingCall = true; $('cb').disabled = true; $('cb').innerHTML = '<span class="spin"></span>BUYING…'; try { applyState(await NET.call('ci_buy_property', { p_lot: lotOf(b) })); toast('Bought ' + b.name, 'Confirmed by the island server'); } catch (e) { toast(e.net ? 'No connection: not bought' : 'Not bought', e.net ? 'Nothing was charged. Try again when you are back online.' : e.message, true); NET.refresh(); } pendingCall = false; open('card', id, true); stack.pop(); return; } if (S.cash < p || S.owned[b.id]) return; S.cash -= p; S.owned[b.id] = { at: now() }; save(); toast('Bought ' + b.name, 'It\'s yours: your name shows on it'); once('buy:' + b.id, 25, 'First purchase of ' + b.name); open('card', id, true); stack.pop(); }; } }; },
+    jobs: () => { const c = CAP(), F = FLEET(), road = E.ships.filter(s => s.status !== 'delivered'), ns = nextStep(), r1 = R('FA', 'P'), r2 = R('P', 'C'), r3 = R('P', 'J');
+      const timer = (list, verb) => list.map(j => `<div class="row"><span class="ic">${ic('jobs')}</span><div><b>${verb} ${j.qty}</b>${bar(now() - j.start, j.end - j.start)}</div><span class="lockt">${clock((j.end - now()) / 1000)}</span></div>`).join('');
+      const step = (n, title, where, rows, btns, why, extra = '') => `<div class="step ${ns === n ? 'now' : ''}"><div class="sh"><span class="n">${n}</span><div><b>${title}</b><small>${where}</small></div></div>${kv(rows)}${extra}${btns}${why ? `<p class="note why">${why}</p>` : ''}</div>`;
+      const B = (label, a, ok) => `<button class="btn ${ok ? 'go' : ''}" data-act="${a}" ${ok ? '' : 'disabled'}>${label}</button>`;
+      const room = c.farm - E.farm.qty - growing(), pRoom = c.plantIn - E.plantIn.qty - inbound('P'), oRoom = c.plantOut - E.plantOut.qty - E.procs.reduce((a, p) => a + p.qty, 0);
+      const g1 = room > 0 && S.cash >= SEED, w1 = room <= 0 ? 'The co-op store is full: truck crates to the plant (step 2).' : S.cash < SEED ? `Seed costs ${usd(SEED)} a crate; you have ${usd(S.cash)}.` : '';
+      const g2 = E.farm.qty > 0 && pRoom > 0 && r1, w2 = !E.farm.qty ? (E.grows.length ? 'Your crops are still growing.' : 'Nothing at the co-op yet: grow crops first (step 1).') : pRoom <= 0 ? 'Your store at the plant is full: process what is there (step 3).' : !r1 ? 'The road to the plant is closed: bookings wait until it reopens.' : '';
+      const g3 = E.plantIn.qty > 0 && oRoom > 0, w3 = !E.plantIn.qty ? (road.some(s => s.kind === 'crop') ? 'Your crates are on the way to the plant.' : 'No crates at the plant yet: truck some there (step 2).') : oRoom <= 0 ? 'The food store is full: deliver some food (step 4).' : '';
+      const g4 = E.plantOut.qty > 0, w4 = !E.plantOut.qty ? (E.procs.length ? 'The plant is still packing your food.' : 'No food to sell yet: process crates (step 3).') : '';
+      return { title: 'Jobs · your food business', html: `<div class="inv"><div>Co-op store<b>${E.farm.qty}<small style="display:inline;font-size:10px"> / ${c.farm}</small></b>crates</div><div>Plant store<b>${E.plantIn.qty}</b>crates in</div><div>Plant store<b>${E.plantOut.qty}</b>food boxes</div><div>On the road<b>${road.reduce((a, s) => a + s.qty, 0)}</b>${road.length} trip${road.length === 1 ? '' : 's'}</div></div>
+        <p class="note">You run all four steps yourself. Each is charged when you confirm it; money comes back when food reaches a buyer.</p>
+        ${broke() ? `<div class="row"><span class="ic">${ic('bank')}</span><div><b>Short of money?</b><small>${NET.online ? 'Sell food you hold to other players in Trade. A grant from the island server isn\'t available yet.' : 'The co-op advances new growers seed money.'}</small></div>${NET.online ? '' : `<button class="btn go" id="grant" ${S.grantAt && now() - S.grantAt < 15 * 60e3 ? 'disabled' : ''}>GET $150</button>`}</div>` : ''}
+        ${step(1, 'Grow crops', 'Your field at Greenfields', [['Costs', `${usd(SEED)} a crate (seed and labour)`], ['Takes', `${GROW_S} s a crate · 40 crates in ${clock(40 * GROW_S)}`], ['Makes', `crates in the co-op store (${E.farm.qty + growing()} of ${c.farm} used)`], ['Then', 'truck them to the plant']], B('GROW CROPS', 'grow', g1), w1, timer(E.grows, 'Growing'))}
+        ${step(2, 'Truck crates to the plant', 'Greenfields → over the bridge → Industrial Isle', [['You have', `${E.farm.qty} crates at the co-op`], ['Costs', `${usd(shipFee('truck', r1 ? r1.len : 0))} a trip · up to ${c.truck} crates`], ['Takes', r1 ? `~${clock(eta(r1.len))} · ${(r1.len / 1000).toFixed(1)} km` : 'road closed'], ['Vehicles', `${F.truck - busy('truck')} of ${F.truck} truck${F.truck > 1 ? 's' : ''} free`], ['Then', 'they wait in your plant store']], B('SHIP CRATES', 'ship', g2), w2, road.filter(s => s.kind === 'crop').map(shipRow).join(''))}
+        ${step(3, 'Process into food', 'Processing Plant, Industrial Isle', [['You have', `${E.plantIn.qty} crates at the plant`], ['Costs', `${usd(PROC_FEE)} a crate`], ['Takes', `${PROC_S} s a crate`], ['Makes', '1 box of food per crate'], ['Then', 'deliver it to a buyer']], B('PROCESS', 'process', g3), w3, timer(E.procs, 'Packing'))}
+        ${step(4, 'Deliver and sell food', 'The Old Quarter shops or Hotel Azure', [['You have', `${E.plantOut.qty} boxes at the plant`], ['Shops pay', `${usd(priceOf('shops'))} a box · want ${Math.max(0, Math.floor(E.demand.shops - inbound('C')))}${matchOn() ? ' · match day +15%' : ''}`], ['Hotel pays', level() >= 2 ? `${usd(priceOf('hotel'))} a box · want ${Math.max(0, Math.floor(E.demand.hotel - inbound('J')))}` : 'contract opens at level 3'], ['Costs', `shipping ${usd(shipFee(F.van ? 'van' : 'truck', r2 ? r2.len : 0))}–${usd(shipFee('truck', r3 ? r3.len : 0))} a trip`], ['Then', 'paid on arrival, plus XP from the profit']], `<div class="acts">${B('SELL TO SHOPS', 'deliver:shops', g4)}${B(level() >= 2 ? 'SELL TO HOTEL' : 'HOTEL · LEVEL 3', 'deliver:hotel', g4 && level() >= 2)}</div>`, w4, road.filter(s => s.kind === 'food').map(shipRow).join(''))}
+        <p class="sec">Other ways to grow</p><button class="row" id="jb"><span class="ic">${ic('build')}</span><div><b>Buy property</b><small>Homes, villas, shops and offices, in Build</small></div></button>`,
+        bind: r => { r.querySelectorAll('[data-act]').forEach(b => b.onclick = () => { const [act, buyer] = b.dataset.act.split(':'); open('quote', { act, buyer }, true); }); bindTrack(r); $('jb').onclick = () => open('build');
+          if ($('grant')) $('grant').onclick = () => { S.cash += 150; S.grantAt = now(); save(); toast('The co-op advanced $150', 'Enough seed for 50 crates'); open('jobs'); }; } }; },
+    quote: a => { const opts = [5, 10, 20, 40, 80], probe = quote(a.act, 1, a.buyer), max = Math.max(0, probe.max || 0), choices = opts.filter(n => n <= Math.max(max, 5)); let qty = qtyPick[a.act + (a.buyer || '')] || Math.min(max || 5, 40); if (qty > max && max) qty = choices.filter(n => n <= max).pop() || max; const q = quote(a.act, qty, a.buyer);
+      return { title: { grow: 'Grow crops', ship: 'Truck crates to the plant', process: 'Process into food', deliver: 'Deliver and sell' }[a.act], html: `<p class="sec">How many</p><div class="seg">${[...new Set([...choices.filter(n => n <= max), max].filter(n => n > 0))].sort((x, y) => x - y).map(n => `<button data-q="${n}" class="${n === qty ? 'on' : ''}">${n === max && !opts.includes(n) ? 'All ' + n : n}</button>`).join('') || '<span class="note">Nothing available</span>'}</div>
+        <table class="t">${q.rows.map(([k, v, cls]) => `<tr class="${cls === 'key' || cls === 'sum' ? cls : ''}"><td>${esc(k)}</td><td class="${cls === 'est' ? 'est' : cls === 'key' || cls === 'sum' ? '' : cls}">${esc(v)}</td></tr>`).join('')}</table>
+        ${q.note ? `<p class="note">${esc(q.note)}</p>` : ''}${q.ok ? '' : `<p class="note why">${esc(q.why)}</p>`}
+        <div class="acts sticky"><button class="btn ghost" id="qc">CANCEL</button><button class="btn go" id="qok" ${q.ok ? '' : 'disabled'}>${q.cost ? 'PAY ' + usd(q.cost) : 'CONFIRM'}</button></div>`,
       bind: r => { r.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { qtyPick[a.act + (a.buyer || '')] = +b.dataset.q; open('quote', a, true); stack.pop(); }); $('qc').onclick = () => $('pBack').click(); $('qok').onclick = () => confirm(q, a.buyer); } }; },
-    trade: () => { const mine = E.ships.slice().reverse(); return { title: 'Trade', html: `<p class="sec">Your shipments</p>${mine.length ? mine.map(shipRow).join('') : '<p class="note">None yet: start in Jobs.</p>'}
-      <p class="sec">Buyers</p><div class="row"><span class="ic">${ic('home')}</span><div><b>Old Quarter shops</b><small>${usd(priceOf('shops'))} a box · want ${Math.max(0, Math.floor(E.demand.shops))}${matchOn() ? ' · match day +15%' : ` · next match in ${clock((E.match - now()) / 1000)}`}</small>${bar(E.demand.shops, BUYER.shops.max)}</div></div>
+    trade: () => { const mine = E.ships.slice().reverse(), rb = R('L', 'O'), rr = R('FA', 'P'); return { title: 'Trade', html: `<p class="sec">Your shipments</p>${mine.length ? mine.map(shipRow).join('') : '<p class="note">None yet. Book trips in Jobs: steps 2 and 4.</p>'}
+      <p class="sec">Buyers · shared by every player</p>
+      <div class="row"><span class="ic">${ic('home')}</span><div><b>Old Quarter shops</b><small>${usd(priceOf('shops'))} a box · want ${Math.max(0, Math.floor(E.demand.shops))}${matchOn() ? ' · match day: +15% and more wanted' : ` · next match in ${clock(((NET.online ? E.matchAt : E.match) - now()) / 1000)}`}</small>${bar(E.demand.shops, BUYER.shops.max)}</div></div>
       <div class="row ${level() < 2 ? 'lock' : ''}"><span class="ic">${ic('home')}</span><div><b>Hotel Azure</b><small>${usd(priceOf('hotel'))} a box · want ${Math.max(0, Math.floor(E.demand.hotel))}</small>${bar(E.demand.hotel, BUYER.hotel.max)}</div>${level() < 2 ? '<span class="lockt">LEVEL 3</span>' : ''}</div>
-      ${NET.online ? `<p class="sec">Market between players</p>
-      ${MARKET.filter(l => l.seller !== NET.me).map(l => `<div class="row"><span class="ic">${ic('trade')}</span><div><b>${l.qty} boxes from ${esc(l.name)}</b><small>${usd(l.price)} a box · ${usd(l.qty * l.price)} in all · into your plant store at once</small></div><button class="btn go" data-mbuy="${l.id}">BUY</button></div>`).join('') || '<p class="note">No offers from other players right now.</p>'}
-      ${MARKET.filter(l => l.seller === NET.me).map(l => `<div class="row"><span class="ic">${ic('trade')}</span><div><b>Your offer: ${l.qty} boxes</b><small>${usd(l.price)} a box · waiting for a buyer</small></div><button class="btn" data-mcan="${l.id}">CANCEL</button></div>`).join('')}
-      <button class="btn" id="mlist" ${E.plantOut.qty ? '' : 'disabled'} style="width:100%">OFFER FOOD TO PLAYERS</button>` : ''}
-      <p class="sec">Routes</p><div class="row"><span class="ic">${ic('trade')}</span><div><b>Sea route: harbour ⇄ Industrial Isle</b><small>Cargo boat ${World.SEA ? World.SEA.state() : ''}</small></div></div>
-      <div class="row"><span class="ic">${ic('trade')}</span><div><b>Bridge to Industrial Isle</b><small>${bridgeClosed ? 'Closed: trucks wait and re-plan' : 'Open both ways'}</small></div><button class="btn" id="tb">${bridgeClosed ? 'REOPEN' : 'CLOSE (TEST)'}</button></div>
-      <p class="sec">Island deliveries</p>${World.SHIP.map(s => `<div class="row"><span class="ic">${ic('truck')}</span><div><b>${esc(PLACE[s.from] || s.from)} → ${esc(PLACE[s.to] || s.to)}</b><small>${s.runs} delivered</small></div>${chipOf({ status: s.status === 'loading' ? 'queued' : s.status })}</div>`).join('')}`,
+      <p class="note">The price falls as a buyer fills up and recovers as demand refills over time. When you book a delivery the price is fixed and those boxes are reserved for you, so changes while your goods travel don't touch your sale.</p>
+      ${NET.online ? `<p class="sec">Offers between players</p>
+      ${MARKET.filter(l => l.seller !== NET.me).map(l => `<div class="row"><span class="ic">${ic('trade')}</span><div><b>${l.qty} boxes from ${esc(l.name)}</b><small>${usd(l.price)} a box · ${usd(l.qty * l.price)} for all · straight into your plant store</small></div><button class="btn go" data-mbuy="${l.id}">BUY</button></div>`).join('') || '<p class="note">No offers from other players right now.</p>'}
+      ${MARKET.filter(l => l.seller === NET.me).map(l => `<div class="row"><span class="ic">${ic('trade')}</span><div><b>Your offer: ${l.qty} boxes</b><small>${usd(l.price)} a box · held until someone buys or you cancel</small></div><button class="btn ghost" data-mcan="${l.id}">CANCEL</button></div>`).join('')}
+      <button class="btn" id="mlist" ${E.plantOut.qty ? '' : 'disabled'} style="width:100%">OFFER FOOD TO PLAYERS</button>${E.plantOut.qty ? '' : '<p class="note">You need food boxes at the plant to make an offer.</p>'}` : '<p class="note">Offers between players need the island server: you are playing offline.</p>'}
+      <p class="sec">Routes to Industrial Isle</p>
+      <div class="row"><span class="ic">${ic('truck')}</span><div><b>Road over the bridge</b><small>${bridgeClosed ? 'Closed: trips wait, and set off again when it reopens' : `Open · trucks and vans · Greenfields to the plant ${rr ? (rr.len / 1000).toFixed(1) + ' km, ~' + clock(eta(rr.len)) : ''}`}</small></div>${DEV ? `<button class="btn ghost" id="tb">${bridgeClosed ? 'REOPEN' : 'CLOSE'}</button>` : ''}</div>
+      <div class="row"><span class="ic">${ic('trade')}</span><div><b>Sea route: harbour ⇄ the isle</b><small>The island's cargo boat, ${World.SEA ? World.SEA.state() : ''}. It carries the island's own freight; booking space on it isn't available yet.</small></div></div>`,
       bind: r => { bindTrack(r);
         r.querySelectorAll('[data-mbuy]').forEach(b => b.onclick = () => open('mbuy', b.dataset.mbuy, true)); r.querySelectorAll('[data-mcan]').forEach(b => b.onclick = () => market('ci_cancel_listing', { p_id: b.dataset.mcan }, 'Offer cancelled', 'The boxes are back in your store'));
         if ($('mlist')) $('mlist').onclick = () => open('mlist', null, true);
-        $('tb').onclick = () => { bridgeClosed = !bridgeClosed; World.setClosed('bridge', bridgeClosed); toast(bridgeClosed ? 'Bridge closed' : 'Bridge reopened', bridgeClosed ? 'Traffic turns back at the barrier' : 'Deliveries resume'); refresh(); }; } }; },
-    mbuy: id => { const l = MARKET.find(x => x.id === id); if (!l) return { title: 'Offer', html: '<p class="note">That offer has gone.</p>' }; const total = l.qty * l.price, shop = priceOf('shops'); return { title: 'Buy from a player', html: `<table class="t"><tr><td>Seller</td><td>${esc(l.name)}</td></tr><tr><td>Food boxes</td><td>${l.qty}</td></tr><tr><td>Price</td><td>${usd(l.price)} a box</td></tr><tr><td>Total</td><td>${usd(total)}</td></tr><tr><td>Delivery</td><td>At once, into your plant store</td></tr><tr><td>Shops pay today</td><td>${usd(shop)} a box (before shipping)</td></tr></table>${S.cash < total ? '<p class="note bad">Not enough cash.</p>' : ''}<div class="acts"><button class="btn" id="qc">CANCEL</button><button class="btn go" id="qok" ${S.cash < total ? 'disabled' : ''}>BUY ${usd(total)}</button></div>`,
+        if ($('tb')) $('tb').onclick = () => { bridgeClosed = !bridgeClosed; World.setClosed('bridge', bridgeClosed); toast(bridgeClosed ? 'Bridge closed (test)' : 'Bridge reopened', bridgeClosed ? 'Traffic turns back at the barrier' : 'Deliveries resume'); refresh(); }; } }; },
+    mbuy: id => { const l = MARKET.find(x => x.id === id); if (!l) return { title: 'Offer', html: '<p class="note">That offer has gone: someone else bought it or it was cancelled.</p>' }; const total = l.qty * l.price, shop = priceOf('shops'); return { title: 'Buy from a player', html: `<table class="t"><tr><td>Seller</td><td>${esc(l.name)}</td></tr><tr><td>Food boxes</td><td>${l.qty}</td></tr><tr><td>Price</td><td>${usd(l.price)} a box</td></tr><tr class="key"><td>You pay now</td><td>${usd(total)}</td></tr><tr><td>Where they go</td><td>Your plant store, at once</td></tr><tr><td>Shops pay today</td><td class="est">${usd(shop)} a box, before shipping</td></tr></table>${S.cash < total ? `<p class="note why">You need ${usd(total - S.cash)} more.</p>` : ''}<div class="acts sticky"><button class="btn ghost" id="qc">CANCEL</button><button class="btn go" id="qok" ${S.cash < total ? 'disabled' : ''}>PAY ${usd(total)}</button></div>`,
       bind: () => { $('qc').onclick = () => $('pBack').click(); $('qok').onclick = () => market('ci_buy_listing', { p_id: id }, `Bought ${l.qty} boxes from ${l.name}`, 'They are in your plant store', true); } }; },
     mlist: () => { const max = E.plantOut.qty, shop = priceOf('shops'), prices = [Math.max(1, Math.round(shop - 2)), Math.round(shop), Math.round(shop + 2)], k = mlistPick; k.qty = Math.min(k.qty || 10, max) || max; k.price = k.price || prices[1]; const basis = avg(E.plantOut) * k.qty;
       return { title: 'Offer food to players', html: `<p class="sec">How many</p><div class="seg">${[...new Set([5, 10, 20, max].filter(n => n > 0 && n <= max))].map(n => `<button data-q="${n}" class="${n === k.qty ? 'on' : ''}">${n}</button>`).join('')}</div><p class="sec">Price a box</p><div class="seg">${prices.map(n => `<button data-p="${n}" class="${n === k.price ? 'on' : ''}">${usd(n)}</button>`).join('')}</div>
-        <table class="t"><tr><td>Boxes</td><td>${k.qty} of ${max}</td></tr><tr><td>What they cost you</td><td>${usd(basis)}</td></tr><tr><td>If sold</td><td>${usd(k.qty * k.price)}</td></tr><tr><td>Net profit</td><td class="${k.qty * k.price - basis > 0 ? 'ok' : 'bad'}">${usd(k.qty * k.price - basis)}</td></tr><tr><td>While on offer</td><td>The boxes are held; cancel any time</td></tr></table>
-        <div class="acts"><button class="btn" id="qc">CANCEL</button><button class="btn go" id="qok" ${max ? '' : 'disabled'}>OFFER</button></div>`,
+        <table class="t"><tr><td>Boxes</td><td>${k.qty} of ${max}</td></tr><tr><td>Already spent on them</td><td>${usd(basis)}</td></tr><tr class="key"><td>If someone buys</td><td>${usd(k.qty * k.price)}</td></tr><tr class="sum"><td>Profit</td><td class="${k.qty * k.price - basis > 0 ? 'ok' : 'bad'}">${usd(k.qty * k.price - basis)}</td></tr></table><p class="note">The boxes are held while on offer; cancel any time to get them back.</p>
+        <div class="acts sticky"><button class="btn ghost" id="qc">CANCEL</button><button class="btn go" id="qok" ${max ? '' : 'disabled'}>OFFER</button></div>`,
       bind: r => { r.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { k.qty = +b.dataset.q; open('mlist', null, true); stack.pop(); }); r.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { k.price = +b.dataset.p; open('mlist', null, true); stack.pop(); }); $('qc').onclick = () => $('pBack').click(); $('qok').onclick = () => market('ci_list_food', { p_id: uuid(), p_qty: k.qty, p_price: k.price }, `Offered ${k.qty} boxes`, 'Other players can buy them now', true); } }; },
-    map: () => ({ title: 'Map', html: `<div class="acts"><button class="btn gold" id="mi">ISLAND VIEW</button><button class="btn" id="mh">MY HOME</button></div>
-      ${NET.online ? `<p class="sec">On the island now</p>${[...NET.players.values()].map(p => `<div class="row"><span class="ic" style="background:${esc(p.color)}">${ic('home')}</span><div><b>${esc(p.name)}</b><small>Looking around near ${esc(areaAt(p.x, p.z))}</small></div><button class="btn" data-pv="${esc(p.id)}">VISIT</button></div>`).join('') || '<p class="note">Nobody else is here right now. Share the link with a friend.</p>'}` : ''}<p class="sec">Areas</p>
-      ${AREAS.map(([n, , , d], i) => `<div class="row"><span class="ic">${ic('map')}</span><div><b>${n}${S.seen[n] ? '' : ' · new'}</b><small>${d}</small></div><button class="btn" data-a="${i}">GO</button></div>`).join('')}
-      <p class="sec">Road checks</p><div class="row"><span class="ic">${ic('truck')}</span><div><b>Traffic</b><small>${World.cars.length} vehicles · ${World.stats.teleports} jumps · ${World.stats.stuck} stuck</small></div><button class="btn" id="mt">RUN ROUTE TEST</button></div><div id="rt"></div>`,
+    map: () => ({ title: 'Map', html: `<div class="acts"><button class="btn gold" id="mi">WHOLE ISLAND</button><button class="btn ghost" id="mh">${ic('home')}MY HOME</button></div>
+      ${NET.online ? `<p class="sec">Players on the island now · ${NET.players.size + 1}</p><div class="row"><span class="ic" style="background:${esc(S.color)};color:#fff">${esc((S.name || '?')[0].toUpperCase())}</span><div><b>${esc(S.name)} (you)</b><small>Others see a pin in your colour where you are looking</small></div></div>${[...NET.players.values()].map(p => `<div class="row"><span class="ic" style="background:${esc(p.color)};color:#fff">${esc(String(p.name || '?')[0].toUpperCase())}</span><div><b>${esc(p.name)}</b><small>Near ${esc(areaAt(p.x, p.z))}</small></div><button class="btn ghost" data-pv="${esc(p.id)}">GO</button></div>`).join('') || '<p class="note">Nobody else is here right now. Send a friend the link.</p>'}` : '<p class="note">Offline: other players appear when you play online.</p>'}
+      <p class="sec">Places</p>${AREAS.map(([n, , , d], i) => `<div class="row"><span class="ic">${ic('map')}</span><div><b>${n}${S.seen[n] ? '' : ' · new'}</b><small>${d}</small></div><button class="btn ghost" data-a="${i}">GO</button></div>`).join('')}
+      ${DEV ? `<p class="sec">Road checks (test)</p><div class="row"><span class="ic">${ic('truck')}</span><div><b>Traffic</b><small>${World.cars.length} vehicles · ${World.stats.teleports} jumps · ${World.stats.stuck} stuck</small></div><button class="btn ghost" id="mt">RUN</button></div><div id="rt"></div>` : ''}`,
       bind: () => { $('mi').onclick = () => { World.mark(null); World.flyTo(World.overview(), 1.5); if (innerWidth < 760) close(); }; $('mh').onclick = () => visit(World.home);
         document.querySelectorAll('[data-pv]').forEach(b => b.onclick = () => { const p = NET.players.get(b.dataset.pv); if (!p) return; World.mark(null); World.flyTo(World.view(p.x, p.z, 160, 0.9, 0.5), 1.4); if (innerWidth < 760) close(); });
         document.querySelectorAll('[data-a]').forEach(b => b.onclick = () => { const [n, x, z] = AREAS[+b.dataset.a]; World.mark(null); World.flyTo(World.view(x, z, 320, 0.85, 0.4), 1.4); seeArea(n); if (innerWidth < 760) close(); });
-        $('mt').onclick = () => { const res = World.routeTest(), rep = World.roadReport(); $('rt').innerHTML = `<p class="note">${rep.connected ? '<span class="ok">All roads connected.</span>' : '<span class="bad">Some roads are not connected.</span>'} Dead ends, each with a turning circle: ${rep.deadEnds.length}. Road points over water: ${rep.roadPointsOverWater}. Steepest grade ${rep.maxGrade}.</p><table class="t">${res.map(t => `<tr><td>${esc(t.route)}</td><td class="${t.ok ? 'ok' : 'bad'}">${t.ok ? 'PASS' : 'FAIL'} · ${t.length || ''} m</td></tr>`).join('')}</table>`; }; } }),
-    settings: () => ({ title: 'Settings', html: `<div class="row"><div><b>Graphics</b><small>After a reload</small></div><div class="seg">${['low', 'medium', 'high'].map(k => `<button data-q="${k}" class="${k === quality ? 'on' : ''}">${k}</button>`).join('')}</div></div>
-      <div class="row"><div><b>Frame rate</b><small>In the corner</small></div><button class="btn" id="sf">${$('fps').hidden ? 'SHOW' : 'HIDE'}</button></div><div class="row"><div><b>Reset this preview</b><small>Your real game is never touched</small></div><button class="btn" id="sr">RESET</button></div><p class="note">© 2026 Pocket Rocket Studio</p>`,
+        if ($('mt')) $('mt').onclick = () => { const res = World.routeTest(), rep = World.roadReport(); $('rt').innerHTML = `<p class="note">${rep.connected ? '<span class="ok">All roads connected.</span>' : '<span class="bad">Some roads are not connected.</span>'} Road points over water: ${rep.roadPointsOverWater}. Doors on the path network: ${World.access.joined}, at a road edge: ${World.access.road}, none: ${World.access.none.length}.</p><table class="t">${res.map(t => `<tr><td>${esc(t.route)}</td><td class="${t.ok ? 'ok' : 'bad'}">${t.ok ? 'PASS' : 'FAIL'} · ${t.length || ''} m</td></tr>`).join('')}</table>`; }; } }),
+    settings: () => ({ title: 'Settings', html: `<div class="row"><div><b>Graphics</b><small>Low is fastest on older phones · applies after a reload</small></div><div class="seg">${['low', 'medium', 'high'].map(k => `<button data-q="${k}" class="${k === quality ? 'on' : ''}">${k}</button>`).join('')}</div></div>
+      <div class="row"><div><b>Frame rate</b><small>A counter in the corner</small></div><button class="btn ghost" id="sf">${$('fps').hidden ? 'SHOW' : 'HIDE'}</button></div><div class="row"><div><b>Clear this device</b><small>${NET.online ? 'Online progress stays on the island server' : 'Deletes your offline progress'}</small></div><button class="btn ghost" id="sr">CLEAR</button></div><p class="note">© 2026 Pocket Rocket Studio</p>`,
       bind: r => { r.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { quality = b.dataset.q; try { localStorage.setItem('cs-sample3-q', quality); } catch (e) { /* fine */ } open('settings'); toast('Graphics: ' + quality, 'Reload to apply'); }); $('sf').onclick = () => { $('fps').hidden = !$('fps').hidden; open('settings'); }; $('sr').onclick = () => { try { localStorage.removeItem(KEY); } catch (e) { /* fine */ } location.reload(); }; } }),
   };
   let bridgeClosed = false, mlistPick = {};
   const areaAt = (x, z) => { let best = AREAS[0][0], d = 1e9; for (const [n, ax, az] of AREAS) { const e = Math.hypot(ax - x, az - z); if (e < d) { d = e; best = n; } } return best; };
-  async function market(fn, args, ok, sub, back) { if (pendingCall) return; pendingCall = true; try { applyState(await NET.call(fn, args)); toast(ok, sub); if (back) open('trade'); else refresh(); } catch (e) { toast(e.net ? 'No connection' : 'Not done', e.net ? 'Try again when you are back online.' : e.message); NET.refresh(); } pendingCall = false; }
+  async function market(fn, args, ok, sub, back) { if (pendingCall) return; pendingCall = true; try { applyState(await NET.call(fn, args)); toast(ok, sub); if (back) open('trade'); else refresh(); } catch (e) { toast(e.net ? 'No connection' : 'Not done', e.net ? 'Nothing changed. Try again when you are back online.' : e.message, true); NET.refresh(); } pendingCall = false; }
 
   // tap a building: its card
   let down = null;
-  $('c').addEventListener('pointerdown', e => { down = [e.clientX, e.clientY, performance.now()]; follow = null; });
+  $('c').addEventListener('pointerdown', e => { down = [e.clientX, e.clientY, performance.now()]; if (follow) unfollow(); });
   $('c').addEventListener('pointerup', e => { if (!down || $('hud').hidden || World.flying) return; const moved = Math.hypot(e.clientX - down[0], e.clientY - down[1]), quick = performance.now() - down[2] < 450; down = null; if (moved > 8 || !quick) return; const b = World.pickAt(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); if (b) open('card', b.id); else if (!P.hidden && innerWidth >= 760) close(); });
   window.App = { S, E, NET, open, close, visit, level, quote, confirm, economy, handles, lotOf, market, get OWN() { return OWN; }, get MARKET() { return MARKET; }, frame: () => loop(performance.now()) }; // frame(): one step by hand, for tests in a hidden tab
 })();

@@ -355,6 +355,46 @@ Learned from the look of illustrated city builders (CityRT, SimCity BuildIt, Cit
 | Balconies | ✅ flats without shutters get balconies on alternate bays: a slab and a white, dark or terracotta rail, drawn in the wall shader |
 | Cream panels | ✅ every sheet (Exchange, Property, Bank, Jobs, Settings, join, stories) is warm cream with navy type and the same chunky navy outline; coloured headers and buttons stay |
 
+## Goal 34: Capital Island replanned: connected streets and paths, working districts, better buildings and vehicles, a clearer interface
+
+The same preview at `island/sample/` (Capital Street is the game, Capital Island the island). Before it started, the old version was tagged `island-before-goal34`. The live database was not changed.
+
+| Check | Result |
+|---|---|
+| Progress and ownership kept | ✅ the 118 buyable plots now have fixed positions in the code, so the server's lot list and anything already owned still match. The lot list was compared before and after every stage: identical |
+| Kinds of street | ✅ town streets (kerbed pavements both sides, zebras set back from the junctions, tactile paving, stop lines), villa lanes (narrower, a footpath each side), rural roads (edge lines, gravel shoulders), farm tracks (gravel), works roads on Industrial Isle and the quay (concrete, yellow edges) |
+| Junctions and dead ends | ✅ each junction is shaped from its roads, joined by kerb curves (no more round dark patches); every dead end opens into the forecourt, car park, quay or farmyard it serves |
+| Vehicles stay on the road | ✅ the route test now also checks that a vehicle's centre and both sides (1.1 m out) stay on a paved surface the whole way: 26/26 routes pass. 120 s of traffic: 0 jumps, 0 stuck |
+| A walking network | ✅ pavements joined round every corner and across every zebra, footpaths routed round buildings and gardens (never through a hedge), a path from 106 of 109 front doors (103 to the network, 3 to a road edge). Not yet: the Sailing club, 16 Park Lane and 6 Park Lane |
+| Market Square and the parks | ✅ an entrance on each side, banded paving, a fountain in a ring, four planted corners with shade trees, benches, bins, lamps, bike racks, a café and six market stalls. Quarter Park: a bandstand, a woodland walk, a community garden, the playground; every path reaches a street |
+| Houses, flats and villas | ✅ six house styles (hipped, side gable with porch, front gable with bay, flat-roofed modern, bungalow with garage, columned porch), each with its own palette, a front fence or hedge and a gate at its path. Flats have hipped, gabled or flat roofs with gardens. Three villa styles with front walls, gate piers, a drive to a carport (with a car), a terrace and pool, a balcony and privacy planting. The woods keep out of the villa plots |
+| Business Centre | ✅ paved blocks with planted courtyards, trees in planters, cafés and bike racks at the towers; the Exchange has a portico and a clock tower |
+| Farms you can read | ✅ fields in rows along the farm roads, hedgerows with gates, headland tracks to the back fields, crops at different stages, farmyards with shelters and tractors. Your own field behind the co-op shows the crop growing and then stubble; crates pile up in the co-op yard and at the plant; the plant's chimneys smoke while it works |
+| Beach and Hotel Azure | ✅ the promenade is joined to the town at several points; boardwalks onto the sand; sun shelters; a guest forecourt with flags at the drop-off and a service door for deliveries beside it. The shoreline is softer and uneven instead of one bright outline |
+| Stadium | ✅ a paved apron, paths from both car parks to the gates, snack kiosks, banners, floodlight masts on the rim. On match days the floodlights come on, the stands fill and people walk to the gates |
+| Harbour and Industrial Isle | ✅ a gatehouse and barrier on the quay road, a fence between the quay and the town, marked loading bays, containers in three shipping-line colours, concrete yards at the sheds. The plant has a loading yard at the truck stop with INBOUND and OUTBOUND doors |
+| Vehicles | ✅ hatchback, saloon, SUV, pickup, van, bus, box lorry, and a crate lorry for your crops. The wheels are separate: they roll with the distance driven and the front pair steers |
+| People | ✅ 80 people (40 on Low graphics) walk the network to front doors, the square, the market, the park, the beach and, on match days, the stadium. They cross only at zebras, pause, then set off again. Their legs swing |
+| Other players | ✅ a pin and ring in the player's colour where they are; the label with their initial sits on the pin |
+| Title screen and name | ✅ "Capital Street" with "Capital Island" and a Preview tag, one line on what you do, a new picture taken from the current island. The name field says it's a display name everyone sees and must be unused, shows the rules and a counter, explains mistakes as you type, keeps what you typed, says clearly when a name is taken, shows a spinner while connecting, and Enter plays |
+| Interface | ✅ thinner outlines, one type scale, 44 px buttons. XP reads "35 / 120 XP" with a bar. On phones the panel is a half-height sheet that expands, with Confirm always in reach; on computers a side panel |
+| Jobs and quotes | ✅ what you hold and where (co-op, plant crates, plant food, on the road), then the four steps you run yourself, each with what it costs, takes, makes and what comes next. Every disabled button says why. Quotes keep "You pay now" apart from "Already spent"; the crate trip says it's a transfer, not a sale; estimates are marked |
+| Trade | ✅ shipments with the route on its own line; buyers are shared by every player, with the price fixed and the boxes reserved when you book (explained there). The CLOSE (TEST) button and the road checks appear only with `?dev` |
+| A full production cycle | ✅ offline, 10 crates: $30 seed + $42 truck + $20 processing + $33 delivery = $125 paid, $160 back, $35 profit, as the quotes said; 44 XP (the offline profit XP now rounds down like the server) |
+| Multiplayer | ✅ re-run with two separate guests on the local copy of the server: both see each other, the shops can't be oversold (one of two bookings was refused), a double-tapped booking made one trip, a double buy of one offer gave one sale and "That offer has gone", your own offer is refused, both screens agree, a reload keeps everything |
+| Speed | ✅ in headless Edge on the Intel UHD 620 at 1280×800: 56 fps at district view (resolution scaling at 0.72), 60 fps close up, 100–190 draw calls. Building the island takes 3.8–4.9 s, up from about 2.5 s (the footpaths are routed then) |
+
+**Not done or not tested yet:**
+- Not tried on a real phone.
+- Sea freight can't be booked: the server doesn't support it yet.
+- Rent isn't paid out and properties have no upgrades: both need server changes.
+- When you're out of money online there's no help yet; offline, the co-op advances $150, at most every 15 minutes.
+- The island isn't linked from the main menu, and there are no private areas.
+- Wide grass areas remain between the Business Centre and the stadium and in parts of Greenfields.
+- Three doors have no path.
+- People don't step round each other.
+- The server's lot names still carry the old duplicate house numbers. The game now shows unique addresses; the server's names aren't shown anywhere.
+
 ## Goals 32 and 33: Capital Island (a preview beside the game, multiplayer on the live server)
 
 Open it at `island/sample/index.html` (live: `/island/sample/`). It is a separate preview: the New York game isn't changed and doesn't link to it yet.
@@ -436,6 +476,7 @@ From the 5 new reference videos (a player-run economy game on the real world map
 21. ✅ **High-end graphics:** bloom, grading, a sun that follows the clock, clouds, glass, water, night lights
 22. ✅ **Simpler:** a new menu, online-only play, a clean map and screen, a tutorial
 23. ✅ **Surprises:** more market events, planes in the sky, plane crashes
+34. ✅ **Capital Island replanned:** connected streets and footpaths, working farms and districts, six house styles, new vehicles with turning wheels, people on the pavements, a clearer interface (see Goal 34)
 33. ✅ **Capital Island multiplayer:** a shared economy on the live server, checked by the database, tested with two players (see Goals 32 and 33)
 32. ✅ **Capital Island preview:** an irregular island with districts, one road network, working traffic and a food chain from farm to shop
 31. ✅ **A real start:** a walk-up at the Seaport, loading that explains itself, safe saves and backups, multiplayer that reconnects and is checked on the server, a short first mission
