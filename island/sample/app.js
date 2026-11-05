@@ -16,8 +16,10 @@
   const fresh = () => ({ cash: 2340, xp: 0, owned: {}, seen: {}, done: {}, eco: freshEco() });
   let S; try { S = Object.assign(fresh(), JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { S = fresh(); }
   S.eco = Object.assign(freshEco(), S.eco || {}); // saves from the first sample gain the economy
-  const E = S.eco, save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* keeps going */ } };
-  let quality = (() => { try { return localStorage.getItem('cs-sample3-q') || 'high'; } catch (e) { return 'high'; } })();
+  let saveFail = false; // a device can refuse to store anything (full, or private browsing): say so rather than lose progress silently
+  const E = S.eco, save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); saveFail = false; } catch (e) { if (!saveFail) { saveFail = true; if (!NET.online) setTimeout(() => toast('Progress is not being saved', 'This device\'s storage is full or blocked (private browsing?). Playing online keeps your progress on the island server.', true), 0); } } };
+  const QS = ['auto', 'low', 'medium', 'high'];
+  let qpref = (() => { try { const v = localStorage.getItem('cs-sample3-q'); return QS.includes(v) ? v : 'auto'; } catch (e) { return 'auto'; } })(); // what the player picked; Auto lets the device decide
 
   // ---------- progression: each level unlocks something you use, the next reward is always shown ----------
   const LEVELS = [
@@ -34,7 +36,7 @@
   function once(key, n, why) { if (S.done[key]) return; S.done[key] = true; xp(n, why); } // one-off rewards can't be repeated
 
   let toastT = 0;
-  function toast(t, b = '', bad) { $('toastT').textContent = t; $('toastB').textContent = b; $('toast').classList.toggle('bad', !!bad); $('toast').classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => $('toast').classList.remove('on'), 2800); }
+  function toast(t, b = '', bad) { $('toastT').textContent = t; $('toastB').textContent = b; $('toast').classList.toggle('bad', !!bad); $('toast').classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => $('toast').classList.remove('on'), bad ? 6500 : 2800); }
 
   // ---------- multiplayer: when the island server is reachable, money, stores, shipments, ownership and the market live
   // there and every action is checked there; the game shows what the server says. Offline, the same game runs locally.
@@ -97,10 +99,42 @@
   const jmsg = (t, bad) => { $('jmsg').textContent = t; $('jmsg').classList.toggle('bad', !!bad); nm.classList.toggle('bad', !!bad); };
   const nameProblem = n => n.length < 3 ? 'Use at least 3 characters.' : n.length > 20 ? 'Use at most 20 characters.' : !/^[A-Za-z0-9 _.-]+$/.test(n) ? 'Only letters, numbers, spaces, dots, dashes and underscores.' : !NAME_RE.test(n) ? 'Start and end with a letter or a number.' : '';
   nm.oninput = () => { cnt(); const n = nm.value.trim(), p = n.length >= 3 || n.length > 20 ? nameProblem(n) : ''; jmsg(p, !!p); }; // say what's wrong while typing, but not before there's a name to judge
+  // ---------- graphics: checked before Play, so a device that can't draw 3D says so here and not after a failed load ----------
+  const GFX = (() => {
+    const G = { ok: false, soft: false, renderer: '', why: '' };
+    try {
+      const cv = document.createElement('canvas'), gl = cv.getContext('webgl2') || cv.getContext('webgl') || cv.getContext('experimental-webgl');
+      if (!gl) G.why = window.WebGLRenderingContext ? 'the browser would not create a 3D drawing surface (hardware acceleration is off or blocked)' : 'this browser has no WebGL';
+      else {
+        const x = gl.getExtension('WEBGL_debug_renderer_info'), tex = gl.getParameter(gl.MAX_TEXTURE_SIZE) | 0;
+        G.renderer = String((x ? gl.getParameter(x.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)) || '');
+        G.soft = /swiftshader|llvmpipe|softpipe|software|basic render/i.test(G.renderer); // drawn by the processor, not a graphics chip
+        G.ok = tex >= 2048; if (!G.ok) G.why = `the graphics chip is too limited (largest texture ${tex} px, 2048 needed)`;
+        const lose = gl.getExtension('WEBGL_lose_context'); if (lose) lose.loseContext(); // the probe hands its context back; the game makes its own
+      }
+    } catch (e) { G.why = 'the graphics check failed (' + (e.message || e) + ')'; }
+    return G;
+  })();
+  const autoQ = () => GFX.soft || (navigator.deviceMemory && navigator.deviceMemory <= 1) ? 'low' : navigator.deviceMemory && navigator.deviceMemory <= 2 ? 'medium' : 'high';
+  const effQ = () => qpref === 'auto' ? autoQ() : qpref, cap = s => s[0].toUpperCase() + s.slice(1);
+  const setQ = k => { qpref = k; try { localStorage.setItem('cs-sample3-q', k); } catch (e) { /* the choice holds for this visit */ } };
+  const gfxMsg = (t, bad) => { const g = $('gfxmsg'); g.textContent = t; g.hidden = !t; g.classList.toggle('bad', !!bad); };
+  const gfxNote = () => gfxMsg(!GFX.ok ? '' : GFX.soft ? 'This device draws 3D graphics in software, so the island will run slowly.' + (qpref === 'auto' ? ' Auto uses Low.' : '') : qpref === 'auto' ? `Auto uses ${cap(autoQ())} graphics on this device.` : '');
+  $('gfx').insertAdjacentHTML('beforeend', QS.map(k => `<button type="button" data-q="${k}" class="${k === qpref ? 'on' : ''}" aria-pressed="${k === qpref}">${k[0].toUpperCase() + k.slice(1)}</button>`).join(''));
+  $('gfx').querySelectorAll('[data-q]').forEach(b => b.onclick = () => { setQ(b.dataset.q); $('gfx').querySelectorAll('[data-q]').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-pressed', x === b); }); gfxNote(); });
+  if (GFX.ok) gfxNote();
+  else { $('gfx').hidden = true; gfxMsg(`Capital Street can't start on this device: ${GFX.why}. Turn on hardware acceleration or update the browser, or try Chrome, Edge, Firefox or Safari. A lower graphics level can't fix this.`, true); $('play').disabled = true; $('play').textContent = 'CAN\'T PLAY HERE'; }
+  // the device can take the graphics away (a background tab, a busy graphics chip): say so, and carry on when they come back
+  (() => { let t = 0; const c = $('c'), box = $('glx');
+    c.addEventListener('webglcontextlost', e => { e.preventDefault(); box.hidden = false; $('glxR').hidden = true; clearTimeout(t); t = setTimeout(() => { $('glxR').hidden = false; }, 6000); });
+    c.addEventListener('webglcontextrestored', () => { clearTimeout(t); box.hidden = true; toast('Graphics are back', 'Nothing was lost'); });
+    $('glxR').onclick = () => location.reload(); })();
+  // phones and tablets: the on-screen keyboard shrinks the visible area, so the cover follows it and PLAY stays above the keys
+  if (window.visualViewport) { const vv = visualViewport, cv = $('cover'); const fit = () => { const shrunk = vv.height < innerHeight - 120; cv.style.top = shrunk ? vv.offsetTop + 'px' : ''; cv.style.height = shrunk ? vv.height + 'px' : ''; if (shrunk && document.activeElement === nm) { const r = $('play').getBoundingClientRect(), over = r.bottom - (vv.offsetTop + vv.height) + 8; if (over > 0) cv.scrollBy({ top: over, behavior: 'smooth' }); } }; vv.addEventListener('resize', fit); vv.addEventListener('scroll', fit); nm.addEventListener('focus', () => setTimeout(fit, 400)); }
   const playBtn = (on, label) => { const b = $('play'); b.disabled = on; b.innerHTML = on ? `<span class="spin"></span>${label}` : label; };
   let started = false, joining = false, offline = !NET.ok;
   async function join() {
-    if (joining || started) return; // one join at a time, however often Play is pressed
+    if (joining || started || !GFX.ok) return; // one join at a time, however often Play is pressed (and none on a device that can't draw)
     const name = nm.value.trim(), bad = nameProblem(name);
     if (bad) { jmsg(bad, true); nm.focus(); return; } // what was typed stays, so it can be fixed
     joining = true; S.name = name; save(); $('offline').hidden = true;
@@ -116,8 +150,12 @@
   }
   function startWorld() {
     started = true;
-    try { $('c').hidden = false; const t0 = performance.now(); World.init($('c'), quality); window.buildMs = Math.round(performance.now() - t0); }
-    catch (e) { console.error(e); jmsg('The island couldn\'t be built (' + (e.message || e) + '). Try Low graphics in Settings.', true); playBtn(false, 'TRY AGAIN'); started = joining = false; return; }
+    try { $('c').hidden = false; const t0 = performance.now(); World.init($('c'), effQ()); window.buildMs = Math.round(performance.now() - t0); }
+    catch (e) {
+      console.error(e); $('c').hidden = true; started = joining = false; const why = (e && e.message) || String(e);
+      if (/webgl|context/i.test(why)) { jmsg('This device couldn\'t start 3D graphics (' + why + '). Turn on hardware acceleration, update the browser or try another one. A lower graphics level can\'t fix this.', true); playBtn(false, 'TRY AGAIN'); return; }
+      setQ('low'); jmsg('The island couldn\'t be built here (' + why + '). Graphics are now set to Low: reload and press Play. Your progress is safe.', true); const b = $('play'); b.disabled = false; b.textContent = 'RELOAD'; b.onclick = () => location.reload(); return;
+    }
     $('cover').hidden = true; World.place(World.overview()); if (NET.online) { NET.live(); applyState(lastState); } else { NET.setStatus('offline'); resume(); } loop(performance.now());
     World.flyTo(World.homeView(), 2, () => { $('hud').hidden = false; draw(); objective(); });
   }
@@ -191,7 +229,7 @@
   const R = (a, b) => World.routeInfo(a, b);
   let OWN = new Map(), MARKET = [], skew = 0, lastState = null, seenJobs = null;
   const srv = t => Date.parse(t) - skew; // server time, in this device's clock
-  const lotOf = b => `${b.type}@${Math.round(b.x)},${Math.round(b.z)}`;
+  const lotOf = b => b.lot || `${b.type}@${Math.round(b.x)},${Math.round(b.z)}`; // a building that had to move keeps the id of the plot it was sold as
   function applyState(st) {
     if (!st || !st.player || (lastState && Date.parse(st.now) < Date.parse(lastState.now))) return; lastState = st; /* an answer older than one already shown is dropped */ skew = Date.parse(st.now) - Date.now();
     const lvl0 = level(); S.cash = +st.player.cash; S.xp = st.player.xp; S.name = st.player.name; S.color = st.player.color;
@@ -436,9 +474,9 @@
         document.querySelectorAll('[data-pv]').forEach(b => b.onclick = () => { const p = NET.players.get(b.dataset.pv); if (!p) return; World.mark(null); World.flyTo(World.view(p.x, p.z, 160, 0.9, 0.5), 1.4); if (innerWidth < 760) close(); });
         document.querySelectorAll('[data-a]').forEach(b => b.onclick = () => { const [n, x, z] = AREAS[+b.dataset.a]; World.mark(null); World.flyTo(World.view(x, z, 320, 0.85, 0.4), 1.4); seeArea(n); if (innerWidth < 760) close(); });
         if ($('mt')) $('mt').onclick = () => { const res = World.routeTest(), rep = World.roadReport(); $('rt').innerHTML = `<p class="note">${rep.connected ? '<span class="ok">All roads connected.</span>' : '<span class="bad">Some roads are not connected.</span>'} Road points over water: ${rep.roadPointsOverWater}. Doors on the path network: ${World.access.joined}, at a road edge: ${World.access.road}, none: ${World.access.none.length}.</p><table class="t">${res.map(t => `<tr><td>${esc(t.route)}</td><td class="${t.ok ? 'ok' : 'bad'}">${t.ok ? 'PASS' : 'FAIL'} · ${t.length || ''} m</td></tr>`).join('')}</table>`; }; } }),
-    settings: () => ({ title: 'Settings', html: `<div class="row"><div><b>Graphics</b><small>Low is fastest on older phones · applies after a reload</small></div><div class="seg">${['low', 'medium', 'high'].map(k => `<button data-q="${k}" class="${k === quality ? 'on' : ''}">${k}</button>`).join('')}</div></div>
-      <div class="row"><div><b>Frame rate</b><small>A counter in the corner</small></div><button class="btn ghost" id="sf">${$('fps').hidden ? 'SHOW' : 'HIDE'}</button></div><div class="row"><div><b>Clear this device</b><small>${NET.online ? 'Online progress stays on the island server' : 'Deletes your offline progress'}</small></div><button class="btn ghost" id="sr">CLEAR</button></div><p class="note">© 2026 Pocket Rocket Studio</p>`,
-      bind: r => { r.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { quality = b.dataset.q; try { localStorage.setItem('cs-sample3-q', quality); } catch (e) { /* fine */ } open('settings'); toast('Graphics: ' + quality, 'Reload to apply'); }); $('sf').onclick = () => { $('fps').hidden = !$('fps').hidden; open('settings'); }; $('sr').onclick = () => { try { localStorage.removeItem(KEY); } catch (e) { /* fine */ } location.reload(); }; } }),
+    settings: () => ({ title: 'Settings', html: `<div class="row"><div><b>Graphics</b><small>${qpref === 'auto' ? 'Auto is using ' + cap(effQ()) : 'Low is fastest on older phones'} · applies after a reload</small></div><div class="seg">${QS.map(k => `<button data-q="${k}" class="${k === qpref ? 'on' : ''}">${k}</button>`).join('')}</div></div>
+      <div class="row"><div><b>Frame rate</b><small>A counter in the corner</small></div><button class="btn ghost" id="sf">${$('fps').hidden ? 'SHOW' : 'HIDE'}</button></div><div class="row"><div><b>Clear this device</b><small>${NET.online ? 'Online progress stays on the island server' : 'Deletes your offline progress'}</small></div><button class="btn ghost" id="sr">CLEAR</button></div>${saveFail ? '<p class="note" style="color:#c0392b">This device is not saving your progress (storage is full or blocked).' + (NET.online ? ' Online progress is kept on the island server.' : ' Playing online keeps it on the server.') + '</p>' : ''}<p class="note">© 2026 Pocket Rocket Studio</p>`,
+      bind: r => { r.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { setQ(b.dataset.q); open('settings'); toast('Graphics: ' + b.dataset.q, 'Reload to apply'); }); $('sf').onclick = () => { $('fps').hidden = !$('fps').hidden; open('settings'); }; $('sr').onclick = () => { try { localStorage.removeItem(KEY); } catch (e) { /* fine */ } location.reload(); }; } }),
   };
   let bridgeClosed = false, mlistPick = {};
   const areaAt = (x, z) => { let best = AREAS[0][0], d = 1e9; for (const [n, ax, az] of AREAS) { const e = Math.hypot(ax - x, az - z); if (e < d) { d = e; best = n; } } return best; };

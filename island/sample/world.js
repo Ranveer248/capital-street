@@ -69,11 +69,11 @@ window.World = (function () {
   // ---------- the road network: one definition for the roads you see and the routes cars take ----------
   // nodes: [x, z, road height]; edges: [from, to, width, kind, via points]. 'town' roads get pavements, 'bridge' a deck.
   const NODES = { A: [-210, 55, 3], B: [-60, 55, 3], C: [60, 55, 3], D: [190, 58, 3], E: [190, -30, 3], F: [190, -110, 3], G: [60, -110, 3], H: [-60, -110, 3], I: [-200, -96, 3],
-    J: [-96, 92, 3], K: [224, 12, 3], X: [190, 12, 3],
+    J: [-96, 92, 3], K: [224, 12, 3], X: [190, 12, 3], SH1: [190, 98, 3], PK: [113, 98, 3], SC: [201, 129, 3],
     H2: [-60, -200, 3], G2: [60, -200, 3], F2: [190, -200, 3], I2: [-200, -200, 3], S1: [40, -265, 3], S2: [222, -265, 3], SP: [22, -318, 3], SQ: [234, -306, 3], FA: [-270, -282, 3], FB: [-395, -256, 3], FC: [-212, -386, 3],
     V1: [-290, 62, 'auto'], V2: [-390, 32, 'auto'], V3: [-488, 40, 'auto'], V4: [-540, 118, 'auto'], V5: [-478, 150, 'auto'], V6: [-400, 132, 'auto'], MQ: [-410, 166, 3], L: [252, -152, 7.4], M: [296, -167, 9], N: [460, -181, 9], O: [503, -180, 9], P: [546, -140, 9], Q: [588, -182, 9], R: [546, -226, 9] };
   const EDGES = [['A', 'B', 8, 'town', [[-135, 63]]], ['B', 'C', 8, 'town'], ['C', 'D', 8, 'town', [[125, 61]]], ['D', 'X', 9, 'town'], ['X', 'E', 9, 'town'], ['E', 'F', 9, 'town'], ['F', 'G', 8, 'town', [[125, -119]]], ['G', 'H', 8, 'town'],
-    ['H', 'I', 8, 'town', [[-135, -105]]], ['I', 'A', 8, 'town', [[-226, -22]]], ['B', 'H', 7, 'town'], ['C', 'G', 7, 'town'], ['B', 'J', 7, 'town', [[-74, 80]]], ['X', 'K', 8, 'quay'],
+    ['H', 'I', 8, 'town', [[-135, -105]]], ['I', 'A', 8, 'town', [[-226, -22]]], ['B', 'H', 7, 'town'], ['C', 'G', 7, 'town'], ['B', 'J', 7, 'town', [[-74, 80]]], ['X', 'K', 8, 'quay'], ['D', 'SH1', 8, 'road'], ['SH1', 'PK', 7, 'road'], ['SH1', 'SC', 7, 'road', [[190, 116]]],
     ['F', 'L', 8, 'road', [[226, -136]]], ['L', 'M', 8, 'road'], ['M', 'N', 9, 'bridge'], ['N', 'O', 8, 'works'], ['H', 'H2', 7, 'town'], ['G', 'G2', 7, 'town'], ['F', 'F2', 9, 'town'], ['I', 'I2', 8, 'town'], ['I2', 'H2', 8, 'town'], ['H2', 'G2', 8, 'town'], ['G2', 'F2', 8, 'town'],
     ['G2', 'S1', 8, 'town', [[48, -236]]], ['S1', 'S2', 9, 'town'], ['S2', 'F2', 8, 'town', [[214, -236]]], ['S1', 'SP', 7, 'town'], ['S2', 'SQ', 7, 'town'],
     ['I2', 'FA', 8, 'road', [[-236, -246]]], ['FA', 'FB', 7, 'farm', [[-335, -276]]], ['FA', 'FC', 7, 'farm', [[-246, -336]]],
@@ -225,7 +225,7 @@ window.World = (function () {
     }
     const idx = []; for (let j = 0; j < nz - 1; j++) for (let i = 0; i < nx - 1; i++) { const a = j * nx + i, b = a + 1, d = a + nx, e = d + 1; if (H[a] < -9 && H[b] < -9 && H[d] < -9 && H[e] < -9) continue; idx.push(a, d, b, b, d, e); }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.setIndex(idx); g.computeVertexNormals();
-    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 })); m.receiveShadow = true; scene.add(m);
+    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 })); m.receiveShadow = true; scene.add(m); /* pushed back a little, so yards and paving laid on it never flicker where the ground rises through them */
   }
   function buildOcean() { // turquoise shallows, a foam line, deeper blue further out
     const N = 256, EX0 = -1100, EZ0 = -1000, EW = 2200, data = new Uint8Array(N * N);
@@ -324,7 +324,7 @@ window.World = (function () {
     return MATS;
   }
   const NOSHADOW = { lawn: 1, bed: 1, water: 1, sign: 1, glow: 1, glassy: 1, plaza: 1, flood: 1 };
-  function flush() { const M = mats(); for (const P of parts.values()) { if (!P.pos.n) continue; const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(P.pos.a.slice(0, P.pos.n), 3)); g.setAttribute('normal', new THREE.BufferAttribute(P.nor.a.slice(0, P.nor.n), 3)); g.setAttribute('uv', new THREE.BufferAttribute(P.uv.a.slice(0, P.uv.n), 2)); g.setAttribute('color', new THREE.BufferAttribute(P.col.a.slice(0, P.col.n), 3)); g.computeBoundingSphere(); const m = new THREE.Mesh(g, M[P.k]); m.castShadow = !NOSHADOW[P.k]; m.receiveShadow = true; m.matrixAutoUpdate = false; scene.add(m); } parts.clear(); }
+  function flush() { const M = mats(); for (const P of parts.values()) { if (!P.pos.n) continue; const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(P.pos.a.slice(0, P.pos.n), 3)); g.setAttribute('normal', new THREE.BufferAttribute(P.nor.a.slice(0, P.nor.n), 3)); g.setAttribute('uv', new THREE.BufferAttribute(P.uv.a.slice(0, P.uv.n), 2)); g.setAttribute('color', new THREE.BufferAttribute(P.col.a.slice(0, P.col.n), 3)); g.computeBoundingSphere(); const m = new THREE.Mesh(g, M[P.k]); m.name = P.k; m.castShadow = !NOSHADOW[P.k]; m.receiveShadow = true; m.matrixAutoUpdate = false; scene.add(m); } parts.clear(); }
 
   // ---------- roads, built from the network ----------
   function ribbon(arr, pts, wl, wr, lift) { // triangles for a strip along a polyline, from wl left to wr right of it; u across, v along (metres)
@@ -347,7 +347,7 @@ window.World = (function () {
   // arms (each mouth joined to the next by a kerb curve); a dead end opens into the yard, car park or forecourt it serves.
   const SURF = { town: 'asph', road: 'asph', villa: 'asph', bridge: 'asph', quay: 'conc', works: 'conc', farm: 'grav' };
   const WALK = { town: 2.6, quay: 2.6, villa: 1.6 }; // pavement width each side, metres
-  const END = { J: 'paving', K: 'conc', SP: 'asph', SQ: 'asph', MQ: 'asph', FB: 'grav', FC: 'grav' }; // what each dead end opens into
+  const END = { J: 'paving', K: 'conc', SP: 'asph', SQ: 'asph', MQ: 'asph', FB: 'grav', FC: 'grav', PK: 'asph', SC: 'asph' }; // what each dead end opens into
   const JUNC = [], ENDS = [], CROSS = []; // junction outlines, dead-end pads (both for the on-the-road checks), zebra crossings
   const armAt = (N, e, s) => { const pts = e.a === N ? e.pts : e.pts.slice().reverse(), c = cumOf(pts); let i = 1; while (i < c.length - 1 && c[i] < s) i++; const t = clamp((s - c[i - 1]) / ((c[i] - c[i - 1]) || 1), 0, 1); return pts[i - 1].map((v, j) => v + (pts[i][j] - v) * t); };
   function armsOf(N) { // each road leaving a junction: its mouth, its direction out, its two kerb corners; sorted round the junction
@@ -530,7 +530,7 @@ window.World = (function () {
           else { boxAt('trim', M, w * 0.7, 0.3, 2, 0, 3.1, d / 2 + 1, C(0xffffff)); for (let i = 0; i < 4; i++) geoAt('trim', CYL8, M, -w * 0.3 + i * w * 0.2, 1.8, d / 2 + 1.7, C(0xffffff), 0, 0.18, 2.6, 0.18); boxAt('trim', M, w * 0.7, 0.2, 2, 0, 0.5, d / 2 + 1, C(0xe2d8c4)); } }
         else if (st === 2) { const R = rotY(M); gable('trim', R, d - 0.02, w - 0.02, h, w * 0.36, wc, 0); gable('roof', R, d, w, h + 0.05, w * 0.36, rc, 0.45); // the gable end faces the street
           boxAt('trim', M, 2.8, 2.6, 0.9, -w * 0.2, 0.5, d / 2 + 0.45, wc); boxAt('glassy', M, 2.5, 1.5, 0.92, -w * 0.2, 1.1, d / 2 + 0.47, C(0x9fdcff)); hip('roof', mul(M, -w * 0.2, 0, d / 2 + 0.45), 2.8, 0.9, 3.1, 0.5, rc, 0.15); }
-        else { boxAt('trim', M, w + 0.4, 0.5, d + 0.4, 0, h, 0, C(0xf2f0ea)); boxAt('roof', M, w - 0.3, 0.1, d - 0.3, 0, h + 0.4, 0, C(0x7d838c)); boxAt('trim', M, w * 0.35, h - 0.6, 0.15, w * 0.28, 0.5, d / 2 + 0.05, C(0x8a5a3c)); boxAt('glassy', M, w * 0.3, 1.8, 0.1, -w * 0.12, 3.9, d / 2 + 0.06, C(0x9fdcff)); }
+        else { boxAt('trim', M, w + 0.4, 0.5, d + 0.4, 0, h, 0, C(0xf2f0ea)); boxAt('roof', M, w - 0.3, 0.16, d - 0.3, 0, h + 0.4, 0, C(0x7d838c)); /* its top stands 6 cm above the parapet slab: level with it, the two flickered */ boxAt('trim', M, w * 0.35, h - 0.6, 0.15, w * 0.28, 0.5, d / 2 + 0.05, C(0x8a5a3c)); boxAt('glassy', M, w * 0.3, 1.8, 0.1, -w * 0.12, 3.9, d / 2 + 0.06, C(0x9fdcff)); }
         if (st !== 3) for (const x of [-w * 0.38, w * 0.38]) for (const y of [1.2, 4.2]) for (const s of [-1, 1]) boxAt('detail', M, 0.35, 1.5, 0.08, x + s * 0.85, y, d / 2 + 0.06, sh); // shutters
       }
       boxAt('trim', M, 1.2, 2.2, 0.3, b.doorX, 0.5, d / 2 + 0.15, dc);
@@ -901,7 +901,7 @@ window.World = (function () {
     { const M = new THREE.Matrix4().setPosition(25, TOWN_Y, 95); boxAt('lawn', M, 18, 0.14, 12, 0, 0, 0, C(0xe9dfca)); for (let i = 0; i < 6; i++) { const x = -6 + (i % 3) * 6, z = -2.5 + Math.floor(i / 3) * 5; geoAt('trim', CYL8, M, x, 0.6, z, C(0xffffff), 0, 0.6, 0.06, 0.6); geoAt('trim', CYL8, M, x, 1.6, z, C(0xffffff), 0, 0.05, 2.6, 0.05); geoAt('detail', new THREE.ConeGeometry(1.6, 0.6, 8), M, x, 2.9, z, C(pick([0xe8483f, 0xffffff]))); } }
     // harbour-side lawns: a car park, a boatyard with boats on stands, the sailing club
     { const M = new THREE.Matrix4().setPosition(92, TOWN_Y, 100); boxAt('lawn', M, 40, 0.12, 22, 0, 0, 0, C(0x5c616b)); for (let i = 0; i <= 8; i++) for (const z of [-6.5, 6.5]) boxAt('lawn', M, 0.18, 0.16, 5, -20 + 2 + i * 4.5, 0, z, C(0xf4f4f0)); PARKED.push(...[[-15.7, -6.5], [-6.7, -6.5], [2.3, 6.5], [11.3, 6.5], [-11.2, 6.5], [15.8, -6.5]].map(([x, z], i) => [i % 3 ? 'sedan' : 'compact', 92 + x, 100 + z, z < 0 ? 0 : Math.PI])); }
-    for (let i = 0; i < 4; i++) { const M = new THREE.Matrix4().makeRotationY(0.3).setPosition(150 + i * 13, TOWN_Y, 118 - i * 3); boxAt('trim', M, 2.6, 1.6, 8, 0, 1.2, 0, C(pick([0xffffff, 0x2e74c9, 0xe8483f]))); boxAt('trim', M, 2.2, 0.8, 3, 0, 2.8, -0.6, C(0xffffff)); for (const z of [-2.5, 2.5]) boxAt('trim', M, 2, 1.2, 0.3, 0, 0, z, C(0x6b4a33)); }
+    for (let i = 0; i < 4; i++) { const M = new THREE.Matrix4().makeRotationY(0.3).setPosition(136 + i * 11, TOWN_Y, 118 - i * 3); boxAt('trim', M, 2.6, 1.6, 8, 0, 1.2, 0, C(pick([0xffffff, 0x2e74c9, 0xe8483f]))); boxAt('trim', M, 2.2, 0.8, 3, 0, 2.8, -0.6, C(0xffffff)); for (const z of [-2.5, 2.5]) boxAt('trim', M, 2, 1.2, 0.3, 0, 0, z, C(0x6b4a33)); }
     B({ id: 'club', type: 'shophouse', name: 'Sailing club', area: 'Harbour', x: 208, z: 150, rot: Math.PI * 1.05, w: 16, d: 10, floors: 2, sign: 8, color: 0xffffff, roof: 0x2e6fbf, awn: 0x2e74c9, y: heightAt(208, 150), owner: 'city' });
     // fill every free plot with small houses (or sheds by the harbour), each facing its nearest road; keep squares, parks and yards clear
     const KEEP = [[-22, 22, -57, -7], [-172, -88, -78, 12], [-110, -90, -68, -52], [74, 134, -56, 0], [-210, -40, 66, 150], [-40, 60, 64, 150], [60, 240, 64, 170], [-45, -35, -48, 12]];
@@ -910,16 +910,16 @@ window.World = (function () {
     const pts9 = r => { const c = Math.cos(r.rot), s = Math.sin(r.rot), out = []; for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) out.push([r.x + i * r.w / 2 * c + j * r.d / 2 * s, r.z - i * r.w / 2 * s + j * r.d / 2 * c]); return out; };
     const fits = (x, z, w, d, rot) => { const me = { x, z, w, d, rot }; for (const [px, pz] of pts9(me)) if (inside(px, pz, 1.2) || nearRoad(px, pz)[0] < 2.9 || KEEP.some(r => px > r[0] && px < r[1] && pz > r[2] && pz < r[3]) || LOTS.some(r => inRect(px, pz, r))) return false; if (LOTS.some(r => pts9(r).some(([px, pz]) => inRect(px, pz, me)))) return false; LOTS.push(me); return true; };
   const FROZEN_HOUSES = [[-207.5,-38,3,9.46,8.5],[-207.5,-23,3,10.22,8.67],[-207.5,-8,3,10.06,9.14],[-207.5,7,3,9.01,9.34],[-202.5,22,3,9.04,8.74],[-197.5,-63,3,9.74,9.08],[-197.5,37,3,9.37,9.23],[-187.5,-83,3,9.48,8.23],[-187.5,-48,3,10.59,8.65],[-187.5,-33,3,9.46,8.09],[-187.5,-18,3,10.74,9.24],[-187.5,-3,3,9.91,9.16],[-180,-70.5,2,9.39,8.19],[-180,24.5,0,9.1,8.81],[-175,44.5,0,10.75,8.64],[-165,24.5,0,9.43,8.29],[-160,44.5,0,9.51,9.02],[-150,24.5,0,10.57,9.49],[-145,44.5,0,10.4,8.13],[-140,-90.5,2,10.68,8.02],[-135,24.5,0,10.79,8.76],[-130,44.5,0,10.92,8.9],[-125,-90.5,2,10.58,8.15],[-120,24.5,0,10.8,8.09],[-115,44.5,0,9.92,9.11],[-110,-90.5,2,10.64,9.5],[-105,24.5,0,9.24,8.7],[-100,44.5,0,10.4,9.02],[-95,-90.5,2,9.34,8.58],[-87.5,22,1,9.79,9.05],[-85,44.5,0,9.22,8.66],[-80,-95.5,2,10.22,9.04],[-72.5,-78,1,9.83,8.33],[-72.5,-63,1,9.86,8.08],[-72.5,-38,1,9.34,9],[-72.5,-23,1,10.77,9.08],[-72.5,-8,1,10.45,8.09],[-72.5,7,1,9.15,8.96],[-27,25.5,0,10.59,9.37],[-24.5,3,3,10.89,8.24],[-17,-79.5,2,9.9,9.4],[-12,25.5,0,9.31,8.74],[-7,5.5,0,9.22,8.92],[-2,-79.5,2,9.87,8.83],[3,25.5,0,10.6,8.91],[8,5.5,0,10.06,8.48],[13,-79.5,2,10.75,8.95],[18,25.5,0,10.42,8.11],[25.5,3,1,10.27,8.1],[40.5,28,1,9.34,8.86]];
-  const FROZEN_SHEDS = [[76,-89,3,0x5c6670],[76,11,3,0x2e6fbf],[96,-99,2,0x5c6670],[96,-79,3,0x2e8f6f],[96,11,3,0x2e6fbf],[116,-79,2,0x2e8f6f],[116,11,0,0x2e8f6f],[121,-99,2,0x5c6670],[141,-79,2,0x2e6fbf],[141,11,0,0x5c6670],[146,-99,2,0x2e6fbf],[146,-59,1,0x2e6fbf],[146,-34,1,0x5c6670],[146,-9,1,0x5c6670],[161,16,1,0x2e8f6f],[166,-89,1,0x2e8f6f],[166,-64,1,0x5c6670],[166,-39,1,0x2e6fbf],[166,-14,1,0x2e6fbf]];
+  const FROZEN_SHEDS = [[167,-93,2,0x5c6670,76,-89],[76,11,3,0x2e6fbf],[206,-96,3,0x5c6670,96,-99],[115,27,0,0x2e8f6f,96,-79],[96,11,3,0x2e6fbf],[206,-75,3,0x2e8f6f,116,-79],[116,11,0,0x2e8f6f],[121,-99,2,0x5c6670],[141,-79,2,0x2e6fbf],[141,11,0,0x5c6670],[146,-99,2,0x2e6fbf],[146,-59,1,0x2e6fbf],[146,-34,1,0x5c6670],[146,-9,1,0x5c6670],[172,23,1,0x2e8f6f,161,16],[206,-54,3,0x2e8f6f,166,-89],[206,-33,3,0x5c6670,166,-64],[166,-39,1,0x2e6fbf],[206,-11,3,0x2e6fbf,166,-14]];
     // the houses and sheds on their plots: fixed positions, so a plot someone owns is always the same plot. Numbers run along each lane.
     const num = {};
     for (const [x, z, q, w, d] of FROZEN_HOUSES) { const rot = q * Math.PI / 2, st = x < -60 ? 'Park Lane' : 'Quarter Lane'; num[st] = (num[st] || 0) + 1; LOTS.push({ x: x - Math.sin(rot) * 2.5, z: z - Math.cos(rot) * 2.5, w: w + 3, d: d + 8, rot });
       B({ type: 'house', name: `${num[st]} ${st}`, area: 'Old Quarter', x, z, rot, w, d, sale: true }); }
-    for (const [x, z, q, roof] of FROZEN_SHEDS) { const rot = q * Math.PI / 2; LOTS.push({ x, z, w: 21, d: 16, rot }); B({ type: 'warehouse', name: 'Store shed', area: 'Harbour', x, z, rot, w: 20, d: 14, roof, sale: true, yard: true }); }
+    for (const [x, z, q, roof, ox, oz] of FROZEN_SHEDS) { const rot = q * Math.PI / 2; LOTS.push({ x, z, w: 21, d: 16, rot }); B({ type: 'warehouse', name: 'Store shed', area: 'Harbour', x, z, rot, w: 20, d: 14, roof, sale: true, yard: true, lot: ox != null ? 'warehouse@' + ox + ',' + oz : undefined }); }
     // west of Hotel Street: the library and a park with a playground
-    B({ id: 'library', type: 'civic', name: 'Capital Library', area: 'Old Quarter', x: -168, z: 36, rot: 0, w: 22, d: 14, owner: 'city' });
-    B({ type: 'flat', name: '4 Park Lane', area: 'Old Quarter', x: -108, z: 38, rot: 0, w: 16, d: 12, floors: 3, color: 0xffe6a1, sale: true });
-    B({ type: 'flat', name: '6 Park Lane', area: 'Old Quarter', x: -86, z: 38, rot: 0, w: 14, d: 12, floors: 3, color: 0xfff1d6, sale: true });
+    B({ id: 'library', type: 'civic', name: 'Capital Library', area: 'Old Quarter', x: -95, z: -137, rot: Math.PI / 2, w: 22, d: 14, owner: 'city' });
+    B({ type: 'flat', name: 'Park Lane Court', area: 'Old Quarter', x: -156, z: -86, rot: Math.PI, w: 16, d: 12, floors: 3, color: 0xffe6a1, sale: true, lot: 'flat@-108,38' });
+    B({ type: 'flat', name: '62 Hotel Street', area: 'Old Quarter', x: -46, z: -65, rot: -Math.PI / 2, w: 14, d: 12, floors: 3, color: 0xfff1d6, sale: true, lot: 'flat@-86,38' });
     { const M = new THREE.Matrix4().setPosition(-100, TOWN_Y, -60); boxAt('lawn', M, 16, 0.16, 14, 0, 0, 0, C(0xf2d48f)); boxAt('trim', M, 0.5, 2.6, 0.5, -3, 0, -3, C(0xe8483f)); boxAt('trim', M, 3.2, 0.3, 1, -1.8, 2.4, -3, C(0xffd21f)); boxAt('trim', M, 1, 1.6, 3, 3, 0, 2, C(0x2e74c9)); boxAt('trim', M, 3, 0.2, 0.4, 3, 1.8, -3, C(0x8a4fd6)); }
     // the Harbour: office, warehouses, depot, quay apron, gantry cranes, the cargo ship, marina, breakwater
     B({ id: 'office', type: 'office', name: 'Harbour Office', area: 'Harbour', x: 150, z: 39, rot: 0, w: 24, d: 16, floors: 4, sign: 6, owner: 'city' });

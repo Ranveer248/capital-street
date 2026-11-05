@@ -355,6 +355,30 @@ Learned from the look of illustrated city builders (CityRT, SimCity BuildIt, Cit
 | Balconies | ✅ flats without shutters get balconies on alternate bays: a slab and a white, dark or terracotta rail, drawn in the wall shader |
 | Cream panels | ✅ every sheet (Exchange, Property, Bank, Jobs, Settings, join, stories) is warm cream with navy type and the same chunky navy outline; coloured headers and buttons stay |
 
+## Goal 36: Starts reliably, nothing overlaps, every door has a path
+
+From the owner's recording of the live island (an iPad, 3 min 10 s) and the upgrade brief. Before it started, the site was tagged `main-before-goal36`. The live database was not changed: the lot ids are the same 118 as the server's list (compared both ways).
+
+| Check | Result |
+|---|---|
+| Graphics are checked before Play | ✅ the title screen tests WebGL first. If the browser can't make a 3D surface (or the chip is too small), PLAY becomes "CAN'T PLAY HERE" with one message: turn on hardware acceleration, update or try another browser, and that a lower graphics level can't fix it. If the picture is drawn by the processor (software), Auto picks Low and says why |
+| Graphics choices before Play | ✅ Auto, Low, Medium, High on the title screen and in Settings, remembered. Auto is High, Low on software drawing or about 1 GB of memory, Medium at about 2 GB |
+| If building the island fails | ✅ a graphics failure says so (and that Low won't help); any other failure sets Low and offers RELOAD. Progress is on the server or in the device's save, so a reload duplicates nothing |
+| The device takes the graphics away | ✅ a banner says so, RELOAD appears after 6 s, and when the graphics return the banner goes and play carries on. Tested by losing and restoring the context: the island was drawn again |
+| Storage full or blocked | ✅ a message when it first fails and a line in Settings. Online progress is on the server and isn't affected |
+| Keyboard on a tablet | ✅ the title screen follows the visible area, so PLAY stays above the keys (tested with a 380 px visible area); on short landscape screens the card scrolls instead of losing its top |
+| Flickering flat roofs (0:25 and 0:34) | ✅ on the flat-roofed houses the grey roof layer was level with the parapet slab, so the two fought. Its top now stands 6 cm higher. A scan of every visible upward-facing surface found 54 spots that flickered; 36 remain, all small (paving or lawn laid on uneven ground, or two similar greens). The ground is also pushed back a hair so yards don't flicker where it rises through them |
+| Nothing overlaps | ✅ 17 pairs overlapped: the library and two flats stood among the houses of the Old Quarter, and eight store sheds stood inside the harbour warehouses and depot. Now none (the four stadium kiosks only touch the stadium's bounding box: it's an oval). The library is on the civic square beside City Hall; the flats are Park Lane Court (beside Quarter Park) and 62 Hotel Street; five sheds line the east road and three fill gaps. Every moved building keeps the id of the plot it was sold as |
+| Every door has a path | ✅ 105 to the walking network and 4 to a road edge; none without (it was 103 and 3, with three without: the Sailing club, 16 Park Lane and the flat at 6 Park Lane) |
+| A road to the shore | ✅ Shore Road leaves the end of the town road: west to the car park, which now has an entrance, and south past the boatyard to the Sailing club's forecourt. 26 of 26 vehicle routes still pass (0 off the road, 0 over water), 0 buildings on a road, 2,892 trees and 0 breaks |
+
+**Not done or not tested yet:**
+- Not tried on a real iPad or phone (the keyboard fix was tested with a mock visible area; the context loss with the browser's own lose-context tool).
+- 36 small flicker spots remain (see above).
+- Quarter Park is still a large, mostly empty lawn, and the Sailing club has no boats or slipway.
+- The Preview tag is still on the title screen.
+- The old duplicate house numbers: the flats that moved were renamed, but houses and the server's lot names still repeat some numbers.
+
 ## Goal 35: Capital Island is the game (the main address opens it)
 
 Until now the main address opened the New York game and Capital Island was a separate preview at `island/sample/`. Before this change the site was tagged `main-before-goal35`. The live database was not changed.
@@ -495,6 +519,7 @@ From the 5 new reference videos (a player-run economy game on the real world map
 21. ✅ **High-end graphics:** bloom, grading, a sun that follows the clock, clouds, glass, water, night lights
 22. ✅ **Simpler:** a new menu, online-only play, a clean map and screen, a tutorial
 23. ✅ **Surprises:** more market events, planes in the sky, plane crashes
+36. ✅ **Starts reliably, nothing overlaps, every door has a path:** a graphics check and options before Play, recovery messages, no more flickering flat roofs, no overlapping buildings, every door joined, a road to the car park, boatyard and sailing club (see Goal 36)
 35. ✅ **Capital Island is the game:** the main address opens it, the New York game stays at `?newyork`, Terms, Privacy and Credits on the title screen (see Goal 35)
 34. ✅ **Capital Island replanned:** connected streets and footpaths, working farms and districts, six house styles, new vehicles with turning wheels, people on the pavements, a clearer interface (see Goal 34)
 33. ✅ **Capital Island multiplayer:** a shared economy on the live server, checked by the database, tested with two players (see Goals 32 and 33)

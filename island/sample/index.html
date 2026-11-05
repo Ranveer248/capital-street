@@ -32,8 +32,8 @@ svg.i { width: 22px; height: 22px; fill: currentColor; flex: none; }
 .btn .spin { width: 16px; height: 16px; border-radius: 50%; border: 2.5px solid currentColor; border-right-color: transparent; animation: rot .8s linear infinite; } @keyframes rot { to { transform: rotate(360deg); } }
 
 /* title screen: the game's name, the island, what you do, then your name */
-#cover { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: calc(16px + var(--st)) 16px calc(16px + var(--sb)); background: radial-gradient(120% 90% at 50% 0%, #2a7be6, #163a9e 55%, var(--navy)); overflow: auto; touch-action: pan-y; }
-.cv { width: min(980px, 100%); display: grid; gap: 14px; justify-items: center; }
+#cover { position: fixed; inset: 0; z-index: 50; display: grid; padding: calc(16px + var(--st)) 16px calc(16px + var(--sb)); background: radial-gradient(120% 90% at 50% 0%, #2a7be6, #163a9e 55%, var(--navy)); overflow: auto; touch-action: pan-y; }
+.cv { width: min(980px, 100%); margin: auto; display: grid; gap: 14px; justify-items: center; } /* auto margins centre it, and let a short screen scroll instead of clipping the top */
 .cv h1 { margin: 0; text-align: center; font: 400 clamp(36px, 8.5vw, 60px)/1 'Lilita One', sans-serif; color: #fff; letter-spacing: .02em; text-shadow: 0 3px 0 rgba(10,15,46,.45); }
 .cv .sub { margin-top: -6px; display: flex; align-items: center; gap: 8px; font: 400 clamp(17px, 3.6vw, 22px)/1 'Lilita One', sans-serif; color: var(--gold); }
 .cv .sub svg { width: 22px; height: 22px; }
@@ -53,6 +53,11 @@ svg.i { width: 22px; height: 22px; fill: currentColor; flex: none; }
 .cv .foot { font-size: 11.5px; color: #9fb0e8; margin: 0; }
 .cv .foot a { color: inherit; text-decoration: underline; text-underline-offset: 2px; position: relative; }
 .cv .foot a::after { content: ""; position: absolute; inset: -14px -5px; } /* a 44 px touch area that takes no room */
+.gfx { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; } .gfx > span { font-size: 11.5px; color: #b9c3f0; font-weight: 700; margin-right: 2px; }
+.gfx button { position: relative; min-height: 30px; padding: 0 12px; border-radius: 99px; border: 1.5px solid rgba(255,255,255,.38); background: rgba(10,15,46,.28); color: #fff; font: 800 12px/1 Inter, sans-serif; } .gfx button.on { background: var(--gold); border-color: var(--gold); color: #2a1d00; }
+.gfx button::after { content: ""; position: absolute; inset: -7px -2px; } /* a 44 px touch height that takes no room */
+.gfxmsg { margin: 0; font-size: 12px; font-weight: 700; color: #ffe39a; } .gfxmsg.bad { color: #ffb3bb; font-size: 12.5px; }
+#glx { position: fixed; left: 50%; top: calc(12px + var(--st)); transform: translateX(-50%); z-index: 70; width: min(440px, calc(100% - 24px)); display: grid; gap: 6px; padding: 12px 14px; border-radius: 14px; background: #fff; color: var(--ink); border: 1.5px solid var(--line); box-shadow: 0 8px 24px rgba(5,10,40,.35); font-size: 13px; font-weight: 600; } #glx b { font-size: 14px; } #glx .btn { justify-self: start; min-height: 36px; }
 @media (orientation: landscape) and (min-aspect-ratio: 5/4) { .cv { grid-template-columns: 1.35fr 1fr; align-items: center; column-gap: 28px; } .cv .art { grid-row: 1 / span 7; } }
 @media (orientation: landscape) and (max-height: 500px) { .cv { gap: 8px; } .cv h1 { font-size: 34px; } .cv .play { min-height: 46px; font-size: 20px; } .cv .goal { display: none; } }
 
@@ -191,6 +196,8 @@ table.t { width: 100%; border-collapse: collapse; font-size: 12px; } table.t td 
       <input id="nm" maxlength="20" placeholder="e.g. Sam Harbour" autocomplete="nickname" spellcheck="false" enterkeyhint="go" aria-describedby="nmHelp jmsg">
       <p class="help" id="nmHelp">Shown above you to everyone on the island, so it must be one nobody else is using. 3 to 20 letters or numbers; spaces, dots, dashes and underscores in the middle.</p>
       <div class="sw" id="sw"><span>Your colour</span></div>
+      <div class="gfx" id="gfx" role="group" aria-label="Graphics level"><span>Graphics</span></div>
+      <p class="gfxmsg" id="gfxmsg" role="status" aria-live="polite" hidden></p>
       <p class="jmsg" id="jmsg" role="status" aria-live="polite"></p>
     </form>
     <button class="btn gold play" id="play" type="button">PLAY</button><button class="btn ghost" id="offline" type="button" hidden>PLAY OFFLINE</button>
@@ -214,6 +221,7 @@ table.t { width: 100%; border-collapse: collapse; font-size: 12px; } table.t td 
   </nav>
 </div>
 <section id="panel" hidden><header><button class="hb" id="pBack" aria-label="Back" hidden><svg class="i"><use href="#i-back"/></svg></button><h3 id="pTitle"></h3><button class="hb" id="pExp" aria-label="Expand"><svg class="i"><use href="#i-up"/></svg></button><button class="hb" id="pX" aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button></header><div id="pbody"></div></section>
+<div id="glx" role="alert" hidden><b>The graphics were interrupted</b><span>Your device paused the 3D graphics (a busy graphics chip, or the tab was in the background). Waiting for them to come back. Your progress is safe.</span><button class="btn ghost" id="glxR" type="button" hidden>RELOAD</button></div>
 <div id="toast" role="status" aria-live="polite"><b id="toastT"></b><span id="toastB"></span></div>
 <div id="labels"></div>
 <div id="fps" hidden></div>
