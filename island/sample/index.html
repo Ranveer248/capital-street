@@ -51,6 +51,8 @@ svg.i { width: 22px; height: 22px; fill: currentColor; flex: none; }
 .jmsg { margin: 0; min-height: 18px; font-size: 12.5px; color: #dfe6ff; font-weight: 700; } .jmsg.bad { color: #ffb3bb; }
 .cv .play { min-height: 56px; font-size: 24px; padding: 0 48px; border-radius: 16px; }
 .cv .foot { font-size: 11.5px; color: #9fb0e8; margin: 0; }
+.cv .foot a { color: inherit; text-decoration: underline; text-underline-offset: 2px; position: relative; }
+.cv .foot a::after { content: ""; position: absolute; inset: -14px -5px; } /* a 44 px touch area that takes no room */
 @media (orientation: landscape) and (min-aspect-ratio: 5/4) { .cv { grid-template-columns: 1.35fr 1fr; align-items: center; column-gap: 28px; } .cv .art { grid-row: 1 / span 7; } }
 @media (orientation: landscape) and (max-height: 500px) { .cv { gap: 8px; } .cv h1 { font-size: 34px; } .cv .play { min-height: 46px; font-size: 20px; } .cv .goal { display: none; } }
 
@@ -192,7 +194,7 @@ table.t { width: 100%; border-collapse: collapse; font-size: 12px; } table.t td 
       <p class="jmsg" id="jmsg" role="status" aria-live="polite"></p>
     </form>
     <button class="btn gold play" id="play" type="button">PLAY</button><button class="btn ghost" id="offline" type="button" hidden>PLAY OFFLINE</button>
-    <p class="foot">© 2026 Pocket Rocket Studio</p>
+    <p class="foot">© 2026 Pocket Rocket Studio · <a href="../../terms.html" target="_blank" rel="noopener">Terms</a> · <a href="../../privacy.html" target="_blank" rel="noopener">Privacy</a> · <a href="../../credits.html" target="_blank" rel="noopener">Credits</a></p>
   </div>
 </section>
 

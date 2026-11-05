@@ -2,7 +2,7 @@
 
 A trading game. You're a broke student in New York: borrow a little, trade, and work your way up to your own tower on Wall Street, then hire brokers, employees and interns, and expand.
 
-Play it by opening `capital-street/index.html` from a web server (GitHub Pages works). It's built for high-end phones and computers.
+Play it at https://ranveer248.github.io/capital-street/ : the address opens Capital Island (Goal 35). The older New York game is at https://ranveer248.github.io/capital-street/?newyork. To run your own copy, open `index.html` from a web server (GitHub Pages works). It's built for high-end phones and computers.
 
 ## How we build it
 
@@ -355,6 +355,24 @@ Learned from the look of illustrated city builders (CityRT, SimCity BuildIt, Cit
 | Balconies | ✅ flats without shutters get balconies on alternate bays: a slab and a white, dark or terracotta rail, drawn in the wall shader |
 | Cream panels | ✅ every sheet (Exchange, Property, Bank, Jobs, Settings, join, stories) is warm cream with navy type and the same chunky navy outline; coloured headers and buttons stay |
 
+## Goal 35: Capital Island is the game (the main address opens it)
+
+Until now the main address opened the New York game and Capital Island was a separate preview at `island/sample/`. Before this change the site was tagged `main-before-goal35`. The live database was not changed.
+
+| Check | Result |
+|---|---|
+| The main address opens the island | ✅ `https://ranveer248.github.io/capital-street/` goes straight to `island/sample/`, and anything after the address (`?play`, `?q=low`) goes along. On a local copy: it ends on the island, the game starts (2,901 trees, 0 console errors), and with the local copy of the server it joins online |
+| Nothing removed | ✅ the New York game is still at `/?newyork`; old invite links (`?with=`) and `?city=` also open it, and its city switch keeps `?newyork`. It loads with no errors. Never sent to the island: the desktop app (`app://`), the phone app and any server on `localhost` (the local server was tested; the two apps were not run) |
+| Terms, Privacy and Credits | ✅ linked from the island's title screen, as on the New York one; they take no room (same card height on phones 375 px wide and up, 15 px more at 320 px) |
+| Easy to undo | ✅ the whole change is one line at the top of `index.html` plus the title-screen links; one revert puts the New York game back at the main address |
+
+**Not done:**
+- The title screen still says Preview.
+- The privacy page's account-deletion steps describe the New York game's menu (Online, then Account); the island has no delete button yet. That needs a server function (a database change, so your approval) or a contact address on the page.
+- The desktop and phone apps still contain the New York game, and the install description in `manifest.webmanifest` still says New York.
+- New visitors no longer get the offline service worker (only the New York page registered it); people who already have it keep it.
+- The address bar shows `/island/sample/`.
+
 ## Goal 34: Capital Island replanned: connected streets and paths, working districts, better buildings and vehicles, a clearer interface
 
 The same preview at `island/sample/` (Capital Street is the game, Capital Island the island). Before it started, the old version was tagged `island-before-goal34`. The live database was not changed.
@@ -477,6 +495,7 @@ From the 5 new reference videos (a player-run economy game on the real world map
 21. ✅ **High-end graphics:** bloom, grading, a sun that follows the clock, clouds, glass, water, night lights
 22. ✅ **Simpler:** a new menu, online-only play, a clean map and screen, a tutorial
 23. ✅ **Surprises:** more market events, planes in the sky, plane crashes
+35. ✅ **Capital Island is the game:** the main address opens it, the New York game stays at `?newyork`, Terms, Privacy and Credits on the title screen (see Goal 35)
 34. ✅ **Capital Island replanned:** connected streets and footpaths, working farms and districts, six house styles, new vehicles with turning wheels, people on the pavements, a clearer interface (see Goal 34)
 33. ✅ **Capital Island multiplayer:** a shared economy on the live server, checked by the database, tested with two players (see Goals 32 and 33)
 32. ✅ **Capital Island preview:** an irregular island with districts, one road network, working traffic and a food chain from farm to shop

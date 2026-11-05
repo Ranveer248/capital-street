@@ -2,6 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<script>
+// Capital Island is the game now: this address opens it. The New York version stays here at ?newyork (and inside the desktop and phone apps).
+if (/^https?:$/.test(location.protocol) && location.hostname !== 'localhost' && !window.Capacitor && !/[?&](newyork|with|city)\b/.test(location.search)) location.replace('island/sample/' + location.search + location.hash);
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <title>Capital Street</title>
 <meta name="theme-color" content="#0b1220">

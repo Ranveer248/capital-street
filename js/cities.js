@@ -56,5 +56,5 @@ window.CITY = (function () {
 // reloads the page in another city; arrive = fly in from the globe when it has loaded
 window.goCity = function (id, arrive) {
   try { localStorage.setItem('cs-city', id); if (arrive) sessionStorage.setItem('cs-arrive', '1'); } catch (e) { /* storage blocked */ }
-  if (location.search) location.replace(location.pathname); else location.reload();
+  if (location.search) location.replace(location.pathname + (/[?&]newyork\b/.test(location.search) ? '?newyork' : '')); else location.reload();
 };
