@@ -215,7 +215,7 @@
     handles.set(s.id, h); s.status = h.status; s.why = h.why;
   }
   async function deliverOnline(s, tries = 0) { // the vehicle is there: the server checks the trip and pays once
-    try { const st = await NET.call('ci_deliver', { p_id: s.id }), r = st.result; applyState(st); if (r && r.kind === 'contract') { S.done.firstContract = true; toast(`Contract done: +${usd(r.revenue)}`, `${gname(r.good, r.qty)} · +${r.xp} XP`); } else if (r && (r.kind === 'goods' || r.kind === 'fuel')) toast(`Sold ${gname(r.good, r.qty)} for ${usd2(r.revenue)}`, `profit ${usd2(r.profit)} · +${r.xp} XP`); else if (r && r.kind === 'food') toast(`Sold ${r.qty} boxes for ${usd(r.revenue)}`, `profit ${usd(r.profit)} · +${r.xp} XP`); else if (r) toast(`${r.qty} crates delivered`, 'In the Processing Plant store'); }
+    try { const st = await NET.call('ci_deliver', { p_id: s.id }), r = st.result; applyState(st); if (r && r.kind === 'contract') { S.done.firstContract = true; toast(`Contract done: +${usd(r.revenue)}`, `${gname(r.good, r.qty)} · +${r.xp} XP`); } else if (r && (r.kind === 'goods' || r.kind === 'fuel')) { S.done.firstTrade = true; toast(`Sold ${gname(r.good, r.qty)} for ${usd2(r.revenue)}`, `profit ${usd2(r.profit)} · +${r.xp} XP`); } else if (r && r.kind === 'food') toast(`Sold ${r.qty} boxes for ${usd(r.revenue)}`, `profit ${usd(r.profit)} · +${r.xp} XP`); else if (r) toast(`${r.qty} crates delivered`, 'In the Processing Plant store'); }
     catch (e) { if (tries < 80) setTimeout(() => deliverOnline(s, tries + 1), 3000); } // offline or not quite there yet: try again shortly
   }
   function arrive(s) {
@@ -427,7 +427,7 @@
     else if (E.plantOut.qty) { t = 'Deliver food to the shops'; s = `${E.plantOut.qty} boxes at the plant · Jobs, step 4`; }
     else if (E.plantIn.qty) { t = 'Process the crates into food'; s = `${E.plantIn.qty} crates at the plant · Jobs, step 3`; }
     else if (E.farm.qty) { t = 'Truck the crates to the plant'; s = `${E.farm.qty} crates at the co-op · Jobs, step 2`; }
-    else if (v2on() && !S.done.firstContract && !E.stats.sold) { t = 'Earn your first money: take a contract'; s = 'You pay nothing · Jobs, Contracts'; }
+    else if (v2on() && !S.done.firstContract && !S.done.firstTrade && !E.stats.sold) { t = 'Earn your first money: take a contract'; s = 'You pay nothing · Jobs, Contracts'; }
     else if (!E.stats.sold) { t = 'Grow your first crops'; s = 'Seed costs $3 a crate · Jobs, food business'; }
     else { const nx = LEVELS[level() + 1]; t = nx ? `Run the chain again: ${nx.xp - S.xp} XP to level ${level() + 2}` : 'Run your food business'; s = `Profit so far ${usd(E.stats.profit)}`; }
     $('objT').textContent = t; $('objS').textContent = s;
