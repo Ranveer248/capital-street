@@ -355,6 +355,33 @@ Learned from the look of illustrated city builders (CityRT, SimCity BuildIt, Cit
 | Balconies | ✅ flats without shutters get balconies on alternate bays: a slab and a white, dark or terracotta rail, drawn in the wall shader |
 | Cream panels | ✅ every sheet (Exchange, Property, Bank, Jobs, Settings, join, stories) is warm cream with navy type and the same chunky navy outline; coloured headers and buttons stay |
 
+## Goal 37: More than one way to earn: delivery contracts and wholesale trading
+
+From the upgrade brief (sections 6 to 9): stop making everyone grow, truck, process and sell everything themselves. Before it started, the site was tagged `main-before-goal37`. **The live database was not changed.** The server half is written and tested in [`server/island2.sql`](server/island2.sql) and waits for your go-ahead; until then the online island works as before and the two new tabs say why they are off. Offline (add `?offline` to the address) everything below works.
+
+| Check | Result |
+|---|---|
+| A new player earns without owning anything | ✅ Jobs → **Contracts**: businesses pay you to carry their cargo. You pay nothing; the cargo and the bill are theirs and the reward comes on arrival. The first objective is now "take a contract". Offline, the nearest one (12 cartons, Harbour quay to the shops, 0.2 km) paid $23 in 29 s; a 32-crate run from the co-op to the plant pays $59, 20 drums of fuel to the co-op $45 |
+| How contracts work | ✅ two are posted every 2 minutes, worked out from the clock alone (so every player and the server see the same board); each stays open 8 minutes, up to 8 at a time; the first player to confirm gets it; at most 3 running at once; a vehicle is busy until it arrives (a van takes up to 20, a truck up to 40, shared with your food trips). Reward = $10 + 4¢ a metre + 45¢ a unit. Four kinds at level 1, more at levels 2 and 3 |
+| A wholesale market for traders | ✅ Trade → **Wholesale**: goods and fuel from the Harbour depot, sold to the Old Quarter shops, Hotel Azure (level 3), the Greenfields co-op and the Processing Plant. Seven businesses, each with a stock or a demand that is finite, shared by every player and refills slowly. A supplier is cheaper the fuller its shelf, a buyer pays more the more it still wants, so buying empties the shelf and selling fills the buyer. Example: 40 cartons cost $953.33 ($19.50 for the first, $28.17 once the depot is down to 20); sent to the shops they pay $1,320 on arrival |
+| Every quote before you commit | ✅ what you pay now, what you already spent, the average price, the price fixed at booking, shipping, the route, the profit and what is an estimate. Goods wait in your warehouse at the quay until you send them (200 at most) |
+| Prices and contracts to the cent, on both sides | ✅ [`island/sample/market.js`](island/sample/market.js) holds the rules; the server's functions use the same whole-cent sums. A test compared 305 price quotes and 14 contracts: identical |
+| No endless loop | ✅ a bot that plays the best move for an hour earns about $23 a minute from contracts at level 1, $32 and $34 at levels 2 and 3, and $31, $34 and $42 from trading; the food business, run back to back by hand, earns roughly $20 to $35 a minute (an estimate, not measured by a bot). Margins shrink as you trade because the shelf empties and the buyer fills, then recover over minutes |
+| The server checks it all | ✅ 36 new checks pass on a local copy of the database (and the 18 earlier ones): a purchase or booking sent twice happens once; the last 15 cartons or the last demand can only go to one of two players acting at once; one contract, one taker; the price fixed at booking is what you are paid; a delivery pays once (even asked twice at once); a trip left on the road while the game is closed arrives once; level and cash limits hold; nobody can write their own warehouse or read another player's ledger |
+| Two players, one island | ✅ in two browsers on the local server: both see the same contracts; one takes one and the other no longer sees it; the second buyer pays more for the same goods; once the first player's goods are booked to the shops, the second player's SEND button is off. The first player's cash matched the arithmetic to the cent |
+| Money in and out | ✅ Home now shows money in and out for the last 10 minutes and what each change was for ("Seed for 10 crates", "Bought 40 cartons of goods from Harbour depot", "Contract: carried 12 cartons of goods"). Online the database writes this itself (every change to cash, with a note); offline the game keeps its own list |
+| The food business is unchanged | ✅ 10 crates still cost $125 in all and bring back $160 ($35 profit), offline and against the server |
+| The old server | ✅ with the current live server (no upgrade) the game plays as before: Jobs and Trade open on the food business, and Contracts and Wholesale explain that they aren't on yet |
+| Undo | ✅ [`server/island2-undo.sql`](server/island2-undo.sql) then `island.sql` puts the database back (checked: 31 functions and 15 tables go back to 18 and 9; running island2.sql twice changes nothing) |
+
+**What the upgrade does to the live database, if you approve it:** adds six tables (`ci_inv`, `ci_market`, `ci_tpl`, `ci_contracts`, `ci_ledger`, `ci_ops`), one trigger on `ci_players` (it writes the ledger), 13 new functions, three columns and a widened check on `ci_shipments` (the new kinds of trip), and replaces seven existing functions so they write notes to the ledger (`ci_state`, `ci_finish`, `ci_ship`, `ci_grow`, `ci_process`, `ci_buy_property`, `ci_buy_listing`). Nothing is deleted; it runs in seconds.
+
+**Not done or not tested yet:**
+- The upgrade isn't applied to the live project (it needs your approval), so online players don't have contracts or wholesale yet.
+- From the brief and not started: players posting their own contracts (a farmer selling to a manufacturer while a third player carries it), dropshipping, hiring employees, rent and hotel income, timber and building materials, a warehouse anywhere but the quay, and player-set prices for goods.
+- Contract trips are fixed-route: there is no choice of route yet.
+- Not tried on a real phone or iPad.
+
 ## Goal 36: Starts reliably, nothing overlaps, every door has a path
 
 From the owner's recording of the live island (an iPad, 3 min 10 s) and the upgrade brief. Before it started, the site was tagged `main-before-goal36`. The live database was not changed: the lot ids are the same 118 as the server's list (compared both ways).
@@ -519,6 +546,7 @@ From the 5 new reference videos (a player-run economy game on the real world map
 21. ✅ **High-end graphics:** bloom, grading, a sun that follows the clock, clouds, glass, water, night lights
 22. ✅ **Simpler:** a new menu, online-only play, a clean map and screen, a tutorial
 23. ✅ **Surprises:** more market events, planes in the sky, plane crashes
+37. ✅ **More than one way to earn:** delivery contracts that need no money, a wholesale market for traders, money in and out on Home, and the server half written and tested (waiting for your approval; see Goal 37)
 36. ✅ **Starts reliably, nothing overlaps, every door has a path:** a graphics check and options before Play, recovery messages, no more flickering flat roofs, no overlapping buildings, every door joined, a road to the car park, boatyard and sailing club (see Goal 36)
 35. ✅ **Capital Island is the game:** the main address opens it, the New York game stays at `?newyork`, Terms, Privacy and Credits on the title screen (see Goal 35)
 34. ✅ **Capital Island replanned:** connected streets and footpaths, working farms and districts, six house styles, new vehicles with turning wheels, people on the pavements, a clearer interface (see Goal 34)
@@ -554,6 +582,8 @@ Online play needs a free [Supabase](https://supabase.com) project. Until one is 
 4. Reload the game. The chip next to your cash turns into "Sign in"; press **O** in the menu or **T** in the game.
 
 Cloud saves: once you have a player, your game is saved to your account (table `cs_saves`, one row per player, only you can read or write it) every minute, when you buy or sell, and when you leave the page. On a device that last saw an older copy, the newer cloud copy loads and the old local save is kept as a backup (`capital-street-market-v1-backup`).
+
+The island (Capital Island) has its own tables, all prefixed `ci_`. [`server/island.sql`](server/island.sql) is applied to the live project (the food chain, property and offers between players). [`server/island2.sql`](server/island2.sql) (Goal 37: contracts, wholesale goods, the ledger) is written and tested but **not applied yet**: it needs the owner's approval; run it after island.sql, it only adds and is safe to run again, and [`server/island2-undo.sql`](server/island2-undo.sql) takes it back out. The game checks which version the server has and hides the new tabs until it does.
 
 Who may change what is enforced by the database itself (row-level security plus two checked functions), not by the game, so a modified game can't take someone else's building, post as someone else or rename them.
 

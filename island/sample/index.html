@@ -56,6 +56,7 @@ svg.i { width: 22px; height: 22px; fill: currentColor; flex: none; }
 .gfx { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; } .gfx > span { font-size: 11.5px; color: #b9c3f0; font-weight: 700; margin-right: 2px; }
 .gfx button { position: relative; min-height: 30px; padding: 0 12px; border-radius: 99px; border: 1.5px solid rgba(255,255,255,.38); background: rgba(10,15,46,.28); color: #fff; font: 800 12px/1 Inter, sans-serif; } .gfx button.on { background: var(--gold); border-color: var(--gold); color: #2a1d00; }
 .gfx button::after { content: ""; position: absolute; inset: -7px -2px; } /* a 44 px touch height that takes no room */
+.led > div { display: flex; justify-content: space-between; gap: 10px; padding: 6px 2px; border-bottom: 1px solid var(--line); font-size: 12.5px; font-weight: 600; } .led b.ok { color: #1f8f5b; } .led b.bad { color: #c0392b; } .led span { min-width: 0; overflow-wrap: anywhere; }
 .gfxmsg { margin: 0; font-size: 12px; font-weight: 700; color: #ffe39a; } .gfxmsg.bad { color: #ffb3bb; font-size: 12.5px; }
 #glx { position: fixed; left: 50%; top: calc(12px + var(--st)); transform: translateX(-50%); z-index: 70; width: min(440px, calc(100% - 24px)); display: grid; gap: 6px; padding: 12px 14px; border-radius: 14px; background: #fff; color: var(--ink); border: 1.5px solid var(--line); box-shadow: 0 8px 24px rgba(5,10,40,.35); font-size: 13px; font-weight: 600; } #glx b { font-size: 14px; } #glx .btn { justify-self: start; min-height: 36px; }
 @media (orientation: landscape) and (min-aspect-ratio: 5/4) { .cv { grid-template-columns: 1.35fr 1fr; align-items: center; column-gap: 28px; } .cv .art { grid-row: 1 / span 7; } }
@@ -231,6 +232,7 @@ table.t { width: 100%; border-collapse: collapse; font-size: 12px; } table.t td 
 <script src="../../lib/supabase.js"></script>
 <script src="../../js/net-config.js"></script>
 <script src="world.js"></script>
+<script src="market.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
