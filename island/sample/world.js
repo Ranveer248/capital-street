@@ -319,11 +319,11 @@ window.World = (function () {
     MATS = { flat: S({ map: tex.flat }), hotel: S({ map: tex.hotel, roughness: 0.45 }), shop: S({ map: tex.shop, roughness: 0.55 }), office: S({ map: tex.office, roughness: 0.4, metalness: 0.15 }), shed: S({ map: tex.shed }), brick: S({ map: tex.brick, roughness: 0.9 }),
       roof: S({ roughness: 0.75, flatShading: true }), trim: S({ roughness: 0.75 }), trim2: S({ roughness: 0.75, side: THREE.DoubleSide }), lawn: S({ roughness: 1 }), metal: S({ roughness: 0.4, metalness: 0.5 }),
       water: S({ roughness: 0.05, metalness: 0.1 }), glow: new THREE.MeshBasicMaterial({ vertexColors: true }), sign: new THREE.MeshBasicMaterial({ map: tex.signs, vertexColors: true }), glassy: S({ transparent: true, opacity: 0.55, roughness: 0.1, depthWrite: false }),
-      pitch: S({ map: tex.pitch, roughness: 1, vertexColors: false }), detail: S({ roughness: 0.7, transparent: true }), plaza: off(S({ map: tex.paving, roughness: 0.92 }), -1), flood: new THREE.MeshBasicMaterial({ vertexColors: true, color: 0x8a8f96 }) };
+      pitch: S({ map: tex.pitch, roughness: 1, vertexColors: false }), detail: S({ roughness: 0.7, transparent: true }), plaza: off(S({ map: tex.paving, roughness: 0.92 }), -1), bed: off(S({ roughness: 1 }), -2), flood: new THREE.MeshBasicMaterial({ vertexColors: true, color: 0x8a8f96 }) };
     fadeMats.push([MATS.detail, 420, 700]);
     return MATS;
   }
-  const NOSHADOW = { lawn: 1, water: 1, sign: 1, glow: 1, glassy: 1, plaza: 1, flood: 1 };
+  const NOSHADOW = { lawn: 1, bed: 1, water: 1, sign: 1, glow: 1, glassy: 1, plaza: 1, flood: 1 };
   function flush() { const M = mats(); for (const P of parts.values()) { if (!P.pos.n) continue; const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(P.pos.a.slice(0, P.pos.n), 3)); g.setAttribute('normal', new THREE.BufferAttribute(P.nor.a.slice(0, P.nor.n), 3)); g.setAttribute('uv', new THREE.BufferAttribute(P.uv.a.slice(0, P.uv.n), 2)); g.setAttribute('color', new THREE.BufferAttribute(P.col.a.slice(0, P.col.n), 3)); g.computeBoundingSphere(); const m = new THREE.Mesh(g, M[P.k]); m.castShadow = !NOSHADOW[P.k]; m.receiveShadow = true; m.matrixAutoUpdate = false; scene.add(m); } parts.clear(); }
 
   // ---------- roads, built from the network ----------
@@ -579,8 +579,8 @@ window.World = (function () {
       boxAt('lawn', M, 10.5, 0.2, 13, w * 0.18, 0, -d / 2 - 6.2, C(0xeae3d4)); frameAt('trim', M, 5, 9, 0.45, 0.45, w * 0.18, -d / 2 - 6, C(0xffffff)); boxAt('water', M, 4.1, 0.3, 8.1, w * 0.18, 0, -d / 2 - 6, C(0x35c6ea));
       for (let i = 0; i < 2; i++) boxAt('trim', M, 0.8, 0.3, 1.9, w * 0.18 - 4.2 + i * 1.3, 0.2, -d / 2 - 6, C(0xffffff)); geoAt('trim', CYL8, M, w * 0.18 + 3.8, 1.3, -d / 2 - 9, C(0xffffff), 0, 0.05, 2.6, 0.05); geoAt('detail', new THREE.ConeGeometry(1.4, 0.5, 8), M, w * 0.18 + 3.8, 2.6, -d / 2 - 9, C(0xffffff));
       boxAt('trim', M, 1.5, 2.4, 0.3, b.doorX, 0.5, d / 2 + 0.15, C(0x3b3f48));
-      for (const sx of [-1, 1]) for (let z = -d / 2 - 8; z <= d / 2 - 1; z += 4.5) { const p = new THREE.Vector3(sx * (w / 2 + 3.9), 0, z).applyMatrix4(M); extraTrees.push([p.x, p.y, p.z, 0.75, 'cypress']); }
-      { const p = new THREE.Vector3(-w / 2 - 2, 0, -d / 2 - 7).applyMatrix4(M); extraTrees.push([p.x, p.y, p.z, 0.85, 'palm']); }
+      for (const sx of [-1, 1]) for (let z = -d / 2 - 8; z <= d / 2 - 1; z += 4.5) { if (sx > 0 && z > -2.2 && z < 7.2) continue; /* the carport is there */ const p = new THREE.Vector3(sx * (w / 2 + 3.9), 0, z).applyMatrix4(M); extraTrees.push([p.x, heightAt(p.x, p.z), p.z, 0.75, 'cypress']); }
+      { const p = new THREE.Vector3(-w / 2 - 2, 0, -d / 2 - 7).applyMatrix4(M); extraTrees.push([p.x, heightAt(p.x, p.z), p.z, 0.85, 'palm']); }
       return st === 0 ? 8 : 8.6;
     },
     barn(b, M, w, d) { // a red barn with white doors and two grain silos
@@ -744,11 +744,11 @@ window.World = (function () {
     // the business centre: paved blocks with planted courtyards, street trees in planters, cafés and bike racks at the towers
     for (const [x0, x1, z0, z1] of [[-193.4, -66.1, -193.4, -116.6], [-53.9, 53.9, -193.4, -116.6], [66.1, 182.9, -193.4, -116.6]]) {
       slab((x0 + x1) / 2, (z0 + z1) / 2, x1 - x0, z1 - z0, 0xdcd5c8, { y: TOWN_Y + 0.12, tile: 3 });
-      for (let x = x0 + 4; x < x1 - 3; x += 11) for (const z of [z0 + 3.2, z1 - 3.2]) if (!inside(x, z, 1.5) && freeOfPaths(x, z, 1.8)) planter(x, z, 1.8, 1.8, 'round', TOWN_Y + 0.12);
-      for (let z = z0 + 14; z < z1 - 12; z += 11) for (const x of [x0 + 3.2, x1 - 3.2]) if (!inside(x, z, 1.5) && freeOfPaths(x, z, 1.8)) planter(x, z, 1.8, 1.8, 'round', TOWN_Y + 0.12);
+      for (let x = x0 + 4; x < x1 - 3; x += 11) for (const z of [z0 + 3.2, z1 - 3.2]) if (!inside(x, z, 1.5) && freeOfPaths(x, z, 1.8) && nearRoad(x, z)[0] > 2) planter(x, z, 1.8, 1.8, 'round', TOWN_Y + 0.12);
+      for (let z = z0 + 14; z < z1 - 12; z += 11) for (const x of [x0 + 3.2, x1 - 3.2]) if (!inside(x, z, 1.5) && freeOfPaths(x, z, 1.8) && nearRoad(x, z)[0] > 2) planter(x, z, 1.8, 1.8, 'round', TOWN_Y + 0.12);
     }
-    for (const [x, z, w, d] of [[-174, -166, 30, 44], [-90, -166, 30, 44], [0, -150, 34, 16], [138, -128, 22, 10]]) { slab(x, z, w, d, 0x63b44b, { k: 'lawn', y: TOWN_Y + 0.14, tile: 50 }); frameAt('trim', new THREE.Matrix4().setPosition(x, TOWN_Y, z), w, d, 0.5, 0.35, 0, 0, C(0xd2c7b0)); for (let i = 0; i < Math.floor(w / 9); i++) for (let j = 0; j < Math.floor(d / 9); j++) extraTrees.push([x - w / 2 + 4.5 + i * 9 + (j % 2) * 2, TOWN_Y + 0.14, z - d / 2 + 4.5 + j * 9, 0.75, j % 3 === 2 ? 'cypress' : 'round']); }
-    for (const [x, z] of [[-6, -121], [6, -121], [-46, -121], [50, -121], [120, -121], [132, -121]]) umbrellaTable(x, z, pick([0x1f3f8f, 0xffffff, 0x2f8f6f]), TOWN_Y + 0.12);
+    for (const [x, z, w, d] of [[-174, -166, 30, 44], [-90, -166, 30, 44], [0, -150, 34, 16], [138, -128, 22, 10]]) { slab(x, z, w, d, 0x63b44b, { k: 'bed', y: TOWN_Y + 0.2, tile: 50 }); frameAt('trim', new THREE.Matrix4().setPosition(x, TOWN_Y, z), w, d, 0.5, 0.35, 0, 0, C(0xd2c7b0)); for (let i = 0; i < Math.floor(w / 9); i++) for (let j = 0; j < Math.floor(d / 9); j++) extraTrees.push([x - w / 2 + 4.5 + i * 9 + (j % 2) * 2, TOWN_Y + 0.2, z - d / 2 + 4.5 + j * 9, 0.75, j % 3 === 2 ? 'cypress' : 'round']); }
+    for (const [x, z] of [[-6, -121], [6, -121], [-46, -121], [50, -121], [120, -121], [132, -121]]) { const c = pick([0x1f3f8f, 0xffffff, 0x2f8f6f]); if (nearRoad(x, z)[0] > 2) umbrellaTable(x, z, c, TOWN_Y + 0.12); }
     for (const [x, z, r] of [[-17, -121, 0], [40, -121, 0], [112, -136, Math.PI / 2], [-132, -119, 0]]) bikes(x, z, r, 4, TOWN_Y + 0.12);
   }
   // ---------- the districts: villa plots, working farms, the beach and Hotel Azure, the stadium, the harbour, Industrial Isle ----------
@@ -861,7 +861,7 @@ window.World = (function () {
     FARM.proc = !!o.proc;
   }
   const PARKED = []; // parked vehicles: [type, x, z, heading]
-  const extraTrees = [];
+  const extraTrees = []; let TREES = null;
   function buildTown() {
     let id = 1;
     const B = (o) => addBuilding(Object.assign({}, o, { id: o.id || 'b' + id++ }));
@@ -895,7 +895,7 @@ window.World = (function () {
     LABELS.push({ text: 'Bus stop', level: 'place', x: -2, y: 8, z: 64, small: true });
     // a second row of small flats facing the square, with gardens between
     for (const [x, c] of [[-31, 0xffe6a1], [31, 0xfff1d6]]) B({ type: 'flat', name: `${x < 0 ? 3 : 5} Square Row`, area: 'Old Quarter', x, z: -70, rot: x < 0 ? Math.PI / 2 : -Math.PI / 2, w: 14, d: 12, floors: 3, color: c, sale: true });
-    for (let i = 0; i < 26; i++) { const x = (rnd() < 0.5 ? -1 : 1) * (24 + rnd() * 14), z = -86 + rnd() * 112; if (!inside(x, z, 2) && Math.abs(z + 32) > 26) extraTrees.push([x, TOWN_Y, z, 0.6 + rnd() * 0.3, rnd() < 0.3 ? 'flower' : 'round']); }
+    for (let i = 0; i < 26; i++) { const x = (rnd() < 0.5 ? -1 : 1) * (24 + rnd() * 14), z = -86 + rnd() * 112; if (!inside(x, z, 2) && Math.abs(z + 32) > 26) extraTrees.push([x, TOWN_Y, z, 0.6 + rnd() * 0.3, rnd() < 0.3 ? 'bush' : 'round']); }
     // the beach park in front of the shops: a basketball court, a café terrace, lawns and palms
     { const M = new THREE.Matrix4().setPosition(-20, TOWN_Y, 98); boxAt('lawn', M, 15, 0.12, 26, 0, 0, 0, C(0x2e74c9)); boxAt('lawn', M, 13, 0.16, 24, 0, 0, 0, C(0xd9643a)); for (const z of [-11, 11]) { boxAt('trim', M, 0.2, 3, 0.2, 0, 0, z, C(0xffffff)); boxAt('trim', M, 1.2, 0.9, 0.1, 0, 2.8, z - Math.sign(z) * 0.2, C(0xffffff)); } }
     { const M = new THREE.Matrix4().setPosition(25, TOWN_Y, 95); boxAt('lawn', M, 18, 0.14, 12, 0, 0, 0, C(0xe9dfca)); for (let i = 0; i < 6; i++) { const x = -6 + (i % 3) * 6, z = -2.5 + Math.floor(i / 3) * 5; geoAt('trim', CYL8, M, x, 0.6, z, C(0xffffff), 0, 0.6, 0.06, 0.6); geoAt('trim', CYL8, M, x, 1.6, z, C(0xffffff), 0, 0.05, 2.6, 0.05); geoAt('detail', new THREE.ConeGeometry(1.6, 0.6, 8), M, x, 2.9, z, C(pick([0xe8483f, 0xffffff]))); } }
@@ -1025,6 +1025,19 @@ window.World = (function () {
   }
   const inside = (x, z, pad) => !buildings.every(b => { const c = Math.cos(b.rot), s = Math.sin(b.rot), lx = (x - b.x) * c - (z - b.z) * s, lz = (x - b.x) * s + (z - b.z) * c; return !(Math.abs(lx) < b.w / 2 + pad && Math.abs(lz) < b.d / 2 + pad); });
   function clearOf(x, z, pad) { for (const b of buildings) { const c = Math.cos(b.rot), s = Math.sin(b.rot), lx = (x - b.x) * c - (z - b.z) * s, lz = (x - b.x) * s + (z - b.z) * c; if (Math.abs(lx) < b.w / 2 + pad + (b.clear || 0) && Math.abs(lz) < b.d / 2 + pad + (b.clear || 0)) return false; } return nearRoad(x, z)[0] > pad + 2.5; } // villas keep their gardens clear of the woods
+  const LEFT_OUT = {}; // why trees were not planted, by rule (World.treeReport shows it)
+  function settle(t, kind) { // a tree needs ground: off the carriageway and the footpaths, clear of walls, out of the water, at the height of the ground under it
+    const x = t[0], z = t[2], small = kind === 'flower' || kind === 'bush', street = t[4] === 'street', g = heightAt(x, z), no = why => { LEFT_OUT[why] = (LEFT_OUT[why] || 0) + 1; return false; };
+    if (land(x, z) < 1.5 || g < 0.2) return no('water'); if (nearRoad(x, z)[0] < (street ? 0.3 : small ? 0.4 : 1.2)) return no('road'); if (inside(x, z, small ? 0 : 0.6)) return no('wall'); if (!street && wnear(x, z, small ? 0.5 : 1.1)) return no('path');
+    if (Math.abs(t[1] - g) > 0.7) t[1] = g - 0.1; // on a hillside it stands on the slope (planters and plazas keep their raised base)
+    return true;
+  }
+  function thin(T) { // no two trees closer than 1.5 m: their crowns would melt into one lump
+    const seen = new Map();
+    for (const k in T) { if (k === 'flower' || k === 'bush') continue;
+      T[k] = T[k].filter(t => { const i = Math.floor(t[0] / 1.5), j = Math.floor(t[2] / 1.5); for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) for (const u of seen.get((i + a) + ',' + (j + b)) || []) if (Math.hypot(u[0] - t[0], u[2] - t[2]) < 1.5) { LEFT_OUT.crowded = (LEFT_OUT.crowded || 0) + 1; return false; } const key = i + ',' + j; if (!seen.has(key)) seen.set(key, []); seen.get(key).push(t); return true; });
+    }
+  }
   function buildNature() {
     const T = { round: [], pine: [], cypress: [], palm: [], bush: [], flower: [] }; seed = 99;
     for (const t of extraTrees) if (!wnear(t[0], t[2], t[4] === 'flower' || t[4] === 'bush' ? 0.9 : 1.4)) T[t[4]].push(t); // nothing planted on a path
@@ -1040,10 +1053,12 @@ window.World = (function () {
     const pits = []; // street trees in pits at the kerb edge of the pavement, lamps between them; none at a crossing, a corner or a front path
     for (const e of edges) if (e.kind === 'town') for (let s = 14; s < e.len - 14; s += 8) for (const sd of [-1, 1]) { const i = e.cum.findIndex(c => c >= s), p = e.pts[i], q = e.pts[Math.min(e.pts.length - 1, i + 1)], dx = q[0] - p[0], dz = q[2] - p[2], L = Math.hypot(dx, dz) || 1, lamp = Math.round(s / 8) % 4 === 2, o = e.w / 2 + (lamp ? 0.45 : 0.8), x = p[0] - dz / L * sd * o, z = p[2] + dx / L * sd * o;
       if (Math.round(s / 8) % 2) continue; if (inside(x, z, 1.2) || Object.values(nodes).some(N => Math.hypot(N.x - x, N.z - z) < N.r + 3.5) || CROSS.some(c => Math.hypot(c.x - x, c.z - z) < c.hw + 4.5) || wnear(x, z, 2.2, 'front') || wnear(x, z, 1.6, 'path')) continue;
-      if (lamp) LAMPS.push([x, p[1] + 0.1, z]); else { T.round.push([x, p[1] + 0.1, z, 0.55]); quad(pits, x, p[1] + 0.1, z, dx / L, dz / L, 0.6, 0.6, 0.015); } }
-    if (pits.length) triMesh(pits, off(new THREE.MeshStandardMaterial({ color: lin(0x6b5640), roughness: 1 }), -3));
+      if (lamp) LAMPS.push([x, p[1] + 0.1, z]); else T.round.push([x, p[1] + 0.1, z, 0.55, 'street', dx / L, dz / L]); }
     triMesh(FOOT.path, off(new THREE.MeshStandardMaterial({ color: lin(0xe6dcc8), roughness: 0.9 }), -2)); triMesh(FOOT.front, off(new THREE.MeshStandardMaterial({ color: lin(0xe9e1d0), roughness: 0.9 }), -2));
-    for (const k in T) plant(k, T[k]);
+    for (const k in T) T[k] = T[k].filter(t => settle(t, k)); thin(T);
+    for (const t of T.round) if (t[4] === 'street') quad(pits, t[0], t[1], t[2], t[5], t[6], 0.6, 0.6, 0.015);
+    if (pits.length) triMesh(pits, off(new THREE.MeshStandardMaterial({ color: lin(0x6b5640), roughness: 1 }), -3));
+    TREES = T; for (const k in T) plant(k, T[k]);
     const rocks = []; seed = 17;
     for (const pts of [curve(MAIN_C, 12), curve(ISLE_C, 12)]) for (let i = 0; i < pts.length; i++) { const p = pts[i]; if (p[2] < 0.6 || rnd() < 0.4) continue; for (let k = 0; k < 2; k++) { const x = p[0] + (rnd() - 0.5) * 14, z = p[1] + (rnd() - 0.5) * 14; rocks.push([x, Math.min(heightAt(x, z), 1) - 0.4, z, 1.2 + rnd() * 2.6]); } }
     const rm = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ roughness: 0.95, flatShading: true }), rocks.length), rc = new THREE.Color();
@@ -1342,7 +1357,21 @@ window.World = (function () {
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(big, 0, 0, W, H); const url = cv.toDataURL('image/jpeg', 0.86); shots.set(b.id, url); return url;
   }
 
-  // ---------- checks: the network, every route to the harbour both ways, and a probe drive along each ----------
+  // ---------- checks: the trees, the network, every route to the harbour both ways, and a probe drive along each ----------
+  function treeReport() { // every planted tree against the streets, footpaths, buildings, water and the ground it stands on
+    const bad = { onRoad: [], onKerb: [], onPath: [], inBuilding: [], inWater: [], floating: [], buried: [], crowded: [], atDoor: [] }, big = [], cell = new Map(); let total = 0;
+    for (const k in TREES) for (const t of TREES[k]) {
+      const [x, y, z, , st] = t, small = k === 'flower' || k === 'bush', street = st === 'street', say = k + ' ' + Math.round(x) + ',' + Math.round(z), g = heightAt(x, z); total++;
+      if (paved(x, z)) bad.onRoad.push(say); else if (!small && !street && nearRoad(x, z)[0] < 1.2) bad.onKerb.push(say);
+      if (!street && wnear(x, z, small ? 0.5 : 1.1)) bad.onPath.push(say);
+      if (inside(x, z, small ? 0 : 0.6)) bad.inBuilding.push(say);
+      if (land(x, z) < 1.5 || g < 0.2) bad.inWater.push(say);
+      if (y - g > 0.7) bad.floating.push(say + ' +' + (y - g).toFixed(1)); else if (g - y > 0.9) bad.buried.push(say + ' -' + (g - y).toFixed(1));
+      if (!small) { const key = Math.floor(x / 3) + ',' + Math.floor(z / 3); cell.set(key, (cell.get(key) || []).concat(big.length)); big.push(t); if (buildings.some(b => b.door && Math.hypot(b.door.x - x, b.door.z - z) < 1.6)) bad.atDoor.push(say); }
+    }
+    big.forEach((t, i) => { const a = Math.floor(t[0] / 3), b = Math.floor(t[2] / 3); for (let p = -1; p <= 1; p++) for (let q = -1; q <= 1; q++) for (const j of cell.get((a + p) + ',' + (b + q)) || []) if (j > i && Math.hypot(big[j][0] - t[0], big[j][2] - t[2]) < 1.5) bad.crowded.push(Math.round(t[0]) + ',' + Math.round(t[2])); });
+    const out = { trees: total, leftOut: LEFT_OUT }; for (const k in bad) { out[k] = bad[k].length; out[k + 'Eg'] = bad[k].slice(0, 14); } return out;
+  }
   function roadReport() {
     const seen = new Set(['K']), stack = ['K']; while (stack.length) { const u = stack.pop(); for (const e of nodes[u].edges) { const v = e.a.id === u ? e.b.id : e.a.id; if (!seen.has(v)) { seen.add(v); stack.push(v); } } }
     let wet = 0, maxSlope = 0; for (const e of edges) for (let i = 0; i < e.pts.length; i++) { const p = e.pts[i]; if (e.kind !== 'bridge' && land(p[0], p[2]) < 1) wet++; if (i) { const q = e.pts[i - 1]; maxSlope = Math.max(maxSlope, Math.abs(p[1] - q[1]) / (Math.hypot(p[0] - q[0], p[2] - q[2]) || 1)); } }
@@ -1377,6 +1406,6 @@ window.World = (function () {
 
   function simulate(seconds, dt = 1 / 60) { for (let t = 0; t < seconds; t += dt) { clock += dt; for (const f of tick) f(dt, clock); } return stats; } // the same traffic code without drawing, for tests
   function eventState(o) { if (EVENT.crowd) EVENT.crowd.visible = !!o.match; const f = MATS && MATS.flood; if (f) f.color.set(o.match ? 0xffffff : 0x8a8f96); EVENT.match = !!o.match; } // match day: the crowd in the stands and the floodlights on
-  return { players, farm: farmState, event: eventState, access: ACCESS, walk: WG, POI, simulate, dispatch, routeInfo, SPARE, init: (c, q) => { init(c, q); buildPeople(); }, step, frame, place, view, flyTo, current, overview, viewOf, homeView, pickAt, mark, photo, buildings, LABELS, nodes, edges, cars, SHIP, stats, roadReport, routeTest, setClosed, colourReport, route, land, heightAt,
-    get camera() { return camera; }, get renderer() { return renderer; }, get scene() { return scene; }, get controls() { return controls; }, get flying() { return !!fly; }, get dist() { return camDist; }, get pixelRatio() { return renderer.getPixelRatio(); }, get pixelRatioMax() { return pxMax; } };
+  return { players, farm: farmState, event: eventState, access: ACCESS, walk: WG, POI, simulate, dispatch, routeInfo, SPARE, init: (c, q) => { init(c, q); buildPeople(); }, step, frame, place, view, flyTo, current, overview, viewOf, homeView, pickAt, mark, photo, buildings, LABELS, nodes, edges, cars, SHIP, stats, roadReport, treeReport, routeTest, setClosed, colourReport, route, land, heightAt,
+    get trees() { return TREES; }, get camera() { return camera; }, get renderer() { return renderer; }, get scene() { return scene; }, get controls() { return controls; }, get flying() { return !!fly; }, get dist() { return camDist; }, get pixelRatio() { return renderer.getPixelRatio(); }, get pixelRatioMax() { return pxMax; } };
 })();
