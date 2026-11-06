@@ -5,6 +5,7 @@
 'use strict';
 const { app, BrowserWindow, protocol, net, shell, Menu } = require('electron');
 const path = require('path'), { pathToFileURL } = require('url');
+const smokeProbe = require('./smoke-probe');
 
 const WWW = path.join(__dirname, 'www');
 const SMOKE = process.argv.includes('--smoke'); // the build's check: open hidden, wait for the city to load, report, quit
@@ -20,7 +21,7 @@ function open() {
   if (SMOKE) win.webContents.on('console-message', e => { if (e.level === 'error' || e.level === 3) errors.push(String(e.message).slice(0, 160)); });
   if (SMOKE) win.webContents.once('did-finish-load', async () => {
     for (let i = 0; i < 90; i++) {
-      const ok = await win.webContents.executeJavaScript("!!(window.CS && document.getElementById('load').hidden && window.Land && Land.plots.size)").catch(() => false);
+      const ok = await win.webContents.executeJavaScript(`(${smokeProbe.toString()})()`).catch(() => false);
       if (ok) { console.log('SMOKE OK: the city loaded'); app.exit(0); return; }
       await new Promise(r => setTimeout(r, 1000));
     }

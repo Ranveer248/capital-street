@@ -6,6 +6,7 @@
   "author": "Pocket Rocket Studio",
   "main": "main.js",
   "scripts": {
+    "test": "node --test smoke-probe.test.js",
     "copy": "node copy-web.js",
     "start": "node copy-web.js && electron .",
     "dist": "node copy-web.js && electron-builder --publish never"
@@ -18,7 +19,7 @@
     "appId": "com.pocketrocketstudio.capitalstreet",
     "productName": "Capital Street",
     "copyright": "© 2026 Pocket Rocket Studio",
-    "files": ["main.js", "www/**/*"],
+    "files": ["main.js", "smoke-probe.js", "www/**/*"],
     "directories": { "output": "dist", "buildResources": "build" },
     "win": { "target": ["portable", "zip"] },
     "portable": { "artifactName": "CapitalStreet-${version}-windows.exe" },

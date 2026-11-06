@@ -22,6 +22,11 @@ npm start
 
 `www/` is a copy made by `npm run copy`. Edit the game in the repo root (`..`), never in `www/`. `npm run dist` makes the installers in `dist/`.
 
+`npm test` checks the startup probe. The Linux CI smoke check opens the game
+hidden, selects Low on the first-run graphics prompt, and then waits for the
+loading screen to disappear and the city plots to exist. It still fails if the
+game cannot load. Normal play keeps the player's graphics choice.
+
 ## itch.io (free, up to 1 GB per file)
 
 1. Create the game page on itch.io (Kind of project: Downloadable).
