@@ -1,5 +1,6 @@
 # Capital Street for PC (Windows, Mac, Linux)
 
+The default entry now opens the expanded Capital Island. New York remains at `index.html?newyork`, with its save data retained.
 The game (this repo's root, one folder up) in a desktop window, made with [Electron](https://www.electronjs.org). The app carries every file inside it, so it plays offline; signing in to play online works as on the website.
 
 ## Getting the builds

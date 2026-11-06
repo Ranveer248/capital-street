@@ -18,3 +18,5 @@ Kept up to date as the island is built, so the credits and licence notices at re
 | Fonts: Inter, Lilita One (`../fonts/`) | Google Fonts | SIL Open Font License 1.1 |
 
 No outside 3D models, photos, map data or sounds are used in the island. New outside assets get a row here before they are added.
+
+| Enterprise cover SVG, navigation icons, Eastbank/North Ridge layout and procedural props | Original repo-native artwork/code; existing island building generators reused | Pocket Rocket Studio |

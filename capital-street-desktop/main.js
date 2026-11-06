@@ -16,7 +16,7 @@ function open() {
     width: 1600, height: 900, minWidth: 1024, minHeight: 640, title: 'Capital Street', backgroundColor: '#1c2a78', autoHideMenuBar: true, show: !SMOKE,
     webPreferences: { contextIsolation: true, sandbox: true }
   });
-  win.loadURL('app://game/index.html');
+  win.loadURL(SMOKE ? 'app://game/island/sample/index.html?offline&name=DesktopSmoke' : 'app://game/index.html');
   const errors = [];
   if (SMOKE) win.webContents.on('console-message', e => { if (e.level === 'error' || e.level === 3) errors.push(String(e.message).slice(0, 160)); });
   if (SMOKE) win.webContents.once('did-finish-load', async () => {
@@ -45,6 +45,7 @@ app.whenReady().then(() => {
   protocol.handle('app', req => {
     let p = decodeURIComponent(new URL(req.url).pathname);
     if (p === '/' || p === '') p = '/index.html';
+    else if (p.endsWith('/')) p += 'index.html';
     const file = path.normalize(path.join(WWW, p));
     if (!file.startsWith(WWW)) return new Response('Not found', { status: 404 });
     return net.fetch(pathToFileURL(file).toString());

@@ -1,0 +1,64 @@
+-- Test fixtures roll back. No real balances, owners or jobs are retained.
+begin;
+do $$
+declare u uuid:=gen_random_uuid();v uuid:=gen_random_uuid();w uuid:=gen_random_uuid();r uuid;before_cash numeric;rev int;st jsonb;failed boolean;shipment text;price int;
+begin
+ insert into auth.users(id) values(u),(v),(w);
+ perform set_config('request.jwt.claim.sub',u::text,true);perform public.ci_join('EQ'||substr(replace(u::text,'-',''),1,12),'#4c8dff');
+ update public.ci_players set cash=20000 where id=u;
+ perform set_config('request.jwt.claim.sub',v::text,true);perform public.ci_join('EQ'||substr(replace(v::text,'-',''),1,12),'#4c8dff');
+ perform set_config('request.jwt.claim.sub',w::text,true);perform public.ci_join('EQ'||substr(replace(w::text,'-',''),1,12),'#4c8dff');
+ if (select count(distinct state->>'starter') from public.ci_enterprise where player in (u,v,w))<>3 then raise exception 'Starter addresses overlap';end if;
+ perform set_config('request.jwt.claim.sub',u::text,true);
+ failed:=false;begin perform public.ci_grow(5);exception when others then failed:=true;end;if not failed then raise exception 'Farm gate missing';end if;
+ failed:=false;begin perform public.ci_enterprise_action(gen_random_uuid(),'buyshare','MAR',5,0,0);exception when others then failed:=true;end;if not failed then raise exception 'Office gate missing';end if;
+ perform public.ci_buy_property('east:farm:0');perform public.ci_grow(5);
+ perform public.ci_buy_property('ridge:mine:0');perform public.ci_buy_property('east:port:0');
+ select cash into before_cash from public.ci_players where id=u;
+ r:=gen_random_uuid();perform public.ci_enterprise_action(r,'mine','ridge:mine:0',10,0,0);perform public.ci_enterprise_action(r,'mine','ridge:mine:0',10,0,0);
+ if (select cash from public.ci_players where id=u)<>before_cash-20 then raise exception 'Extraction retry charged twice';end if;
+ failed:=false;begin perform public.ci_enterprise_action(gen_random_uuid(),'mine','ridge:mine:0',10,1,0);exception when others then failed:=true;end;if not failed then raise exception 'Crew busy guard missing';end if;
+ update public.ci_enterprise set state=jsonb_set(state,'{jobs,0,end}','0') where player=u;st:=public.ci_state();
+ if (st->'enterprise'->'stock'->>'coal')::int<>10 then raise exception 'Extraction did not settle';end if;
+ r:=gen_random_uuid();perform public.ci_enterprise_action(r,'export','coal',10,1,0);
+ shipment:=r::text;
+ failed:=false;begin perform public.ci_enterprise_action(gen_random_uuid(),'collect',shipment,1,2,0);exception when others then failed:=true;end;if not failed then raise exception 'Premature export payment';end if;
+ failed:=false;begin perform public.ci_enterprise_action(gen_random_uuid(),'demolish','east:port:0',1,2,0);exception when others then failed:=true;end;if not failed then raise exception 'Active export harbour demolition allowed';end if;
+ update public.ci_enterprise set state=jsonb_set(state,'{ships,0,end}','0') where player=u;
+ select cash into before_cash from public.ci_players where id=u;
+ r:=gen_random_uuid();perform public.ci_enterprise_action(r,'collect',shipment,1,2,0);perform public.ci_enterprise_action(r,'collect',shipment,1,2,0);
+ if (select cash from public.ci_players where id=u)<>before_cash+80 then raise exception 'Export payment or retry wrong';end if;
+ perform public.ci_buy_property('east:shop:0');perform public.ci_enterprise_action(gen_random_uuid(),'wholesale','sneakers',5,3,0);perform public.ci_enterprise_action(gen_random_uuid(),'resell','sneakers',5,4,0);
+ perform public.ci_enterprise_action(gen_random_uuid(),'demolish','east:shop:0',1,5,75);
+ if not (select demolished from public.ci_building_works where lot='east:shop:0') or not exists(select 1 from public.ci_property where lot='east:shop:0' and owner=u) then raise exception 'Demolition lost land or did not apply';end if;
+ failed:=false;begin perform public.ci_enterprise_action(gen_random_uuid(),'wholesale','sneakers',5,6,0);exception when others then failed:=true;end;if not failed then raise exception 'Demolished shop still works';end if;
+ perform public.ci_enterprise_action(gen_random_uuid(),'rebuild','east:shop:0',1,6,225);
+ perform public.ci_buy_property('east:office:0');
+ if mod(floor(extract(epoch from now())/20)::bigint,30)<24 then
+  price:=ci_private.share_price('MAR',floor(extract(epoch from now())*1000)::bigint);
+  perform public.ci_enterprise_action(gen_random_uuid(),'buyshare','MAR',5,7,price);perform public.ci_enterprise_action(gen_random_uuid(),'sellshare','MAR',5,8,price);
+ else
+  failed:=false;begin perform public.ci_enterprise_action(gen_random_uuid(),'buyshare','MAR',5,7,0);exception when others then failed:=true;end;if not failed then raise exception 'Closed market accepted order';end if;
+ end if;
+ perform public.ci_buy_property('east:factory:0');
+ update public.ci_enterprise set state=jsonb_set(jsonb_set(state,'{stock,oil}','10'),'{basis,oil}','40') where player=u;
+ select (state->>'revision')::int into rev from public.ci_enterprise where player=u;
+ perform public.ci_enterprise_action(gen_random_uuid(),'refine','oil',10,rev,0);
+ update public.ci_enterprise set state=jsonb_set(state,'{jobs,0,end}','0') where player=u;st:=public.ci_state();
+ if (st->'enterprise'->'stock'->>'fuel')::int<>10 or (st->'enterprise'->'basis'->>'fuel')::numeric<>70 then raise exception 'Factory refining output/basis wrong';end if;
+ perform public.ci_auction_action(gen_random_uuid(),'list','east:shop:0',360);
+ perform set_config('request.jwt.claim.sub',v::text,true);select cash into before_cash from public.ci_players where id=v;
+ r:=gen_random_uuid();perform public.ci_auction_action(r,'bid','east:shop:0',360);perform public.ci_auction_action(r,'bid','east:shop:0',360);
+ if (select cash from public.ci_players where id=v)<>before_cash-360 then raise exception 'Bid retry wrong';end if;
+ perform set_config('request.jwt.claim.sub',w::text,true);perform public.ci_auction_action(gen_random_uuid(),'bid','east:shop:0',370);
+ if (select cash from public.ci_players where id=v)<>before_cash then raise exception 'Outbid refund wrong';end if;
+ failed:=false;begin perform public.ci_auction_action(gen_random_uuid(),'settle','east:shop:0',0);exception when others then failed:=true;end;if not failed then raise exception 'Early auction settlement';end if;
+ update public.ci_auctions set ends_at=now()-interval '1 second' where lot='east:shop:0';
+ r:=gen_random_uuid();perform public.ci_auction_action(r,'settle','east:shop:0',0);perform public.ci_auction_action(r,'settle','east:shop:0',0);
+ if not exists(select 1 from public.ci_property where lot='east:shop:0' and owner=w) then raise exception 'Auction ownership did not transfer';end if;
+ perform set_config('request.jwt.claim.sub',v::text,true);
+ failed:=false;begin perform public.ci_enterprise_action(gen_random_uuid(),'demolish','east:shop:0',1,0,0);exception when others then failed:=true;end;if not failed then raise exception 'Nonowner demolition allowed';end if;
+ if has_function_privilege('anon','public.ci_enterprise_action(uuid,text,text,int,int,int)','execute') or has_table_privilege('authenticated','public.ci_enterprise','update') or has_function_privilege('authenticated','ci_private.enterprise_snapshot(uuid)','execute') then raise exception 'Unexpected API privileges';end if;
+end $$;
+select 'PASS: unique starters, property gates, mining/exports/retries, retail, demolition/rebuild, share desk, auction escrow/refund/transfer, ownership and API privileges' as result;
+rollback;

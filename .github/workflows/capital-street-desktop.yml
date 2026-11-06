@@ -30,7 +30,7 @@ jobs:
         with: { node-version: 22 }
       - run: npm install --no-audit --no-fund
       - name: Check housing and startup rules
-        run: node --test ../island/sample/housing.test.js smoke-probe.test.js
+        run: node --test ../island/sample/enterprise.test.js ../island/sample/housing.test.js smoke-probe.test.js
       - name: Build
         run: npm run dist
         env:
