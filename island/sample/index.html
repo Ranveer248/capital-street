@@ -163,16 +163,15 @@ table.t { width: 100%; border-collapse: collapse; font-size: 12px; } table.t td 
 .step .btn { width: 100%; }
 #fps { position: fixed; right: 6px; bottom: 2px; z-index: 60; font: 700 10px monospace; color: rgba(10,15,46,.65); pointer-events: none; }
 </style>
-<link rel="stylesheet" href="enterprise.css?v=enterprise-20261106">
 </head>
 <body>
 <canvas id="c" hidden></canvas>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11 12 3l9 8M5 10v11h5v-7h4v7h5V10" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-  <symbol id="i-build" viewBox="0 0 24 24"><path d="M4 21V4h10v17M14 10h6v11M7 8h4M7 12h4M7 16h4M17 14h1M17 18h1" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-  <symbol id="i-jobs" viewBox="0 0 24 24"><path d="M3 8h18v12H3zM8 8V4h8v4M3 12h18M10 12v3h4v-3" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-  <symbol id="i-trade" viewBox="0 0 24 24"><path d="M2 16h20l-4 5H7zM6 15V8h5v7M12 15V5h6v10M15 5V2" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-  <symbol id="i-map" viewBox="0 0 24 24"><path d="M3 5l6-3 6 3 6-3v17l-6 3-6-3-6 3zM9 2v17M15 5v17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M12 3 2 11.5h3V21h5.5v-6h3v6H19v-9.5h3z"/></symbol>
+  <symbol id="i-build" viewBox="0 0 24 24"><path d="M14.7 2.3 9.4 7.6l2.1 2.1-8.8 8.8a1.5 1.5 0 0 0 0 2.1l.7.7a1.5 1.5 0 0 0 2.1 0l8.8-8.8 2.1 2.1 5.3-5.3z"/></symbol>
+  <symbol id="i-jobs" viewBox="0 0 24 24"><circle cx="12" cy="7" r="3.2"/><circle cx="5.5" cy="9" r="2.4"/><circle cx="18.5" cy="9" r="2.4"/><path d="M6.5 20v-3.2c0-2.8 2.4-4.8 5.5-4.8s5.5 2 5.5 4.8V20zM1 20v-2.4c0-2 1.6-3.4 3.8-3.6-.8 1-1.3 2.2-1.3 3.6V20zm22 0h-2.5v-2.4c0-1.4-.5-2.6-1.3-3.6 2.2.2 3.8 1.6 3.8 3.6z"/></symbol>
+  <symbol id="i-trade" viewBox="0 0 24 24"><path d="M2 15h20l-2.5 5h-15z"/><path d="M5 14V9h6v5zm7 0V6h5v8z"/><path d="M8 8V5h2v3z"/></symbol>
+  <symbol id="i-map" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 5.3 7 13 7 13s7-7.7 7-13a7 7 0 0 0-7-7zm0 9.6A2.6 2.6 0 1 1 12 6.4a2.6 2.6 0 0 1 0 5.2z"/></symbol>
   <symbol id="i-gear" viewBox="0 0 24 24"><path d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3h-4l-.4 2.9a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1L11 21h4l.4-2.9a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M6.4 4.9 12 10.6l5.6-5.7 1.5 1.5-5.7 5.6 5.7 5.6-1.5 1.5-5.6-5.7-5.6 5.7-1.5-1.5 5.7-5.6-5.7-5.6z"/></symbol>
   <symbol id="i-back" viewBox="0 0 24 24"><path d="M15.4 4.6 8 12l7.4 7.4 1.5-1.5L10.9 12l6-5.9z"/></symbol>
@@ -185,17 +184,14 @@ table.t { width: 100%; border-collapse: collapse; font-size: 12px; } table.t td 
   <symbol id="i-crop" viewBox="0 0 24 24"><path d="M12 22v-9M12 13c0-4 3-7 7-7 0 4-3 7-7 7zm0 0c0-4-3-7-7-7 0 4 3 7 7 7zm0-5c0-3 1.5-5 0-6-1.5 1-0 3 0 6z" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></symbol>
   <symbol id="i-factory" viewBox="0 0 24 24"><path d="M2 21V10l6 3V10l6 3V4h3v17zM18 4h3v17h-3z"/></symbol>
   <symbol id="i-sun" viewBox="0 0 24 24"><path d="M2 17h20v2H2zm2.5-2a7.5 7.5 0 0 1 15 0z" fill="#ffc93c"/></symbol>
-<symbol id="i-mine" viewBox="0 0 24 24"><path d="m3 20 9-9M8 4c5-3 10 0 13 5l-3 3c-3-4-6-6-10-5zM3 18l3 3" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-<symbol id="i-shop" viewBox="0 0 24 24"><path d="M3 10h18M5 10v11h14V10M2 10l3-7h14l3 7M8 21v-7h5v7" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-<symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18M6 16l5-6 4 3 6-9M17 4h4v4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 </svg>
 
 <section id="cover">
   <div class="cv">
-    <div class="art"><img src="art/enterprise-cover.svg" alt="Original Capital Street illustration: an island skyline, neighbourhoods and harbour" width="1600" height="1000"></div>
+    <div class="art"><img src="art/cover.jpg" alt="Capital Island: the Old Quarter, Market Square, the harbour and the bridge to Industrial Isle" width="1600" height="1000"></div>
     <h1>CAPITAL STREET</h1>
-    <div class="sub"><svg class="i"><use href="#i-sun"/></svg>Capital Island · The Enterprise Update</div>
-    <p class="goal">A small address. A big ambition. Own businesses, work the land, trade the market and send your first cargo overseas.</p>
+    <div class="sub"><svg class="i"><use href="#i-sun"/></svg>Capital Island</div>
+    <p class="goal">Grow crops at Greenfields, truck them over the bridge to the plant, and sell the food to the town's shops and Hotel Azure. Earn, level up and buy property, with friends on the same island.</p>
     <form class="join" id="joinf" onsubmit="return false">
       <div class="lbl"><label for="nm">Display name</label><small id="nmCount">0 / 20</small></div>
       <input id="nm" maxlength="20" placeholder="e.g. Sam Harbour" autocomplete="nickname" spellcheck="false" enterkeyhint="go" aria-describedby="nmHelp jmsg">
@@ -205,8 +201,8 @@ table.t { width: 100%; border-collapse: collapse; font-size: 12px; } table.t td 
       <p class="gfxmsg" id="gfxmsg" role="status" aria-live="polite" hidden></p>
       <p class="jmsg" id="jmsg" role="status" aria-live="polite"></p>
     </form>
-    <button class="btn gold play" id="play" type="button">ENTER THE ISLAND →</button><button class="btn ghost" id="offline" type="button" hidden>PLAY OFFLINE</button>
-    <p class="foot">© 2026 Pocket Rocket Studio · <a href="../../index.html?newyork">New York archive</a> · <a href="../../terms.html" target="_blank" rel="noopener">Terms</a> · <a href="../../privacy.html" target="_blank" rel="noopener">Privacy</a> · <a href="../../credits.html" target="_blank" rel="noopener">Credits</a> · <a href="../../changelog.html" target="_blank" rel="noopener">What&#39;s&nbsp;new</a></p>
+    <button class="btn gold play" id="play" type="button">PLAY</button><button class="btn ghost" id="offline" type="button" hidden>PLAY OFFLINE</button>
+    <p class="foot">© 2026 Pocket Rocket Studio · <a href="../../terms.html" target="_blank" rel="noopener">Terms</a> · <a href="../../privacy.html" target="_blank" rel="noopener">Privacy</a> · <a href="../../credits.html" target="_blank" rel="noopener">Credits</a> · <a href="../../changelog.html" target="_blank" rel="noopener">What&#39;s&nbsp;new</a></p>
   </div>
 </section>
 
@@ -219,8 +215,8 @@ table.t { width: 100%; border-collapse: collapse; font-size: 12px; } table.t td 
   <div id="fol" hidden><span id="folT">Following your truck</span><button class="btn ghost" id="folX">STOP</button></div>
   <nav id="nav" aria-label="Main">
     <button data-p="home" aria-label="Home: you, your money and your property"><span class="r"><svg class="i"><use href="#i-home"/></svg></span>HOME</button>
-    <button data-p="build" aria-label="Property: buy, manage, demolish and auction buildings"><span class="r"><svg class="i"><use href="#i-build"/></svg></span>BUILD</button>
-    <button data-p="jobs" aria-label="Careers: farming, mining, resale and day trading"><span class="r"><svg class="i"><use href="#i-jobs"/></svg></span>JOBS</button>
+    <button data-p="build" aria-label="Build: buy property"><span class="r"><svg class="i"><use href="#i-build"/></svg></span>BUILD</button>
+    <button data-p="jobs" aria-label="Jobs: the food chain"><span class="r"><svg class="i"><use href="#i-jobs"/></svg></span>JOBS</button>
     <button data-p="trade" aria-label="Trade: buyers, shipments and player offers"><span class="r"><svg class="i"><use href="#i-trade"/></svg></span>TRADE</button>
     <button data-p="map" aria-label="Map: places and players"><span class="r"><svg class="i"><use href="#i-map"/></svg></span>MAP</button>
   </nav>
@@ -235,14 +231,8 @@ table.t { width: 100%; border-collapse: collapse; font-size: 12px; } table.t td 
 <script src="../../lib/OrbitControls.js"></script>
 <script src="../../lib/supabase.js"></script>
 <script src="../../js/net-config.js"></script>
-<script src="enterprise.js?v=enterprise-20261106"></script>
-<script src="housing.js?v=enterprise-20261106"></script>
-<script src="world.js?v=enterprise-20261106"></script>
-<script src="enterprise-view.js?v=enterprise-20261106"></script>
-<script src="housing-view.js?v=enterprise-20261106"></script>
-<script src="housing-ui.js?v=enterprise-20261106"></script>
-<script src="market.js?v=enterprise-20261106"></script>
-<script src="enterprise-ui.js?v=enterprise-20261106"></script>
-<script src="app.js?v=enterprise-20261106"></script>
+<script src="world.js"></script>
+<script src="market.js"></script>
+<script src="app.js"></script>
 </body>
 </html>

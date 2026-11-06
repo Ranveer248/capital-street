@@ -5,7 +5,6 @@
 'use strict';
 const { app, BrowserWindow, protocol, net, shell, Menu } = require('electron');
 const path = require('path'), { pathToFileURL } = require('url');
-const smokeProbe = require('./smoke-probe');
 
 const WWW = path.join(__dirname, 'www');
 const SMOKE = process.argv.includes('--smoke'); // the build's check: open hidden, wait for the city to load, report, quit
@@ -16,12 +15,12 @@ function open() {
     width: 1600, height: 900, minWidth: 1024, minHeight: 640, title: 'Capital Street', backgroundColor: '#1c2a78', autoHideMenuBar: true, show: !SMOKE,
     webPreferences: { contextIsolation: true, sandbox: true }
   });
-  win.loadURL(SMOKE ? 'app://game/island/sample/index.html?offline&name=DesktopSmoke' : 'app://game/index.html');
+  win.loadURL('app://game/index.html');
   const errors = [];
   if (SMOKE) win.webContents.on('console-message', e => { if (e.level === 'error' || e.level === 3) errors.push(String(e.message).slice(0, 160)); });
   if (SMOKE) win.webContents.once('did-finish-load', async () => {
     for (let i = 0; i < 90; i++) {
-      const ok = await win.webContents.executeJavaScript(`(${smokeProbe.toString()})()`).catch(() => false);
+      const ok = await win.webContents.executeJavaScript("!!(window.CS && document.getElementById('load').hidden && window.Land && Land.plots.size)").catch(() => false);
       if (ok) { console.log('SMOKE OK: the city loaded'); app.exit(0); return; }
       await new Promise(r => setTimeout(r, 1000));
     }
@@ -45,7 +44,6 @@ app.whenReady().then(() => {
   protocol.handle('app', req => {
     let p = decodeURIComponent(new URL(req.url).pathname);
     if (p === '/' || p === '') p = '/index.html';
-    else if (p.endsWith('/')) p += 'index.html';
     const file = path.normalize(path.join(WWW, p));
     if (!file.startsWith(WWW)) return new Response('Not found', { status: 404 });
     return net.fetch(pathToFileURL(file).toString());

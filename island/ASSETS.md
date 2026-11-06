@@ -13,10 +13,7 @@ Kept up to date as the island is built, so the credits and licence notices at re
 | Sports Park, fan plaza, Market Square shops, works gate, tank farm, container yard, wharf, pond, hay bales, tower tops, tanker | Generated in code (`world.js`) from simple shapes | Original, © 2026 Pocket Rocket Studio |
 | Ollie the otter (guide) | Drawn as SVG in `js/app.js` | Original, © 2026 Pocket Rocket Studio |
 | Interface icons | Drawn as SVG symbols in `index.html` | Original, © 2026 Pocket Rocket Studio |
-| Orchard Close parcel, cottage, renovation, fence, porch and driveway | Procedural code in `sample/housing-view.js`; original geometry | Original, © 2026 Pocket Rocket Studio |
 | three.js r128 (`../lib/three.min.js`, `../lib/OrbitControls.js`) | three.js project | MIT |
 | Fonts: Inter, Lilita One (`../fonts/`) | Google Fonts | SIL Open Font License 1.1 |
 
 No outside 3D models, photos, map data or sounds are used in the island. New outside assets get a row here before they are added.
-
-| Enterprise cover SVG, navigation icons, Eastbank/North Ridge layout and procedural props | Original repo-native artwork/code; existing island building generators reused | Pocket Rocket Studio |

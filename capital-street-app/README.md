@@ -1,6 +1,5 @@
 # Capital Street: the app
 
-The default entry now opens the expanded Capital Island. New York remains at `index.html?newyork`, with its save data retained.
 The game (this repo's root, one folder up) wrapped with [Capacitor](https://capacitorjs.com) for Android and iPhone. The app carries every file inside it (the game, three.js, fonts and all five cities' map data, about 17 MB), so it works offline.
 
 - **App name:** Capital Street

@@ -12,20 +12,11 @@
   const clock = s => { s = Math.max(0, Math.ceil(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
   const now = () => Date.now();
   const KEY = 'cs-sample3-v1';
-  // Preserve the complete pre-update local save once, before any new fields or starter allocation.
-  try { const previous=localStorage.getItem(KEY);if(previous&&!localStorage.getItem('cs-sample3-before-enterprise'))localStorage.setItem('cs-sample3-before-enterprise',previous); } catch(e) {}
   const freshEco = () => ({ farm: { qty: 0, cost: 0 }, plantIn: { qty: 0, cost: 0 }, plantOut: { qty: 0, cost: 0 }, grows: [], procs: [], ships: [], demand: { shops: 60, hotel: 40 }, at: now(), match: now() + 4 * 60e3, stats: { grown: 0, shipped: 0, processed: 0, sold: 0, revenue: 0, profit: 0 }, inv: {}, mk: {}, taken: {} });
   const fresh = () => ({ cash: 2340, xp: 0, owned: {}, seen: {}, done: {}, eco: freshEco() });
   let S; try { S = Object.assign(fresh(), JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { S = fresh(); }
   S.eco = Object.assign(freshEco(), S.eco || {}); // saves from the first sample gain the economy
   let saveFail = false; // a device can refuse to store anything (full, or private browsing): say so rather than lose progress silently
-  S.enterprise = S.enterprise || Enterprise.fresh();
-  let onlineEnterprise=null, buildingWorks={}, auctions=[], residents=[],catalogPrices={};
-  const enterprise=()=>NET.online?(onlineEnterprise||Enterprise.fresh()):S.enterprise;
-  S.housing = S.housing || {}; // additive: old owned buildings and inventories are unchanged
-  let onlineHomes = {};
-  const homes = () => NET.online ? onlineHomes : S.housing;
-  const homeBase = () => { const p = Housing.PLOTS.find(p => homes()[p.id] && homes()[p.id].mode==='home' && (!NET.online || homes()[p.id].owner===NET.me)); return p ? HousingView.plots.get(p.id) : World.buildings.find(b=>b.id===(NET.online?onlineEnterprise&&onlineEnterprise.starter:S.enterprise.starter)); };
   const E = S.eco, save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); saveFail = false; } catch (e) { if (!saveFail) { saveFail = true; if (!NET.online) setTimeout(() => toast('Progress is not being saved', 'This device\'s storage is full or blocked (private browsing?). Playing online keeps your progress on the island server.', true), 0); } } };
   const QS = ['auto', 'low', 'medium', 'high'];
   let qpref = (() => { try { const v = localStorage.getItem('cs-sample3-q'); return QS.includes(v) ? v : 'auto'; } catch (e) { return 'auto'; } })(); // what the player picked; Auto lets the device decide
@@ -86,7 +77,7 @@
       for (const t of ['ci_buyers', 'ci_property', 'ci_listings'].concat(N.v2 ? ['ci_market', 'ci_contracts'] : [])) ch.on('postgres_changes', { event: '*', schema: 'public', table: t }, () => N.refresh());
       ch.subscribe(st => { if (live !== ch) return; if (st === 'SUBSCRIBED') { ch.ok = true; backoff = 0; setStatus('live'); N.refresh(); } else if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT' || st === 'CLOSED') { ch.ok = false; setStatus('reconnecting'); rT = setTimeout(connect, Math.min(30000, 1000 * 2 ** Math.min(5, backoff++))); } });
       const pc = pres = sb.channel('ci-online', { config: { presence: { key: N.me } } });
-      pc.on('presence', { event: 'sync' }, () => { if (pres !== pc) return; const m = new Map(); for (const metas of Object.values(pc.presenceState())) for (const x of metas) if (x && x.id && x.id !== N.me && Number.isFinite(x.x) && Number.isFinite(x.z)) m.set(x.id, x); N.players = m; setStatus(N.status); if (panel === 'map') refresh(); });
+      pc.on('presence', { event: 'sync' }, () => { if (pres !== pc) return; const m = new Map(); for (const metas of Object.values(pc.presenceState())) for (const x of metas) if (x && x.id && x.id !== N.me) m.set(x.id, x); N.players = m; setStatus(N.status); if (panel === 'map') refresh(); });
       pc.subscribe(st => { if (pres === pc && st === 'SUBSCRIBED') { lastTrack = 0; N.track(); } });
     }
     N.track = () => { // where you are looking, so friends can see you and visit
@@ -159,14 +150,14 @@
   }
   function startWorld() {
     started = true;
-    try { $('c').hidden = false; const t0 = performance.now(); World.init($('c'), effQ()); EnterpriseUI.tick(); window.buildMs = Math.round(performance.now() - t0); }
+    try { $('c').hidden = false; const t0 = performance.now(); World.init($('c'), effQ()); window.buildMs = Math.round(performance.now() - t0); }
     catch (e) {
       console.error(e); $('c').hidden = true; started = joining = false; const why = (e && e.message) || String(e);
       if (/webgl|context/i.test(why)) { jmsg('This device couldn\'t start 3D graphics (' + why + '). Turn on hardware acceleration, update the browser or try another one. A lower graphics level can\'t fix this.', true); playBtn(false, 'TRY AGAIN'); return; }
       setQ('low'); jmsg('The island couldn\'t be built here (' + why + '). Graphics are now set to Low: reload and press Play. Your progress is safe.', true); const b = $('play'); b.disabled = false; b.textContent = 'RELOAD'; b.onclick = () => location.reload(); return;
     }
     $('cover').hidden = true; World.place(World.overview()); if (NET.online) { NET.live(); applyState(lastState); } else { NET.setStatus('offline'); resume(); } loop(performance.now());
-    World.flyTo(homeBase() ? World.viewOf(homeBase()) : World.homeView(), 2, () => { $('hud').hidden = false; draw(); objective(); });
+    World.flyTo(World.homeView(), 2, () => { $('hud').hidden = false; draw(); objective(); });
   }
   $('play').onclick = join; nm.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); join(); } };
   $('offline').onclick = () => { offline = true; joining = false; join(); };
@@ -177,19 +168,19 @@
   function loop(t) {
     const dt = Math.max(0, Math.min(0.1, (t - (last || t)) / 1000)); last = t;
     if (follow) { const c = follow.h.car; if (c && c.last) { const v = World.current(); v.t.lerp(new THREE.Vector3(c.last.x, 3, c.last.z), 0.25); World.place(v); } else unfollow(); } // until it arrives, or you move the map
-    World.step(dt); if(window.EnterpriseUI)EnterpriseUI.animate(); labels();
+    World.step(dt); labels();
     frames++; fpsT += dt; if (fpsT > 1) { $('fps').textContent = Math.round(frames / fpsT) + ' fps'; frames = 0; fpsT = 0; }
     requestAnimationFrame(loop);
   }
-  function world() { EnterpriseUI.tick(); HousingView.update(homes()); const g = E.grows[0]; World.farm({ grow: g ? clamp01((now() - g.start) / ((g.end - g.start) || 1)) : -1, harvested: E.farm.qty > 0 || E.plantIn.qty > 0 || E.plantOut.qty > 0 || E.ships.length > 0 || E.stats.grown > 0, farm: E.farm.qty, plantIn: E.plantIn.qty, plantOut: E.plantOut.qty, proc: E.procs.length > 0 }); World.event({ match: matchOn() }); } // the world shows your farm, stores and the match
+  function world() { const g = E.grows[0]; World.farm({ grow: g ? clamp01((now() - g.start) / ((g.end - g.start) || 1)) : -1, harvested: E.farm.qty > 0 || E.plantIn.qty > 0 || E.plantOut.qty > 0 || E.ships.length > 0 || E.stats.grown > 0, farm: E.farm.qty, plantIn: E.plantIn.qty, plantOut: E.plantOut.qty, proc: E.procs.length > 0 }); World.event({ match: matchOn() }); } // the world shows your farm, stores and the match
   const clamp01 = v => Math.max(0, Math.min(1, v));
-  setInterval(() => { if (!$('hud').hidden) { economy(); world(); draw(); objective(); HousingUI.sync(); if (['foodbusiness','foodmarket','farming','courier'].includes(panel)) refresh(); } }, 1000);
+  setInterval(() => { if (!$('hud').hidden) { economy(); world(); draw(); objective(); if (panel === 'trade' || panel === 'jobs') refresh(); } }, 1000);
   function draw() {
     const l = level(), nx = LEVELS[l + 1];
-    $('lvN').textContent = l + 1; $('lvT').textContent = `${['Newcomer','Operator','Entrepreneur','Investor','Magnate'][l]||'Founder'} · Lv ${l+1}`; $('lvNext').textContent = nx ? `${S.xp} / ${nx.xp} XP · ${nx.reward.split(':')[0]}` : `${S.xp} XP · top level`; // XP so far against the total the next level needs
+    $('lvN').textContent = l + 1; $('lvT').textContent = `Level ${l + 1}`; $('lvNext').textContent = nx ? `${S.xp} / ${nx.xp} XP · ${nx.reward.split(':')[0]}` : `${S.xp} XP · top level`; // XP so far against the total the next level needs
     $('lvBar').style.setProperty('--p', (nx ? (S.xp - LEVELS[l].xp) / (nx.xp - LEVELS[l].xp) * 100 : 100) + '%');
     $('cash').textContent = usd(S.cash);
-    const currentSection=stack.length?stack[0][0]:panel,sec=({courier:'jobs',farming:'jobs',foodbusiness:'jobs',mining:'jobs',retail:'jobs',exchange:'trade',foodmarket:'trade',auctions:'build',card:'build',housing:'build',myhome:'home',neighbours:'map',neighbour:'map'})[currentSection]||currentSection; document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.p === sec));
+    const sec = stack.length ? stack[0][0] : panel; document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.p === sec));
   }
 
   // ---------- the food chain ----------
@@ -242,8 +233,6 @@
   const lotOf = b => b.lot || `${b.type}@${Math.round(b.x)},${Math.round(b.z)}`; // a building that had to move keeps the id of the plot it was sold as
   function applyState(st) {
     if (!st || !st.player || (lastState && Date.parse(st.now) < Date.parse(lastState.now))) return; lastState = st; /* an answer older than one already shown is dropped */ skew = Date.parse(st.now) - Date.now();
-    if(st.enterprise){onlineEnterprise=st.enterprise;residents=st.residents||[];catalogPrices=st.catalogPrices||{};buildingWorks=st.buildingWorks||{};auctions=st.auctions||[];}
-    NET.housing = !!st.housing; onlineHomes = st.housing || {};
     const lvl0 = level(); S.cash = +st.player.cash; S.xp = st.player.xp; S.name = st.player.name; S.color = st.player.color;
     const sk = k => ({ qty: st.stock[k] ? +st.stock[k].qty : 0, cost: st.stock[k] ? +st.stock[k].cost : 0 });
     E.farm = sk('farm'); E.plantIn = sk('plant_in'); E.plantOut = sk('plant_out');
@@ -267,7 +256,6 @@
   // what each action costs and earns, worked out before you confirm: what you pay now is kept apart from what you already
   // spent on the goods, and anything that depends on a later price is marked as an estimate
   function quote(act, qty, buyer) {
-    if(act==='grow'&&!EnterpriseUI.has('farm'))return {act,qty,rows:[],ok:false,why:'Buy a farm in Property to start crop production. Starter delivery contracts remain available.',max:0};
     if (act === 'buygoods' || act === 'sendgoods' || act === 'contract') return quoteV2(act, qty, buyer);
     const c = CAP(), F = FLEET(), q = { act, qty, rows: [], ok: true, why: '', note: '' }, row = (k, v, cls = '') => q.rows.push([k, v, cls]), shopP = priceOf('shops');
     if (act === 'grow') {
@@ -301,7 +289,7 @@
   async function confirmOnline(q, buyer) { // the server books it, or says why not; nothing changes here until it answers
     if (pendingCall) return; pendingCall = true; const ok = $('qok'); if (ok) { ok.disabled = true; ok.textContent = 'SENDING…'; }
     const id = uuid(), call = q.act === 'grow' ? ['ci_grow', { p_qty: q.qty }] : q.act === 'process' ? ['ci_process', { p_qty: q.qty }] : ['ci_ship', { p_id: id, p_kind: q.act === 'ship' ? 'crop' : 'food', p_qty: q.qty, p_buyer: q.act === 'deliver' ? buyer : null }];
-    try { applyState(await NET.call(call[0], call[1])); toast({ grow: `Planting ${q.qty} crates`, process: `Processing ${q.qty} crates`, ship: `Truck booked: ${q.qty} crates`, deliver: `Delivery booked: ${q.qty} boxes` }[q.act], 'Confirmed by the island server'); pendingCall = false; open('farming'); }
+    try { applyState(await NET.call(call[0], call[1])); toast({ grow: `Planting ${q.qty} crates`, process: `Processing ${q.qty} crates`, ship: `Truck booked: ${q.qty} crates`, deliver: `Delivery booked: ${q.qty} boxes` }[q.act], 'Confirmed by the island server'); pendingCall = false; open('jobs'); }
     catch (e) { pendingCall = false; toast(e.net ? 'No connection' : 'Not done', e.net ? 'Check Jobs when you are back online: it may or may not have gone through.' : e.message, true); if (ok) { ok.disabled = false; ok.textContent = 'CONFIRM'; } NET.refresh(); }
   }
   function confirm(q, buyer) {
@@ -313,7 +301,7 @@
     else if (q.act === 'process') { logCash(-q.cost, `Processing ${q.qty} crates`); const basis = take(E.plantIn, q.qty); E.procs.push({ qty: q.qty, cost: basis + q.cost, start: now(), end: now() + q.qty * PROC_S * 1000 }); toast(`Processing ${q.qty} crates`, `Food ready in ${clock(q.qty * PROC_S)}`); }
     else if (q.act === 'ship') { logCash(-q.cost, `Shipping ${gname('crop', q.qty)}`); const s = { id, kind: 'crop', from: 'FA', to: 'P', qty: q.qty, fee: q.cost, basis: take(E.farm, q.qty), vehicle: 'truck', status: 'queued', frac: 0 }; E.ships.push(s); if (busy('truck') < FLEET().truck) send(s); toast(`Truck booked: ${q.qty} crates`, 'Greenfields → Processing Plant'); }
     else if (q.act === 'deliver') { logCash(-q.cost, `Shipping ${gname('food', q.qty)}`); const s = { id, kind: 'food', from: 'P', to: NODE[buyer], buyer, qty: q.qty, fee: q.cost, price: q.price, basis: take(E.plantOut, q.qty), vehicle: q.vehicle, status: 'queued', frac: 0 }; E.ships.push(s); if (busy(q.vehicle) < FLEET()[q.vehicle]) send(s); toast(`Delivery booked: ${q.qty} boxes`, `Processing Plant → ${BUYER[buyer].name}`); }
-    once('first:' + q.act, 5, 'First ' + q.act); save(); open('farming');
+    once('first:' + q.act, 5, 'First ' + q.act); save(); open('jobs');
   }
 
   // ---------- wholesale goods and delivery contracts (always offline; online once the server has them) ----------
@@ -370,7 +358,7 @@
     if (NET.online) { // the server books it, or says why not; nothing changes here until it answers
       if (pendingCall) return; pendingCall = true; const ok = $('qok'); if (ok) { ok.disabled = true; ok.textContent = 'SENDING…'; }
       const tid = uuid(), call = q.act === 'buygoods' ? ['ci_buy_goods', { p_id: tid, p_biz: id, p_qty: q.qty }] : q.act === 'sendgoods' ? ['ci_sell_goods', { p_id: tid, p_good: MK.BIZ[id].good, p_qty: q.qty, p_biz: id }] : ['ci_take_contract', { p_id: tid, p_contract: id }];
-      try { applyState(await NET.call(call[0], call[1])); toast(q.act === 'buygoods' ? `Bought ${gname(MK.BIZ[id].good, q.qty)}` : q.act === 'sendgoods' ? `Delivery booked: ${gname(MK.BIZ[id].good, q.qty)}` : 'Contract taken', 'Confirmed by the island server'); pendingCall = false; open(q.act === 'contract' ? 'courier' : 'foodmarket'); }
+      try { applyState(await NET.call(call[0], call[1])); toast(q.act === 'buygoods' ? `Bought ${gname(MK.BIZ[id].good, q.qty)}` : q.act === 'sendgoods' ? `Delivery booked: ${gname(MK.BIZ[id].good, q.qty)}` : 'Contract taken', 'Confirmed by the island server'); pendingCall = false; open(q.act === 'contract' ? 'jobs' : 'trade'); }
       catch (e) { pendingCall = false; toast(e.net ? 'No connection' : 'Not done', e.net ? 'Check Trade and Jobs when you are back online: it may or may not have gone through.' : e.message, true); if (ok) { ok.disabled = false; ok.textContent = 'CONFIRM'; } NET.refresh(); }
       return;
     }
@@ -386,7 +374,7 @@
       const c = contracts().find(x => x.id === id); if (!c) return; E.taken[id] = now();
       const s = { id: tid, kind: 'contract', good: c.good, contract: id, from: c.from, to: c.to, qty: c.qty, fee: 0, reward: c.reward, basis: 0, vehicle: q.vehicle, status: 'queued', frac: 0 }; E.ships.push(s); if (busy(q.vehicle) < FLEET()[q.vehicle]) send(s); toast('Contract taken', `${gname(c.good, c.qty)} · ${PLACE[c.from]} → ${PLACE[c.to]}`);
     }
-    once('first:' + q.act, 5, 'First ' + ({ buygoods: 'wholesale purchase', sendgoods: 'wholesale delivery', contract: 'contract' })[q.act]); save(); open(q.act === 'contract' ? 'courier' : 'foodmarket');
+    once('first:' + q.act, 5, 'First ' + ({ buygoods: 'wholesale purchase', sendgoods: 'wholesale delivery', contract: 'contract' })[q.act]); save(); open(q.act === 'contract' ? 'jobs' : 'trade');
   }
   function arriveV2(s) { // goods, fuel and contracts reach their place: the business pays what was fixed when the trip was booked
     handles.delete(s.id); s.status = 'delivered'; s.done = now(); s.frac = 1;
@@ -398,7 +386,7 @@
   let jobsTab = 'contracts', tradeTab = 'goods';
   const seg2 = (key, cur, items) => `<div class="seg">${items.map(([k, n]) => `<button data-${key}="${k}" class="${k === cur ? 'on' : ''}">${n}</button>`).join('')}</div>`;
   const jobsSeg = () => seg2('jt', jobsTab, [['contracts', 'Contracts'], ['food', 'Food business']]), tradeSeg = () => seg2('tt', tradeTab, [['goods', 'Wholesale'], ['food', 'Food & players']]);
-  const bindSegs = r => { r.querySelectorAll('[data-jt]').forEach(b => b.onclick = () => { jobsTab = b.dataset.jt; open('foodbusiness'); }); r.querySelectorAll('[data-tt]').forEach(b => b.onclick = () => { tradeTab = b.dataset.tt; open('foodmarket'); }); };
+  const bindSegs = r => { r.querySelectorAll('[data-jt]').forEach(b => b.onclick = () => { jobsTab = b.dataset.jt; open('jobs'); }); r.querySelectorAll('[data-tt]').forEach(b => b.onclick = () => { tradeTab = b.dataset.tt; open('trade'); }); };
   const ledger = () => NET.online ? ((E.v2 && E.v2.ledger) || []).map(x => ({ t: srv(x.at), n: x.note, a: +x.amount, c: +x.cash })) : (S.ledger || []);
   function contractsPanel() {
     const L = level(), F = FLEET(), list = contracts().sort((a, b) => b.reward - a.reward), mine = E.ships.filter(s => s.kind === 'contract' && s.status !== 'delivered'), nextIn = MK.SLOT_S - (sclock() / 1000) % MK.SLOT_S;
@@ -432,7 +420,6 @@
 
   // ---------- the objective: what to do next, from what you have ----------
   function objective() {
-    if(window.EnterpriseUI&&EnterpriseUI.objective())return;
     let t, s; const sh = E.ships.find(x => x.status !== 'delivered');
     if (E.grows.length) { const g = E.grows[0]; t = `Crops growing: ${g.qty} crates`; s = `${clock((g.end - now()) / 1000)} left · Greenfields`; }
     else if (sh) { t = `${sh.kind === 'contract' ? 'Contract cargo' : sh.good ? MK.GOODS[sh.good][2] : sh.kind === 'crop' ? 'Crates' : 'Food'} ${sh.status === 'queued' ? 'waiting for a vehicle' : sh.status === 'failed' ? 'held up' : 'on the way'}`; s = `${PLACE[sh.from]} → ${PLACE[sh.to]} · ${Math.round((sh.frac || 0) * 100)}%`; }
@@ -489,8 +476,6 @@
   let panel = '', arg = null, stack = [];
   const P = $('panel');
   function open(name, a, push) {
-    if(name==='card' && Enterprise.SITES.some(p=>p.id===a&&p.kind==='mine')){name='mining';a={id:a};}
-    if (name==='card' && Housing.PLOTS.some(p => p.id===a)) name='housing';
     if (push && panel) stack.push([panel, arg]); else if (!push) stack = [];
     const keep = name === panel ? $('pbody').scrollTop : 0; panel = name; arg = a;
     const r = PANELS[name](a); P.hidden = false; $('pBack').hidden = !stack.length; $('pTitle').textContent = r.title; $('pbody').innerHTML = r.html; $('pbody').scrollTop = keep; if (r.bind) r.bind($('pbody')); draw();
@@ -506,13 +491,13 @@
 
   const byId = id => World.buildings.find(b => b.id === id);
   const RATE = { house: 13, flat: 9, shophouse: 12, warehouse: 4, kiosk: 30, villa: 42, tower: 7 };
-  const valueOf = b => (NET.online&&catalogPrices[lotOf(b)]?+catalogPrices[lotOf(b)]:0) || b.price || Math.round(b.w * b.d * ({ house: 2, flat: b.floors || 3, shophouse: 3, villa: 2, tower: b.floors || 4 }[b.type] || 1) * (RATE[b.type] || 10) / 10) * 10;
+  const valueOf = b => Math.round(b.w * b.d * ({ house: 2, flat: b.floors || 3, shophouse: 3, villa: 2, tower: b.floors || 4 }[b.type] || 1) * (RATE[b.type] || 10) / 10) * 10;
   const rentOf = b => Math.round(valueOf(b) * 0.05 / 10) * 10;
   function visit(b) { sel = b; World.mark(b); World.flyTo(World.viewOf(b), 1.3); if (innerWidth < 760) { P.hidden = true; panel = ''; } seeArea(b.area); }
   function seeArea(a) { if (!a || S.seen[a]) return; S.seen[a] = true; save(); once('area:' + a, 10, 'First visit: ' + a); }
   const AREAS = [['Beachfront', -130, 140, 'Hotel Azure, the promenade and the beach. Buys food (level 3).'], ['Old Quarter', -20, -20, 'Flats, houses and the shops that buy your food'], ['Business Centre', 40, -160, 'City Hall, Capital Bank, the Exchange and offices'],
     ['Stadium', 130, -320, 'Capital Stadium: match days raise food demand'], ['Greenfields', -300, -300, 'Farms and the co-op where your crops grow'], ['Villa Point', -450, 90, 'Villas with pools, the marina and the yacht club'],
-    ['Harbour', 190, 20, 'Quay, cranes and the ship to Industrial Isle'], ['Industrial Isle', 540, -180, 'The processing plant, over the bridge'], ['Lighthouse Point', -440, -320, 'Cliffs, pines and the lighthouse'],['Eastbank',780,440,'Homes, offices and shops'],['North Ridge',-420,-590,'Finite mining concessions'],['Ocean Gate',770,880,'Harbours and overseas trade'],['Coral Bay',1030,600,'Hotels, villas and beaches']];
+    ['Harbour', 190, 20, 'Quay, cranes and the ship to Industrial Isle'], ['Industrial Isle', 540, -180, 'The processing plant, over the bridge'], ['Lighthouse Point', -440, -320, 'Cliffs, pines and the lighthouse']];
   const ownerOf = b => NET.online ? OWN.get(lotOf(b)) : (S.owned[b.id] ? { owner: 'me', name: S.name } : null);
   const isMine = b => b.owner === 'you' || (ownerOf(b) && (ownerOf(b).owner === NET.me || ownerOf(b).owner === 'me'));
   const card = b => { const o = ownerOf(b), mine = isMine(b); return `<button class="pc" data-b="${b.id}"><div class="ph" data-ph="${b.id}"></div>${mine ? '<span class="tag yours">YOURS</span>' : o ? `<span class="tag" style="background:${esc(o.color)}">${esc(o.name)}</span>` : ''}<div class="tx"><b>${esc(b.name)}</b><small>${esc(b.area)}</small><em>${mine ? 'Yours' : o ? 'Owned by ' + esc(o.name) : usd(valueOf(b))}</em></div></button>`; };
@@ -532,9 +517,9 @@
   function nextStep() { if (E.plantOut.qty) return 4; if (E.plantIn.qty && !E.procs.length) return 3; if (E.farm.qty) return 2; return E.grows.length || E.ships.some(s => s.status !== 'delivered') || E.procs.length ? 0 : 1; }
   const broke = () => S.cash < SEED * 5 && !E.farm.qty && !E.plantIn.qty && !E.plantOut.qty && !E.grows.length && !E.procs.length && !E.ships.some(s => s.status !== 'delivered');
   const PANELS = {
-    home: () => { const h = homeBase() || World.home, own = World.buildings.filter(b => b.sale && isMine(b)), worth = own.reduce((a, b) => a + valueOf(b), 0) + Housing.PLOTS.reduce((sum,p) => {const h=homes()[p.id]; return sum+(h&&(!NET.online||h.owner===NET.me)?p.price+(h.level?600:0)+(h.level===2?450:0):0);},0), l = level();
-      return { title: 'Home', html: `<div class="ph" data-ph="home"></div><div class="row"><span class="ic">${ic('home')}</span><div><b>${esc(h.name)}</b><small>${homeBase() ? 'Your home in Orchard Close' : 'Your flat in the Old Quarter'}</small></div><button class="btn ghost" id="hv">${ic('map')}VIEW</button></div>
-      <div class="stats"><div>Cash<b>${usd(S.cash)}</b></div><div>Property<b>${worth ? usd(worth) : 'None yet'}</b></div><div>Food profit<b>${usd(E.stats.profit)}</b></div></div>
+    home: () => { const h = World.home, own = World.buildings.filter(b => b.sale && isMine(b)), worth = own.reduce((a, b) => a + valueOf(b), 0), l = level();
+      return { title: 'Home', html: `<div class="ph" data-ph="home"></div><div class="row"><span class="ic">${ic('home')}</span><div><b>${esc(h.name)}</b><small>Your flat in the Old Quarter</small></div><button class="btn ghost" id="hv">${ic('map')}VIEW</button></div>
+      <div class="stats"><div>Cash<b>${usd(S.cash)}</b></div><div>Property<b>${own.length ? usd(worth) : 'None yet'}</b></div><div>Food profit<b>${usd(E.stats.profit)}</b></div></div>
       <p class="sec">Your goods</p><div class="inv"><div>Co-op store<b>${E.farm.qty}</b>crates</div><div>At the plant<b>${E.plantIn.qty}</b>crates</div><div>At the plant<b>${E.plantOut.qty}</b>boxes of food</div><div>On the road<b>${E.ships.filter(s => s.status !== 'delivered').reduce((a, s) => a + s.qty, 0)}</b>crates or boxes</div></div>
       ${overview()}
       <p class="sec">Level ${l + 1} · ${S.xp} XP</p>${LEVELS.map((L, i) => `<div class="row ${i > l ? 'lock' : ''}"><span class="ic">${i <= l ? '✓' : i + 1}</span><div><b>Level ${i + 1}${i ? ` · ${L.xp} XP` : ''}</b><small>${esc(L.reward)}</small></div>${i === l + 1 ? `<span class="lockt">${L.xp - S.xp} XP TO GO</span>` : ''}</div>`).join('')}
@@ -543,10 +528,10 @@
       <button class="row" id="hBank"><span class="ic">${ic('bank')}</span><div><b>Capital Bank</b><small>Income, costs and what you've sold</small></div></button>`,
       bind: r => { picture(r.querySelector('[data-ph="home"]'), h); $('hv').onclick = () => visit(h); $('hBank').onclick = () => open('bank', null, true); bindCards(r); } }; },
     bank: () => { const own = World.buildings.filter(b => b.sale && isMine(b)), inc = own.reduce((a, b) => a + rentOf(b), 0), st = E.stats; return { title: 'Capital Bank', html: `<div class="stats"><div>Cash<b>${usd(S.cash)}</b></div><div>Food sold<b>${st.sold} boxes</b></div><div>Revenue<b>${usd(st.revenue)}</b></div></div>
-      <div class="stats"><div>Net profit<b>${usd(st.profit)}</b></div><div>Rent value<b>${usd(inc)}/wk</b></div><div>Loans<b>None</b></div></div><p class="note">Rent value here describes the original properties and is not paid out. Orchard Close homes have actual NPC rent in Land & houses. Loans aren't available yet.</p>` }; },
+      <div class="stats"><div>Net profit<b>${usd(st.profit)}</b></div><div>Rent value<b>${usd(inc)}/wk</b></div><div>Loans<b>None</b></div></div><p class="note">Rent is shown as each property's value to a tenant; it isn't paid out yet in this version. Loans aren't available yet.</p>` }; },
     build: () => { const G = { homes: ['house', 'flat'], villas: ['villa'], shops: ['shophouse', 'kiosk'], offices: ['tower'], harbour: ['warehouse'] }, list = World.buildings.filter(b => b.sale && !ownerOf(b) && G[filter].includes(b.type)).sort((a, b) => valueOf(a) - valueOf(b)).slice(0, 12), own = World.buildings.filter(b => b.sale && isMine(b));
       return { title: 'Build & property', html: `<div class="seg">${[['homes', 'Homes'], ['villas', 'Villas'], ['shops', 'Shops'], ['offices', 'Offices'], ['harbour', 'Harbour']].map(([k, n]) => `<button data-f="${k}" class="${k === filter ? 'on' : ''}">${n}</button>`).join('')}</div>
-        ${own.length ? `<p class="sec">Yours</p><div class="cards">${own.map(card).join('')}</div>` : ''}<p class="sec">For sale · cheapest first</p>${list.length ? `<div class="cards">${list.map(card).join('')}</div>` : '<p class="note">Everything here has an owner. Try another kind.</p>'}<p class="note">Buying puts your name on it for everyone. These original properties count towards your worth. For a home you can build and rent, open Land & houses above.</p>`,
+        ${own.length ? `<p class="sec">Yours</p><div class="cards">${own.map(card).join('')}</div>` : ''}<p class="sec">For sale · cheapest first</p>${list.length ? `<div class="cards">${list.map(card).join('')}</div>` : '<p class="note">Everything here has an owner. Try another kind.</p>'}<p class="note">Buying puts your name on it for everyone. Property doesn't earn rent yet; it counts towards your worth.</p>`,
         bind: r => { r.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { filter = b.dataset.f; open('build'); }); bindCards(r); } }; },
     card: id => { const b = byId(id), mine = isMine(b), other = !mine && ownerOf(b), p = valueOf(b); sel = b; World.mark(b); const fl = b.floors || (b.type === 'villa' ? 2 : 1);
       return { title: { warehouse: 'Warehouse', shophouse: 'Shop with flats', kiosk: 'Kiosk', house: 'House', villa: 'Villa', tower: 'Offices', flat: 'Flats' }[b.type] || 'Landmark',
@@ -560,7 +545,7 @@
       const step = (n, title, where, rows, btns, why, extra = '') => `<div class="step ${ns === n ? 'now' : ''}"><div class="sh"><span class="n">${n}</span><div><b>${title}</b><small>${where}</small></div></div>${kv(rows)}${extra}${btns}${why ? `<p class="note why">${why}</p>` : ''}</div>`;
       const B = (label, a, ok) => `<button class="btn ${ok ? 'go' : ''}" data-act="${a}" ${ok ? '' : 'disabled'}>${label}</button>`;
       const room = c.farm - E.farm.qty - growing(), pRoom = c.plantIn - E.plantIn.qty - inbound('P'), oRoom = c.plantOut - E.plantOut.qty - E.procs.reduce((a, p) => a + p.qty, 0);
-      const g1 = EnterpriseUI.has('farm') && room > 0 && S.cash >= SEED, w1 = !EnterpriseUI.has('farm') ? 'Buy a farm in Property to start crop production.' : room <= 0 ? 'The co-op store is full: truck crates to the plant (step 2).' : S.cash < SEED ? `Seed costs ${usd(SEED)} a crate; you have ${usd(S.cash)}.` : '';
+      const g1 = room > 0 && S.cash >= SEED, w1 = room <= 0 ? 'The co-op store is full: truck crates to the plant (step 2).' : S.cash < SEED ? `Seed costs ${usd(SEED)} a crate; you have ${usd(S.cash)}.` : '';
       const g2 = E.farm.qty > 0 && pRoom > 0 && r1, w2 = !E.farm.qty ? (E.grows.length ? 'Your crops are still growing.' : 'Nothing at the co-op yet: grow crops first (step 1).') : pRoom <= 0 ? 'Your store at the plant is full: process what is there (step 3).' : !r1 ? 'The road to the plant is closed: bookings wait until it reopens.' : '';
       const g3 = E.plantIn.qty > 0 && oRoom > 0, w3 = !E.plantIn.qty ? (road.some(s => s.kind === 'crop') ? 'Your crates are on the way to the plant.' : 'No crates at the plant yet: truck some there (step 2).') : oRoom <= 0 ? 'The food store is full: deliver some food (step 4).' : '';
       const g4 = E.plantOut.qty > 0, w4 = !E.plantOut.qty ? (E.procs.length ? 'The plant is still packing your food.' : 'No food to sell yet: process crates (step 3).') : '';
@@ -608,7 +593,7 @@
       ${NET.online ? `<p class="sec">Players on the island now · ${NET.players.size + 1}</p><div class="row"><span class="ic" style="background:${esc(S.color)};color:#fff">${esc((S.name || '?')[0].toUpperCase())}</span><div><b>${esc(S.name)} (you)</b><small>Others see a pin in your colour where you are looking</small></div></div>${[...NET.players.values()].map(p => `<div class="row"><span class="ic" style="background:${esc(p.color)};color:#fff">${esc(String(p.name || '?')[0].toUpperCase())}</span><div><b>${esc(p.name)}</b><small>Near ${esc(areaAt(p.x, p.z))}</small></div><button class="btn ghost" data-pv="${esc(p.id)}">GO</button></div>`).join('') || '<p class="note">Nobody else is here right now. Send a friend the link.</p>'}` : '<p class="note">Offline: other players appear when you play online.</p>'}
       <p class="sec">Places</p>${AREAS.map(([n, , , d], i) => `<div class="row"><span class="ic">${ic('map')}</span><div><b>${n}${S.seen[n] ? '' : ' · first visit +10 XP'}</b><small>${d}</small></div><button class="btn ghost" data-a="${i}">GO</button></div>`).join('')}
       ${DEV ? `<p class="sec">Road checks (test)</p><div class="row"><span class="ic">${ic('truck')}</span><div><b>Traffic</b><small>${World.cars.length} vehicles · ${World.stats.teleports} jumps · ${World.stats.stuck} stuck</small></div><button class="btn ghost" id="mt">RUN</button></div><div id="rt"></div>` : ''}`,
-      bind: () => { $('mi').onclick = () => { World.mark(null); World.flyTo(World.overview(), 1.5); if (innerWidth < 760) close(); }; $('mh').onclick = () => visit(homeBase() || World.home);
+      bind: () => { $('mi').onclick = () => { World.mark(null); World.flyTo(World.overview(), 1.5); if (innerWidth < 760) close(); }; $('mh').onclick = () => visit(World.home);
         document.querySelectorAll('[data-pv]').forEach(b => b.onclick = () => { const p = NET.players.get(b.dataset.pv); if (!p) return; World.mark(null); World.flyTo(World.view(p.x, p.z, 160, 0.9, 0.5), 1.4); if (innerWidth < 760) close(); });
         document.querySelectorAll('[data-a]').forEach(b => b.onclick = () => { const [n, x, z] = AREAS[+b.dataset.a]; World.mark(null); World.flyTo(World.view(x, z, 320, 0.85, 0.4), 1.4); seeArea(n); if (innerWidth < 760) close(); });
         if ($('mt')) $('mt').onclick = () => { const res = World.routeTest(), rep = World.roadReport(); $('rt').innerHTML = `<p class="note">${rep.connected ? '<span class="ok">All roads connected.</span>' : '<span class="bad">Some roads are not connected.</span>'} Road points over water: ${rep.roadPointsOverWater}. Doors on the path network: ${World.access.joined}, at a road edge: ${World.access.road}, none: ${World.access.none.length}.</p><table class="t">${res.map(t => `<tr><td>${esc(t.route)}</td><td class="${t.ok ? 'ok' : 'bad'}">${t.ok ? 'PASS' : 'FAIL'} · ${t.length || ''} m</td></tr>`).join('')}</table>`; }; } }),
@@ -618,15 +603,11 @@
   };
   let bridgeClosed = false, mlistPick = {};
   const areaAt = (x, z) => { let best = AREAS[0][0], d = 1e9; for (const [n, ax, az] of AREAS) { const e = Math.hypot(ax - x, az - z); if (e < d) { d = e; best = n; } } return best; };
-  async function market(fn, args, ok, sub, back) { if (pendingCall) return; pendingCall = true; try { applyState(await NET.call(fn, args)); toast(ok, sub); if (back) open('foodmarket'); else refresh(); } catch (e) { toast(e.net ? 'No connection' : 'Not done', e.net ? 'Nothing changed. Try again when you are back online.' : e.message, true); NET.refresh(); } pendingCall = false; }
+  async function market(fn, args, ok, sub, back) { if (pendingCall) return; pendingCall = true; try { applyState(await NET.call(fn, args)); toast(ok, sub); if (back) open('trade'); else refresh(); } catch (e) { toast(e.net ? 'No connection' : 'Not done', e.net ? 'Nothing changed. Try again when you are back online.' : e.message, true); NET.refresh(); } pendingCall = false; }
 
   // tap a building: its card
   let down = null;
   $('c').addEventListener('pointerdown', e => { down = [e.clientX, e.clientY, performance.now()]; if (follow) unfollow(); });
   $('c').addEventListener('pointerup', e => { if (!down || $('hud').hidden || World.flying) return; const moved = Math.hypot(e.clientX - down[0], e.clientY - down[1]), quick = performance.now() - down[2] < 450; down = null; if (moved > 8 || !quick) return; const b = World.pickAt(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); if (b) open('card', b.id); else if (!P.hidden && innerWidth >= 760) close(); });
-  HousingUI.install({panels:PANELS,panel:()=>panel,refresh,state:S,net:NET,homes,open,visit,picture,esc,ic,cash:logCash,save,toast,apply:applyState,uuid});
-
-  EnterpriseUI.install({panels:PANELS,open,refresh,panel:()=>panel,arg:()=>arg,state:S,net:NET,enterprise,works:()=>NET.online?buildingWorks:(S.buildingWorks||{}),setJobs:k=>{jobsTab=k;},auctions:()=>auctions,peers:()=>residents,apply:applyState,clock:sclock,esc,ic,usd,uuid,save,cash:logCash,toast,picture,visit,ownerOf,isMine,lotOf,byId,valueOf,xp,homes,homeBase,draw});
-  if('serviceWorker' in navigator&&location.protocol==='https:'&&!window.Capacitor)navigator.serviceWorker.register('../../sw.js').catch(()=>{});
   window.App = { S, E, NET, open, close, visit, level, quote, confirm, economy, handles, lotOf, market, get OWN() { return OWN; }, get MARKET() { return MARKET; }, frame: () => loop(performance.now()) }; // frame(): one step by hand, for tests in a hidden tab
 })();
