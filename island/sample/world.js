@@ -1264,7 +1264,7 @@ window.World = (function () {
       WHEEL = new THREE.InstancedMesh(wg, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7 }), total); WHEEL.castShadow = true; WHEEL.frustumCulled = false; scene.add(WHEEL); }
     const startLanes = lanes.filter(l => l.e.kind !== 'bridge' && l.len > 30), c = new THREE.Color();
     plan.forEach((p, i) => {
-      const m = meshes[p.type], car = { i: m.n++, type: p.type, len: VT[p.type].len, vf: VT[p.type].vf * (0.9 + rnd() * 0.2), v: 0, h: 0, pos: new THREE.Vector3(), last: null, wait: 0, stopped: 0, next: null, route: null, loop: p.loop, stops: p.stops, job: p.job };
+      const m = meshes[p.type], car = { i: m.n++, type: p.type, len: VT[p.type].len, vf: VT[p.type].vf * 1.15 * (0.9 + rnd() * 0.2), v: 0, h: 0, pos: new THREE.Vector3(), last: null, wait: 0, stopped: 0, next: null, route: null, loop: p.loop, stops: p.stops, job: p.job };
       m.body.setColorAt(car.i, c.set(pick(VT[p.type].paint)).convertSRGBToLinear());
       if (p.loop) { car.path = laneBetween('A', 'B'); car.s = 10; car.li = 1; }
       else if (p.job) { const ln = nodes[p.job.from].inn.find(l => l.len > 20) || nodes[p.job.from].inn[0]; car.path = ln; car.s = Math.max(0, ln.len - 14 - SHIP.length * 3); car.ship = { name: p.job.name, from: p.job.from, to: p.job.to, status: 'loading', t: 4 + SHIP.length * 3, runs: 0 }; SHIP.push(car.ship); }
@@ -1275,6 +1275,13 @@ window.World = (function () {
     for (const [type, x, z, h, y] of PARKED) { const m = meshes[type], i = m.n++; m.body.setColorAt(i, c.set(pick(VT[type].paint)).convertSRGBToLinear()); tmp.position.set(x, (y != null ? y : TOWN_Y) + 0.12, z); tmp.rotation.set(0, h, 0); tmp.scale.setScalar(1); tmp.updateMatrix(); setPose(type, i, tmp.matrix); }
     for (const k of ['truck', 'van', 'flatbed', 'tanker']) { const m = meshes[k]; for (let j = 0; j < 6; j++) { const i = m.n++; SPARE[k].push(i); hide(m, i); m.body.setColorAt(i, c.set(0xffc93c).convertSRGBToLinear()); } }
     for (const k in meshes) meshes[k].body.instanceColor.needsUpdate = true;
+    // ---------- traffic lights: the busy junctions of the towns get signals; cars stop on red and go on green, and the poles show the colour ----------
+    { const SIG = Object.values(nodes).filter(N => N.deg >= 3 && N.edges.some(e => e.kind === 'town') && N.edges.filter(e => e.kind !== 'bridge').length >= 3); World.signals = SIG.length; World.sigNodes = SIG.map(N => [Math.round(N.x), Math.round(N.z)]);
+      const n = SIG.length * 4, pole = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.1, 0.1, 5, 6), new THREE.MeshStandardMaterial({ color: 0x2b3440 }), n), head = new THREE.InstancedMesh(new THREE.BoxGeometry(0.5, 1.5, 0.5), new THREE.MeshBasicMaterial({ color: 0xffffff }), n), m4 = new THREE.Matrix4(), col = new THREE.Color(), rig = [];
+      SIG.forEach((N, k) => { N.sig = { off: hash(N.x, N.z) * 32 }; const r = N.r + 3.4; [[1, 1, 0], [-1, -1, 0], [1, -1, 1], [-1, 1, 1]].forEach(([sx, sz, ax], j) => { const x = N.x + sx * r, z = N.z + sz * r, y = heightAt(x, z), i = k * 4 + j; m4.makeTranslation(x, y + 2.5, z); pole.setMatrixAt(i, m4); m4.makeTranslation(x, y + 5.2, z); head.setMatrixAt(i, m4); head.setColorAt(i, col.setRGB(0, 1, 0)); rig.push([N, ax, i]); }); });
+      pole.frustumCulled = head.frustumCulled = false; scene.add(pole, head);
+      World.light = N => { const t = (clock + N.sig.off) % 32; return t < 14 ? 0 : t < 16 ? -1 : t < 30 ? 1 : -1; }; // which way may go: 0 north-south, 1 east-west, -1 all red
+      let acc = 0; tick.push(dt => { acc += dt; if (acc < 0.5) return; acc = 0; for (const [N, ax, i] of rig) { const L = World.light(N), t = (clock + N.sig.off) % 32, amber = (t >= 12 && t < 14) || (t >= 28 && t < 30); const go = L === ax, c = go ? (amber ? [1, 0.75, 0] : [0.1, 0.9, 0.2]) : [0.95, 0.1, 0.1]; head.setColorAt(i, col.setRGB(c[0], c[1], c[2])); } head.instanceColor.needsUpdate = true; }); }
     tick.push(dt => { if (dt > 0) stepTraffic(Math.min(dt, 0.05)); }); // a zero step (a paused frame) moves nothing
     let pt = 0; tick.push(dt => { pt += dt; if (pt > 1) { pt = 0; startPending(); } });
   }
@@ -1330,6 +1337,11 @@ window.World = (function () {
     }
     return [1e9, null];
   }
+  // a delivery: the crates come off the truck, drop to the ground beside the road and are carried in
+  const CARGO = [], CR = { mesh: null };
+  function dropCargo(car) { if (!CR.mesh) { CR.mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1.5, 1.1, 1.5), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 }), 40); CR.mesh.count = 0; CR.mesh.frustumCulled = false; CR.mesh.castShadow = true; scene.add(CR.mesh); tick.push(tickCargo); }
+    const h = car.h, sx = Math.cos(h), sz = -Math.sin(h); for (let i = 0; i < 4 && CARGO.length < 40; i++) CARGO.push({ x: car.last.x + sx * (3.2 + (i % 2) * 1.7) + Math.sin(h) * (i > 1 ? -1.8 : 0.4), z: car.last.z + sz * (3.2 + (i % 2) * 1.7) + Math.cos(h) * (i > 1 ? -1.8 : 0.4), y: car.last.y, t: -i * 0.35, c: [0xc8913a, 0xd8a84a, 0xb5651d, 0xe0b45a][i] }); }
+  function tickCargo(dt) { const m = CR.mesh, M = new THREE.Matrix4(), col = new THREE.Color(); let n = 0; for (let i = CARGO.length - 1; i >= 0; i--) { if (CARGO[i].t > 5.5) CARGO.splice(i, 1); } for (const c of CARGO) { c.t += dt; if (c.t < 0) continue; const drop = Math.min(1, c.t / 1.1), lift = c.t > 4 ? Math.min(1, (c.t - 4) / 1.2) : 0, y = c.y + 2.6 * (1 - drop * drop) + 0.55 + lift * 3, sc = 1 - lift; M.compose(new THREE.Vector3(c.x, y, c.z), new THREE.Quaternion(), new THREE.Vector3(sc, sc, sc)); m.setMatrixAt(n, M); m.setColorAt(n, col.set(c.c)); n++; } m.count = n; m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; }
   function stepTraffic(dt) {
     stats.frames++;
     const gone = [];
@@ -1345,11 +1357,12 @@ window.World = (function () {
         const N = path.to, cv = car.conn.vmax * car.vf; vt = Math.min(vt, Math.sqrt(cv * cv + 2 * 3.5 * Math.max(0, rem - 1)));
         const stopsHere = sh && sh.status === 'travelling' && N.id === sh.to;
         if (N.deg >= 3) { const first = !path.occ.some(o => o !== car && o.s > car.s); if (first && !stopsHere && rem < car.v * car.v / 7 + 8 && !N.busy) N.busy = car; if (N.busy && N.busy !== car) vt = Math.min(vt, Math.sqrt(2 * 3.5 * Math.max(0, rem - 1.5))); }
+        if (N.sig && !stopsHere) { if (path.ax === undefined) { poseAt(path, Math.max(0, path.len - 4), _a); poseAt(path, path.len, _b); path.ax = Math.abs(_b.x - _a.x) > Math.abs(_b.z - _a.z) ? 1 : 0; } if (World.light(N) !== path.ax && rem > car.v * car.v / 7 + 1.8) vt = Math.min(vt, Math.sqrt(2 * 3.5 * Math.max(0, rem - 1.6))); }
         if (car.ship && car.ship.status === 'travelling' && N.id === car.ship.to) vt = Math.min(vt, Math.sqrt(2 * 3 * Math.max(0, rem - 3)));
         if (car.stops && !car.stopped) for (const [u, v, f] of car.stops) if (path.from.id === u && path.to.id === v) { const d = path.len * f - car.s; if (d > -0.5 && d < 40) vt = Math.min(vt, Math.sqrt(2 * 2.5 * Math.max(0, d))); if (Math.abs(d) < 0.6 && car.v < 0.3) car.stopped = 5; }
       }
       if (car.stopped > 0) { car.stopped -= dt; vt = 0; if (car.stopped <= 0) car.stopped = -1; }
-      if (car.ship && car.ship.status === 'travelling' && path.kind === 'lane' && path.to.id === car.ship.to && rem < 3.5 && car.v < 0.4) { car.ship.status = 'delivered'; car.ship.runs++; car.ship.t = 5; car.ship.at = performance.now(); if (car.player) { gone.push(car); continue; } }
+      if (car.ship && car.ship.status === 'travelling' && path.kind === 'lane' && path.to.id === car.ship.to && rem < 3.5 && car.v < 0.4) { car.ship.status = 'delivered'; dropCargo(car); car.ship.runs++; car.ship.t = 5; car.ship.at = performance.now(); if (car.player) { gone.push(car); continue; } }
       if (car.player) { car.player.status = car.ship.status; car.player.why = car.ship.why || ''; car.odo = (car.odo || 0) + car.v * dt; }
       if (sh && sh.status === 'delivered') { vt = 0; sh.t -= dt; if (sh.t <= 0) { [sh.from, sh.to] = [sh.to, sh.from]; sh.status = 'loading'; sh.t = 3; car.route = null; } } // unload, then load the return trip
       const [gap] = leaderGap(car); vt = Math.min(vt, Math.max(0, (gap - 2.2) / 1.1));
@@ -1359,6 +1372,7 @@ window.World = (function () {
       while (car.s > car.path.len) {
         const over = car.s - car.path.len, from = car.path; from.occ.splice(from.occ.indexOf(car), 1);
         if (from.kind === 'lane') { car.path = car.conn; } else { if (from.node.busy === car) from.node.busy = null; car.path = from.to; car.conn = null; if (car.stopped < 0) car.stopped = 0; }
+        if (!car.path) { stats.recovered = (stats.recovered || 0) + 1; const pool = lanes.filter(l => l.e.kind !== 'bridge' && l.len > 30); car.path = (car.next && car.next.kind === 'lane' ? car.next : pool[Math.floor(rnd() * pool.length)]); car.conn = null; car.route = null; car.s = 0; car.last = null; }
         car.path.occ.push(car); car.s = over;
         if (car.path.kind === 'lane') { car.conn = null; }
       }

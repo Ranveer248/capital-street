@@ -163,6 +163,11 @@ table.t { width: 100%; border-collapse: collapse; font-size: 12px; } table.t td 
 .step .btn { width: 100%; }
 #fps { position: fixed; right: 6px; bottom: 2px; z-index: 60; font: 700 10px monospace; color: rgba(10,15,46,.65); pointer-events: none; }
 .csws{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0}.csw{width:34px;height:34px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1px #0004;cursor:pointer}.csw.on{box-shadow:0 0 0 3px #1c2b5a}
+/* Traffic Rush style navigation: solid colour tiles with a dark outline, the open one lifts */
+#nav { background: #fffaf0; border: 3px solid #10245a; box-shadow: 0 4px 0 #10245a, 0 8px 18px rgba(10,15,46,.3); }
+#nav .r { color: #fff; border: 2px solid #10245a; box-shadow: 0 2px 0 #10245a; transition: transform .12s; }
+#nav button[data-p=home] .r { background: #2e74c9; } #nav button[data-p=build] .r { background: #ff8a3d; } #nav button[data-p=jobs] .r { background: #2fb55a; } #nav button[data-p=trade] .r { background: #8a5bd6; } #nav button[data-p=map] .r { background: #f2b705; }
+#nav button.on { background: #ffe9a8; color: var(--navy); } #nav button.on .r { color: #fff; transform: translateY(-3px); box-shadow: 0 5px 0 #10245a; }
 </style>
 </head>
 <body>
