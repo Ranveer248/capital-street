@@ -17,7 +17,7 @@ window.World = (function () {
   const G = window.IslandGeo, { EXPANDED, MAIN_C, ISLE_C, curve, K, land, hash, vnoise, fbm, g2, FLATS, townMask, natural, nodes, edges, catmull, cumOf, offsetLine, cut, bend, trimAt, lanes, makePath, conns, connector, route, laneBetween, RSEG, RGRID, nearRoad, PADS, VILLAS, heightAt } = G;
 
   // ---------- the scene ----------
-  let renderer, scene, camera, controls, sun, clock = 0, camDist = 400, Q = 'high';
+  let renderer, scene, camera, controls, sun, hemi, clock = 0, camDist = 400, Q = 'high';
   const tick = [], fadeMats = [], buildings = [], LABELS = [];
   const { x0: X0, x1: X1, z0: Z0, z1: Z1 } = G.WORLD;
   function init(canvas, q) {
@@ -36,12 +36,12 @@ window.World = (function () {
     controls = new THREE.MapControls(camera, canvas);
     controls.enableDamping = true; controls.dampingFactor = 0.1; controls.screenSpacePanning = false;
     controls.minDistance = 30; controls.maxDistance = EXPANDED ? 3800 : 1500; controls.minPolarAngle = 0.25; controls.maxPolarAngle = 1.1;
-    scene.add(new THREE.HemisphereLight(lin(0xd8ecff), lin(0x5d7a3a), 0.47));
+    hemi = new THREE.HemisphereLight(lin(0xd8ecff), lin(0x5d7a3a), 0.47); scene.add(hemi);
     sun = new THREE.DirectionalLight(lin(0xfff3df), 1.02);
     sun.castShadow = Q !== 'low'; sun.shadow.mapSize.setScalar(Q === 'high' ? 2048 : 1024); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.5; sun.shadow.radius = 3;
     scene.add(sun, sun.target);
     World.times = {};
-    for (const [k, f] of [['terrain', buildTerrain], ['ocean', buildOcean], ['rivers', buildRiverWater], ['roads', buildRoads], ['town', buildTown], ['nature', buildNature], ['traffic', buildTraffic]]) { const t0 = performance.now(); f(); World.times[k] = Math.round(performance.now() - t0); }
+    for (const [k, f] of [['terrain', buildTerrain], ['ocean', buildOcean], ['rivers', buildRiverWater], ['roads', buildRoads], ['town', buildTown], ['nature', buildNature], ['traffic', buildTraffic], ['weather', buildWeather]]) { const t0 = performance.now(); f(); World.times[k] = Math.round(performance.now() - t0); }
     resize(); addEventListener('resize', resize);
   }
   function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
@@ -1223,6 +1223,30 @@ window.World = (function () {
     for (let j = 0; j < W.length; j++) { const [x, z, r, wd, fr] = W[j]; _wm.copy(M).multiply(_wq.makeTranslation(x, r, z)); if (fr && steer) _wm.multiply(_wq.makeRotationY(steer)); _wm.multiply(_wq.makeRotationX(roll / r)).multiply(_wq.makeScale(wd, r, r)); WHEEL.setMatrixAt(m.wbase + i * W.length + j, _wm); }
   }
 
+  // ---------- weather: rain that comes and goes, thunder and lightning in the heavy storms, and now and then a tornado far out over the sea (it never touches the land) ----------
+  function buildWeather() {
+    const mode = (new URLSearchParams(location.search).get('weather') || 'auto'), N = Q === 'low' ? 900 : 2200, SPAN = 260, TOP = 150, W = World.weather = { rain: 0, target: 0, storm: false, bolts: 0, tornado: null, mode };
+    const pos = new Float32Array(N * 6), vel = new Float32Array(N), geo = new THREE.BufferGeometry(); for (let i = 0; i < N; i++) { const x = (Math.random() - 0.5) * SPAN, y = Math.random() * TOP, z = (Math.random() - 0.5) * SPAN; pos.set([x, y, z, x - 0.7, y - 5, z - 0.4], i * 6); vel[i] = 55 + Math.random() * 25; }
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); const rainMat = new THREE.LineBasicMaterial({ color: 0xcfe0f2, transparent: true, opacity: 0, depthWrite: false }), rain = new THREE.LineSegments(geo, rainMat); rain.frustumCulled = false; rain.visible = false; scene.add(rain);
+    const bolt = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xf4f0ff, transparent: true, opacity: 0.95, fog: false })); bolt.visible = false; bolt.frustumCulled = false; scene.add(bolt);
+    const sky0 = scene.background.clone(), grey = new THREE.Color(0x7f8a96), sun0 = sun.intensity, hemi0 = hemi.intensity; let flash = 0, clearT = 20 + Math.random() * 40, rainT = 0, nextBolt = 6, nextTornado = 150 + Math.random() * 200;
+    // the tornado: a funnel of rings, wide at the top and narrow at the foot, with a skirt of spray; it drifts over open water
+    const tor = new THREE.Group(), rings = []; for (let i = 0; i < 16; i++) { const f = i / 15, r = 3 + f * f * 34, m = new THREE.Mesh(new THREE.TorusGeometry(r, 1.6 + f * 3, 5, 18), new THREE.MeshBasicMaterial({ color: new THREE.Color().setHSL(0.6, 0.06, 0.34 + f * 0.2), transparent: true, opacity: 0.72, depthWrite: false })); m.rotation.x = Math.PI / 2; m.position.y = f * 120; tor.add(m); rings.push(m); }
+    const spray = new THREE.Mesh(new THREE.CylinderGeometry(24, 30, 9, 16, 1, true), new THREE.MeshBasicMaterial({ color: 0xdfe7ee, transparent: true, opacity: 0.45, side: THREE.DoubleSide, depthWrite: false })); spray.position.y = 4; tor.add(spray); tor.visible = false; scene.add(tor);
+    const place = () => { const c = controls.target; for (let k = 0; k < 40; k++) { const a = Math.random() * Math.PI * 2, r = 500 + Math.random() * 500, x = c.x + Math.cos(a) * r, z = c.z + Math.sin(a) * r; if (land(x, z) < -90) return { x, z, a: Math.random() * Math.PI * 2, life: 70 + Math.random() * 40, age: 0 }; } return null; };
+    W.set = (what) => { if (what === 'clear') { W.target = 0; W.storm = false; clearT = 1e9; } else if (what === 'rain') { W.target = 0.6; W.storm = false; clearT = 1e9; } else if (what === 'storm') { W.target = 1; W.storm = true; clearT = 1e9; nextBolt = 1; } else if (what === 'tornado') { W.target = 1; W.storm = true; clearT = 1e9; W.tornado = place(); } else { clearT = 5; } };
+    if (mode !== 'auto') W.set(mode);
+    tick.push((dt) => {
+      if (mode === 'auto') { clearT -= dt; if (clearT <= 0) { if (W.target > 0) { W.target = 0; W.storm = false; clearT = 120 + Math.random() * 240; } else { W.storm = Math.random() < 0.35; W.target = W.storm ? 1 : 0.55; clearT = 40 + Math.random() * 60; } } }
+      W.rain += (W.target - W.rain) * Math.min(1, dt * 0.5); const r = W.rain; rain.visible = r > 0.03; rainMat.opacity = 0.8 * Math.min(1, r * 1.5);
+      const dark = r * 0.5 + flash; scene.background.copy(sky0).lerp(grey, r * 0.8); scene.fog.color.copy(scene.background); sun.intensity = sun0 * (1 - r * 0.6) + flash * 2.2; hemi.intensity = hemi0 * (1 - r * 0.35) + flash * 1.1; renderer.toneMappingExposure = 1 - r * 0.38 + flash * 0.9; void dark;
+      if (rain.visible) { const c = controls.target; rain.position.set(c.x, 0, c.z); const p = geo.attributes.position.array, base = Math.max(0, c.y - 20); for (let i = 0; i < N; i++) { const j = i * 6, d = vel[i] * dt; p[j + 1] -= d; p[j + 4] -= d; if (p[j + 4] < base - 4) { const x = (Math.random() - 0.5) * SPAN, z = (Math.random() - 0.5) * SPAN, y = base + TOP * (0.7 + Math.random() * 0.3); p[j] = x; p[j + 1] = y; p[j + 2] = z; p[j + 3] = x - 0.7; p[j + 4] = y - 5; p[j + 5] = z - 0.3; } } geo.attributes.position.needsUpdate = true; }
+      if (W.storm && r > 0.7) { nextBolt -= dt; if (nextBolt <= 0) { nextBolt = 5 + Math.random() * 13; flash = 0.9; W.bolts++; const c = controls.target, bx = c.x + (Math.random() - 0.5) * 700, bz = c.z + (Math.random() - 0.5) * 700, pts = []; let x = bx, z = bz; for (let y = 260; y > 0; y -= 26) { pts.push(x, y, z); x += (Math.random() - 0.5) * 22; z += (Math.random() - 0.5) * 22; } pts.push(x, 0, z); bolt.geometry.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3)); bolt.visible = true; setTimeout(() => { bolt.visible = false; }, 140); } }
+      flash = Math.max(0, flash - dt * (flash > 0.45 ? 3 : 2.2)); if (flash > 0.4 && flash < 0.5) flash = 0.85; // a second flicker
+      if (mode === 'auto') { nextTornado -= dt; if (nextTornado <= 0 && W.storm && !W.tornado) { W.tornado = place(); nextTornado = 240 + Math.random() * 360; } }
+      const T = W.tornado; if (T) { T.age += dt; T.x += Math.cos(T.a) * 7 * dt; T.z += Math.sin(T.a) * 7 * dt; const fade = Math.min(1, T.age / 6, (T.life - T.age) / 8); if (T.age > T.life || land(T.x, T.z) > -25) { W.tornado = null; tor.visible = false; } else { tor.visible = true; tor.position.set(T.x, 0, T.z); rings.forEach((m, i) => { m.rotation.z += dt * (2.4 - i * 0.08); m.material.opacity = 0.72 * Math.max(0, fade); m.position.x = Math.sin(clock * 0.9 + i * 0.5) * i * 0.9; m.position.z = Math.cos(clock * 0.8 + i * 0.4) * i * 0.9; }); spray.material.opacity = 0.45 * Math.max(0, fade); spray.rotation.y += dt * 3; } }
+    });
+  }
   // ---------- traffic: lane following, junction turns, gaps, routes, shipments ----------
   const cars = [], meshes = {}, stats = { maxJump: 0, maxYawRate: 0, teleports: 0, frames: 0, stuck: 0 };
   const SHIP = []; // the delivery jobs the trucks and vans run: queued → loading → travelling → delivered (or failed)
