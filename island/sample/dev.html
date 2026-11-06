@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sample dev</title>
+<style>html,body{margin:0;height:100%;overflow:hidden;background:#bfe3f7}canvas{display:block;width:100%;height:100%}</style></head>
+<body><canvas id="c"></canvas>
+<script src="../../lib/three.min.js"></script><script src="../../lib/OrbitControls.js"></script><script src="world.js"></script>
+<script>
+// dev only (not shipped): build the sample, look around, measure, save pictures through the local test server
+const t0 = performance.now(); World.init(document.getElementById('c'), new URLSearchParams(location.search).get('q') || 'high'); window.buildMs = Math.round(performance.now() - t0);
+World.place(World.view(20, 20, 520, 0.85, 0.35));
+let last = performance.now(), run = true; (function loop(now) { const dt = Math.min(0.1, (now - last) / 1000); last = now; if (run) World.step(dt); requestAnimationFrame(loop); })(last);
+window.shoot = async (name, W, H, v) => {
+  run = false; const r = World.renderer, c = World.camera;
+  r.setPixelRatio(1); r.setSize(W, H, false); c.aspect = W / H; c.updateProjectionMatrix();
+  World.place(v); for (let i = 0; i < 3; i++) World.frame(0.016);
+  const data = r.domElement.toDataURL('image/jpeg', 0.9);
+  await fetch('/__frame', { method: 'POST', body: JSON.stringify({ name, data }) });
+  r.setSize(innerWidth, innerHeight, false); c.aspect = innerWidth / innerHeight; c.updateProjectionMatrix(); run = true;
+  return data.length;
+};
+</script></body></html>

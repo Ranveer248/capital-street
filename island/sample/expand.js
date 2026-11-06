@@ -591,8 +591,31 @@
     function trailsDraw() { for (const t of G.NEW_TRAILS || []) { if (t.id !== 'FLFALL' && t.pts.length > 1) path(t.pts, { w: t.w || 1.8, snap: 3, kind: 'trail' }); } WORKS.trails = (G.NEW_TRAILS || []).length; lap('trails'); }
     function landmarks() { for (const f of [fort, lantern, falls, lookout, garden, beacon, trailsDraw]) { try { f(); } catch (e) { console.error('landmark failed:', f.name, e); } } }
 
+    // ---------- plots: empty ground to buy, then build on, farm or mine (the game draws and sells them: plots.js and app.js) ----------
+    function plots() {
+      const LOGP = [], out = [], R = rng(31337), CAT = [
+        // [kind, area, boxes [x0,x1,z0,z1], w, d, how many, extra, how near a road at most]
+        ['town', 'Millford', [[-130, 150, -910, -690]], 20, 22, 6, null, 60], ['town', 'Northhaven', [[-190, 70, -980, -810]], 20, 22, 4, null, 60], ['town', 'Eastgate', [[620, 920, -680, -440]], 20, 22, 5, null, 60], ['town', 'Hillcrest', [[-440, -300, -730, -630]], 18, 20, 2, null, 50],
+        ['farm', 'Greenfields plain', [[40, 420, -940, -690]], 44, 32, 6, null, 90], ['farm', 'East farms', [[760, 1100, -490, -330]], 44, 32, 4, null, 90],
+        ['stone', 'Redstone Quarry', [[880, 1130, -900, -640]], 34, 34, 3, { res: 'stone' }, 120], ['coal', 'Deepwell Mine', [[1040, 1280, -740, -540]], 34, 34, 3, { res: 'coal' }, 120], ['oil', 'Southern oil field', [[700, 1000, -20, 130]], 34, 34, 3, { res: 'oil' }, 120],
+        ['villa', 'Luxury coast', [[-700, -540, -400, -200]], 28, 30, 4, null, 70], ['villa', 'Coral Coast', [[-860, -700, -760, -480]], 28, 30, 3, null, 70],
+        ['industrial', 'Works Estate', [[740, 1040, -330, -70]], 38, 38, 5, null, 80], ['harbour', 'Northhaven quay', [[-190, 70, -990, -880]], 40, 36, 2, null, 100],
+        ['tower', 'Capital', [[-260, 260, -330, 120]], 30, 30, 5, null, 70]];
+      for (const [kind, area, boxes, w, d, n, extra, near] of CAT) { const res = !!(extra && extra.res);
+        const w0 = Object.assign({}, WHY); let made = 0, far = 0; for (let t = 0; t < 1800 && made < n; t++) {
+          const b = boxes[t % boxes.length], x = b[0] + R() * (b[1] - b[0]), z = b[2] + R() * (b[3] - b[2]);
+          if (!fitsAt(x, z, w + 6, d + 6, 0, { slope: res ? 9 : kind === 'farm' || kind === 'villa' ? 5.5 : 3.4, road: 3, coast: kind === 'harbour' ? 10 : 18, river: 8 })) continue; if (nearRoad(x, z)[0] > near || (kind === 'harbour' && land(x, z) > 75)) { far++; continue; }
+          if (!res && !['industrial', 'harbour'].includes(kind) && NOFIELD.some(r => x > r[0] && x < r[1] && z > r[2] && z < r[3]) || K.FARMRECTS.some(f => inR(x, z, { x: f.x, z: f.z, w: f.w + w + 10, d: f.d + d + 10, rot: f.rot || 0 }))) continue;
+          if (out.some(p => Math.abs(p.x - x) < (p.w + w) / 2 + 8 && Math.abs(p.z - z) < (p.d + d) / 2 + 8)) continue;
+          reserve({ x, z, w: w + 4, d: d + 4, rot: 0 }); out.push(Object.assign({ id: 'pl' + out.length, kind, area, x: Math.round(x * 10) / 10, z: Math.round(z * 10) / 10, y: Math.round(groundY(x, z) * 100) / 100, w, d, rot: 0, old: R() < (kind === 'town' || kind === 'villa' ? 0.5 : 0.15) }, extra || {})); made++;
+        }
+        const df = {}; for (const k in WHY) if (WHY[k] !== (w0[k] || 0)) df[k] = WHY[k] - (w0[k] || 0); LOGP.push([kind, area, made, far, df]);
+      }
+      World.plotSites = out; const by = {}; for (const p of out) by[p.kind] = (by[p.kind] || 0) + 1; WORKS.plots = { n: out.length, by }; WORKS.plots.log = LOGP; lap('plots');
+    }
+
     // ---------- build every region, then give every new front door its path ----------
-    const ORDER = [millford, northhaven, eastgate, hillcrest, farms, estateBlocks, terminal, airport, quarry, mine, westCoast, landmarks];
+    const ORDER = [millford, northhaven, eastgate, hillcrest, farms, estateBlocks, terminal, airport, quarry, mine, westCoast, landmarks, plots];
     for (const f of ORDER) { try { f(); } catch (e) { console.error('region failed:', f.name, e); } }
     obstacleIndex(LOTS); entrances(LOTS);
     K.WORLD_WORKS.times = TIMES; K.WORLD_WORKS.why = WHY; K.WORLD_WORKS.fwhy = FW; Object.assign(K.WORLD_WORKS, WORKS); World.expansion = K.WORLD_WORKS;
