@@ -670,3 +670,7 @@ python3 build_map.py $RAW ../data
 The other cities use the same Overture files (building, building_part, places, land_use, segments, and a wider land and water box for the coastline) saved in `$RAW/cities/<city>/` as `building.parquet`, `building_part.parquet`, `places.parquet`, `landuse.parquet`, `segments.parquet`, `region-land.parquet` and `region-water.parquet`. Each city's look (materials per building type, roof colours, how often attics, chimneys, solar panels, domes and water towers appear) is in `STYLE` in `build_map.py`. Their boxes are in `CITIES` at the top of `build_map.py`. Bake one city with `python3 build_map.py $RAW ../data london`, or the world map with `... world`.
 
 Map data © OpenStreetMap contributors and Overture Maps Foundation (ODbL / CDLA-Permissive-2.0). Country shapes: Natural Earth (public domain). three.js: MIT licence (`lib/three-LICENSE.txt`). Fonts: Inter and Archivo Black, SIL Open Font License.
+
+## Goal 39: the bigger island
+
+The island is about four times larger (2.1 km² against 0.55 km²). `island/sample/geo.js` holds the geography (coast, ground, rivers, road network) as plain maths shared by the game and the tests; with `?classic` it reproduces the first island exactly. `island/sample/expand.js` builds the new regions (towns, farms, works, resort, airport, quarry, landmarks); `world.js` has the chunked ground, forest levels of detail, river water and bridges. Both generated files were produced from source parts that are not in the repo; edit them directly.
