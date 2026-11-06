@@ -9,7 +9,8 @@ Kept up to date as the island is built, so the credits and licence notices at re
 | Harbour, cranes, containers, ships, lighthouse, trees, cars, trucks, farms, golf course, stadium, Big Wheel, wind turbines | Generated in code from simple shapes | Original, © 2026 Pocket Rocket Studio |
 | Pine Isle, Coral Key, Gull Rock | Generated in code (`js/world.js`) when you first travel there | Original, © 2026 Pocket Rocket Studio |
 | Shop and billboard signs (CAFÉ, BAKERY, CAPITAL COLA, TIMBER CO. …) | Drawn as text on a canvas in `js/world.js`; all names are made up | Original, © 2026 Pocket Rocket Studio |
-| Cover pictures `art/cover-wide.jpg`, `art/cover-tall.jpg` | Rendered from this island in the game's own renderer | Original, © 2026 Pocket Rocket Studio |
+| Cover pictures `art/cover-wide.jpg`, `art/cover-tall.jpg`, `sample/art/cover.jpg` | Rendered from this island in the game's own renderer | Original, © 2026 Pocket Rocket Studio |
+| Sports Park, fan plaza, Market Square shops, works gate, tank farm, container yard, wharf, pond, hay bales, tower tops, tanker | Generated in code (`world.js`) from simple shapes | Original, © 2026 Pocket Rocket Studio |
 | Ollie the otter (guide) | Drawn as SVG in `js/app.js` | Original, © 2026 Pocket Rocket Studio |
 | Interface icons | Drawn as SVG symbols in `index.html` | Original, © 2026 Pocket Rocket Studio |
 | three.js r128 (`../lib/three.min.js`, `../lib/OrbitControls.js`) | three.js project | MIT |
