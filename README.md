@@ -4,6 +4,34 @@ A trading game. You're a broke student in New York: borrow a little, trade, and 
 
 Play it at https://ranveer248.github.io/capital-street/ : the address opens Capital Island (Goal 35). The older New York game is at https://ranveer248.github.io/capital-street/?newyork. To run your own copy, open `index.html` from a web server (GitHub Pages works). It's built for high-end phones and computers.
 
+## Housing milestone: Orchard Close
+
+Open Capital Island → Build (or Home) → **Land & houses**. One new serviced plot,
+1 Orchard Close, is available for $400. It has a permanent parcel ID, separate
+from its building. Existing buildings, IDs, ownership and save keys are retained.
+
+- Build a cottage for $600 (20 seconds); make it your home base or rent to an NPC.
+- Rent is $10 net per 10 minutes, collected manually, with at most one hour of
+  accrual. It works without other players. A home base earns no rent.
+- Renovate for $450 (15 seconds): two storeys and $18 net rent per 10 minutes.
+  Re-select the use after works finish; rent pauses during construction.
+- Demolition quotes the $75 fee and $100 salvage before confirmation. The parcel
+  stays owned, the starter flat stays available, and the same plot can be rebuilt.
+- Online, the server checks ownership, cash, construction, revision and request
+  IDs. Repeat network requests do not charge or pay twice. Solo saves add a
+  separate housing record without rewriting older owned properties or inventory.
+- Online schema: apply `server/housing.sql` after `server/island2.sql`. Applied to
+  the connected Capital Street project on 6 November 2026. Database tests in
+  `server/housing-test.sql` roll back their fixtures and need the new plot unowned.
+- Run `node --test island/sample/housing.test.js capital-street-desktop/smoke-probe.test.js`.
+
+This first loop applies to the new Orchard Close plot. Existing island houses
+remain purchasable under their current rules; their rent/building uses are not
+migrated in this milestone. More plots, interiors, stock trading, mining, the
+new tutorial and island expansion remain future goals. The packaged apps retain
+their existing New York start; `island/**` now triggers their rebuilds so the
+bundled island files stay current.
+
 ## How we build it
 
 One small goal at a time. Each goal has a short checklist. When it's built, we check it against the list. If it doesn't pass, we fix it or redefine the goal. No extras that aren't in the goal.

@@ -148,7 +148,7 @@ window.World = (function () {
     let best = 1e9, y = 0, bridge = false, tt = 0, kind = ''; for (const s of RGRID.get(Math.floor(x / 20) + ',' + Math.floor(z / 20)) || []) { const ex = s.bx - s.ax, ez = s.bz - s.az, t = clamp(((x - s.ax) * ex + (z - s.az) * ez) / (ex * ex + ez * ez || 1), 0, 1), d = Math.hypot(s.ax + t * ex - x, s.az + t * ez - z) - s.w / 2; if (d < best) { best = d; y = mix(s.ay, s.by, t); bridge = s.bridge; tt = mix(s.t0, s.t1, t); kind = s.kind; } }
     return [best, y, bridge, tt, kind];
   }
-  const PADS = []; // flat ground under buildings off the town terrace: [x, z, r, y]
+  const PADS = Housing.PLOTS.map(p => [p.x, p.z, 20, 3]); // flat ground under buildings off the town terrace: [x, z, r, y]
   // villas: plots beside the villa roads, each levelled to the road's height
   const FROZEN_VILLAS = [[-309.22,43.49,-0.18,10.31],[-339.01,36.58,-0.33,10.89],[-348.65,64.99,2.81,10.89],[-409.63,13.31,-0.16,13.61],[-414.37,42.94,2.98,13.61],[-446.54,11.69,0.17,16.29],[-515.45,41.64,0.65,19.58],[-542.27,68.6,1.07,18.82],[-515.91,82.91,-2.07,18.82],[-540.03,145.62,2.2,16.09],[-515.7,128.07,-0.95,16.09],[-500.05,167.34,-3.1,13.58],[-453.36,163.21,-3.03,10.21],[-429,126.94,0.35,7.93],[-372.44,135.58,-2.7,6.79],[-385.35,108.5,0.45,6.79],[-342.91,120.29,-2.61,7.72],[-314.88,100.91,-2.49,8.66]];
   // villa plots beside the villa lanes, each levelled to the lane's height (fixed, so the plots people own never move)
@@ -187,6 +187,7 @@ window.World = (function () {
     scene.add(sun, sun.target);
     World.times = {};
     for (const [k, f] of [['terrain', buildTerrain], ['ocean', buildOcean], ['roads', buildRoads], ['town', buildTown], ['nature', buildNature], ['traffic', buildTraffic]]) { const t0 = performance.now(); f(); World.times[k] = Math.round(performance.now() - t0); }
+    HousingView.init(World);
     resize(); addEventListener('resize', resize);
   }
   function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
@@ -1120,7 +1121,7 @@ window.World = (function () {
     LABELS.push({ text: 'Capital Island', level: 'island', x: -120, y: 40, z: -100 }, { text: 'Industrial Isle', level: 'island', x: 535, y: 40, z: -180, minor: true },
       { text: 'Beachfront', level: 'district', x: -120, y: 30, z: 165 }, { text: 'Old Quarter', level: 'district', x: 0, y: 30, z: -40 }, { text: 'Harbour', level: 'district', x: 205, y: 30, z: 20 },
       { text: 'Industrial Isle', level: 'district', x: 535, y: 30, z: -180 }, { text: 'Lighthouse Point', level: 'district', x: -440, y: 50, z: -340 }, { text: 'Pine Hill', level: 'district', x: -520, y: 70, z: -95 });
-    for (const b of buildings) if (['hotel', 'library', 'office', 'plant', 'home', 'depot', 'cityhall', 'bank', 'exchange', 'stadium', 'coop', 'yacht'].includes(b.id)) LABELS.push({ text: b.id === 'home' ? 'Your home' : b.name, level: 'place', x: b.x, y: b.h + 6, z: b.z, b, home: b.id === 'home' });
+    for (const b of buildings) if (['hotel', 'library', 'office', 'plant', 'home', 'depot', 'cityhall', 'bank', 'exchange', 'stadium', 'coop', 'yacht'].includes(b.id)) LABELS.push({ text: b.id === 'home' ? 'Starter flat' : b.name, level: 'place', x: b.x, y: b.h + 6, z: b.z, b, home: b.id === 'home' });
   }
 
   // ---------- trees and rocks ----------
@@ -1150,6 +1151,7 @@ window.World = (function () {
   const LEFT_OUT = {}; // why trees were not planted, by rule (World.treeReport shows it)
   function settle(t, kind) { // a tree needs ground: off the carriageway and the footpaths, clear of walls, out of the water, at the height of the ground under it
     const x = t[0], z = t[2], small = kind === 'flower' || kind === 'bush', street = t[4] === 'street', g = heightAt(x, z), no = why => { LEFT_OUT[why] = (LEFT_OUT[why] || 0) + 1; return false; };
+    if (Housing.PLOTS.some(p => (Math.abs(x-p.x)<p.w/2+3 && Math.abs(z-p.z)<p.d/2+3) || (Math.abs(x-p.x)<4 && z>p.z+13 && z<p.z+14+Math.max(0,toRoadEdge(p.x,p.z+14,0,1,70))))) return no('new parcel');
     if (land(x, z) < 1.5 || g < 0.2) return no('water'); if (nearRoad(x, z)[0] < (street ? 0.3 : small ? 0.4 : 1.2)) return no('road'); if (inside(x, z, small ? 0 : 0.6)) return no('wall'); if (!street && wnear(x, z, small ? 0.5 : 1.1)) return no('path');
     if (Math.abs(t[1] - g) > 0.7) t[1] = g - 0.1; // on a hillside it stands on the slope (planters and plazas keep their raised base)
     return true;
@@ -1531,5 +1533,5 @@ window.World = (function () {
   function simulate(seconds, dt = 1 / 60) { for (let t = 0; t < seconds; t += dt) { clock += dt; for (const f of tick) f(dt, clock); } return stats; } // the same traffic code without drawing, for tests
   function eventState(o) { if (EVENT.crowd) EVENT.crowd.visible = !!o.match; const f = MATS && MATS.flood; if (f) f.color.set(o.match ? 0xffffff : 0x8a8f96); EVENT.match = !!o.match; } // match day: the crowd in the stands and the floodlights on
   return { players, farm: farmState, event: eventState, access: ACCESS, works: WORKS, walk: WG, POI, simulate, dispatch, routeInfo, SPARE, init: (c, q) => { init(c, q); buildPeople(); }, step, frame, place, view, flyTo, current, overview, viewOf, homeView, pickAt, mark, photo, buildings, LABELS, nodes, edges, cars, SHIP, stats, roadReport, treeReport, routeTest, setClosed, colourReport, route, land, heightAt,
-    get trees() { return TREES; }, get camera() { return camera; }, get renderer() { return renderer; }, get scene() { return scene; }, get controls() { return controls; }, get flying() { return !!fly; }, get dist() { return camDist; }, get pixelRatio() { return renderer.getPixelRatio(); }, get pixelRatioMax() { return pxMax; } };
+    housingAccess: p => 14 + Math.max(0,toRoadEdge(p.x,p.z+14,0,1,70)), invalidatePhoto: id => shots.delete(id), get trees() { return TREES; }, get camera() { return camera; }, get renderer() { return renderer; }, get scene() { return scene; }, get controls() { return controls; }, get flying() { return !!fly; }, get dist() { return camDist; }, get pixelRatio() { return renderer.getPixelRatio(); }, get pixelRatioMax() { return pxMax; } };
 })();

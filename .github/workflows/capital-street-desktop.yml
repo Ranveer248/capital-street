@@ -4,7 +4,7 @@
 name: Capital Street desktop
 on:
   push:
-    paths: ['index.html', '*.html', 'sw.js', 'manifest.webmanifest', 'js/**', 'lib/**', 'data/**', 'fonts/**', 'icons/**', 'capital-street-desktop/**', '.github/workflows/capital-street-desktop.yml']
+    paths: ['index.html', '*.html', 'sw.js', 'manifest.webmanifest', 'js/**', 'island/**', 'lib/**', 'data/**', 'fonts/**', 'icons/**', 'capital-street-desktop/**', '.github/workflows/capital-street-desktop.yml']
   workflow_dispatch:
 defaults:
   run:
@@ -29,6 +29,8 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: npm install --no-audit --no-fund
+      - name: Check housing and startup rules
+        run: node --test ../island/sample/housing.test.js smoke-probe.test.js
       - name: Build
         run: npm run dist
         env:

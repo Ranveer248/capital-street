@@ -17,6 +17,10 @@
   let S; try { S = Object.assign(fresh(), JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { S = fresh(); }
   S.eco = Object.assign(freshEco(), S.eco || {}); // saves from the first sample gain the economy
   let saveFail = false; // a device can refuse to store anything (full, or private browsing): say so rather than lose progress silently
+  S.housing = S.housing || {}; // additive: old owned buildings and inventories are unchanged
+  let onlineHomes = {};
+  const homes = () => NET.online ? onlineHomes : S.housing;
+  const homeBase = () => { const p = Housing.PLOTS.find(p => homes()[p.id] && homes()[p.id].mode==='home' && (!NET.online || homes()[p.id].owner===NET.me)); return p && HousingView.plots.get(p.id); };
   const E = S.eco, save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); saveFail = false; } catch (e) { if (!saveFail) { saveFail = true; if (!NET.online) setTimeout(() => toast('Progress is not being saved', 'This device\'s storage is full or blocked (private browsing?). Playing online keeps your progress on the island server.', true), 0); } } };
   const QS = ['auto', 'low', 'medium', 'high'];
   let qpref = (() => { try { const v = localStorage.getItem('cs-sample3-q'); return QS.includes(v) ? v : 'auto'; } catch (e) { return 'auto'; } })(); // what the player picked; Auto lets the device decide
@@ -157,7 +161,7 @@
       setQ('low'); jmsg('The island couldn\'t be built here (' + why + '). Graphics are now set to Low: reload and press Play. Your progress is safe.', true); const b = $('play'); b.disabled = false; b.textContent = 'RELOAD'; b.onclick = () => location.reload(); return;
     }
     $('cover').hidden = true; World.place(World.overview()); if (NET.online) { NET.live(); applyState(lastState); } else { NET.setStatus('offline'); resume(); } loop(performance.now());
-    World.flyTo(World.homeView(), 2, () => { $('hud').hidden = false; draw(); objective(); });
+    World.flyTo(homeBase() ? World.viewOf(homeBase()) : World.homeView(), 2, () => { $('hud').hidden = false; draw(); objective(); });
   }
   $('play').onclick = join; nm.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); join(); } };
   $('offline').onclick = () => { offline = true; joining = false; join(); };
@@ -172,9 +176,9 @@
     frames++; fpsT += dt; if (fpsT > 1) { $('fps').textContent = Math.round(frames / fpsT) + ' fps'; frames = 0; fpsT = 0; }
     requestAnimationFrame(loop);
   }
-  function world() { const g = E.grows[0]; World.farm({ grow: g ? clamp01((now() - g.start) / ((g.end - g.start) || 1)) : -1, harvested: E.farm.qty > 0 || E.plantIn.qty > 0 || E.plantOut.qty > 0 || E.ships.length > 0 || E.stats.grown > 0, farm: E.farm.qty, plantIn: E.plantIn.qty, plantOut: E.plantOut.qty, proc: E.procs.length > 0 }); World.event({ match: matchOn() }); } // the world shows your farm, stores and the match
+  function world() { HousingView.update(homes()); const g = E.grows[0]; World.farm({ grow: g ? clamp01((now() - g.start) / ((g.end - g.start) || 1)) : -1, harvested: E.farm.qty > 0 || E.plantIn.qty > 0 || E.plantOut.qty > 0 || E.ships.length > 0 || E.stats.grown > 0, farm: E.farm.qty, plantIn: E.plantIn.qty, plantOut: E.plantOut.qty, proc: E.procs.length > 0 }); World.event({ match: matchOn() }); } // the world shows your farm, stores and the match
   const clamp01 = v => Math.max(0, Math.min(1, v));
-  setInterval(() => { if (!$('hud').hidden) { economy(); world(); draw(); objective(); if (panel === 'trade' || panel === 'jobs') refresh(); } }, 1000);
+  setInterval(() => { if (!$('hud').hidden) { economy(); world(); draw(); objective(); HousingUI.sync(); if (panel === 'trade' || panel === 'jobs') refresh(); } }, 1000);
   function draw() {
     const l = level(), nx = LEVELS[l + 1];
     $('lvN').textContent = l + 1; $('lvT').textContent = `Level ${l + 1}`; $('lvNext').textContent = nx ? `${S.xp} / ${nx.xp} XP · ${nx.reward.split(':')[0]}` : `${S.xp} XP · top level`; // XP so far against the total the next level needs
@@ -233,6 +237,7 @@
   const lotOf = b => b.lot || `${b.type}@${Math.round(b.x)},${Math.round(b.z)}`; // a building that had to move keeps the id of the plot it was sold as
   function applyState(st) {
     if (!st || !st.player || (lastState && Date.parse(st.now) < Date.parse(lastState.now))) return; lastState = st; /* an answer older than one already shown is dropped */ skew = Date.parse(st.now) - Date.now();
+    NET.housing = !!st.housing; onlineHomes = st.housing || {};
     const lvl0 = level(); S.cash = +st.player.cash; S.xp = st.player.xp; S.name = st.player.name; S.color = st.player.color;
     const sk = k => ({ qty: st.stock[k] ? +st.stock[k].qty : 0, cost: st.stock[k] ? +st.stock[k].cost : 0 });
     E.farm = sk('farm'); E.plantIn = sk('plant_in'); E.plantOut = sk('plant_out');
@@ -476,6 +481,7 @@
   let panel = '', arg = null, stack = [];
   const P = $('panel');
   function open(name, a, push) {
+    if (name==='card' && Housing.PLOTS.some(p => p.id===a)) name='housing';
     if (push && panel) stack.push([panel, arg]); else if (!push) stack = [];
     const keep = name === panel ? $('pbody').scrollTop : 0; panel = name; arg = a;
     const r = PANELS[name](a); P.hidden = false; $('pBack').hidden = !stack.length; $('pTitle').textContent = r.title; $('pbody').innerHTML = r.html; $('pbody').scrollTop = keep; if (r.bind) r.bind($('pbody')); draw();
@@ -517,9 +523,9 @@
   function nextStep() { if (E.plantOut.qty) return 4; if (E.plantIn.qty && !E.procs.length) return 3; if (E.farm.qty) return 2; return E.grows.length || E.ships.some(s => s.status !== 'delivered') || E.procs.length ? 0 : 1; }
   const broke = () => S.cash < SEED * 5 && !E.farm.qty && !E.plantIn.qty && !E.plantOut.qty && !E.grows.length && !E.procs.length && !E.ships.some(s => s.status !== 'delivered');
   const PANELS = {
-    home: () => { const h = World.home, own = World.buildings.filter(b => b.sale && isMine(b)), worth = own.reduce((a, b) => a + valueOf(b), 0), l = level();
-      return { title: 'Home', html: `<div class="ph" data-ph="home"></div><div class="row"><span class="ic">${ic('home')}</span><div><b>${esc(h.name)}</b><small>Your flat in the Old Quarter</small></div><button class="btn ghost" id="hv">${ic('map')}VIEW</button></div>
-      <div class="stats"><div>Cash<b>${usd(S.cash)}</b></div><div>Property<b>${own.length ? usd(worth) : 'None yet'}</b></div><div>Food profit<b>${usd(E.stats.profit)}</b></div></div>
+    home: () => { const h = homeBase() || World.home, own = World.buildings.filter(b => b.sale && isMine(b)), worth = own.reduce((a, b) => a + valueOf(b), 0) + Housing.PLOTS.reduce((sum,p) => {const h=homes()[p.id]; return sum+(h&&(!NET.online||h.owner===NET.me)?p.price+(h.level?600:0)+(h.level===2?450:0):0);},0), l = level();
+      return { title: 'Home', html: `<div class="ph" data-ph="home"></div><div class="row"><span class="ic">${ic('home')}</span><div><b>${esc(h.name)}</b><small>${homeBase() ? 'Your home in Orchard Close' : 'Your flat in the Old Quarter'}</small></div><button class="btn ghost" id="hv">${ic('map')}VIEW</button></div>
+      <div class="stats"><div>Cash<b>${usd(S.cash)}</b></div><div>Property<b>${worth ? usd(worth) : 'None yet'}</b></div><div>Food profit<b>${usd(E.stats.profit)}</b></div></div>
       <p class="sec">Your goods</p><div class="inv"><div>Co-op store<b>${E.farm.qty}</b>crates</div><div>At the plant<b>${E.plantIn.qty}</b>crates</div><div>At the plant<b>${E.plantOut.qty}</b>boxes of food</div><div>On the road<b>${E.ships.filter(s => s.status !== 'delivered').reduce((a, s) => a + s.qty, 0)}</b>crates or boxes</div></div>
       ${overview()}
       <p class="sec">Level ${l + 1} · ${S.xp} XP</p>${LEVELS.map((L, i) => `<div class="row ${i > l ? 'lock' : ''}"><span class="ic">${i <= l ? '✓' : i + 1}</span><div><b>Level ${i + 1}${i ? ` · ${L.xp} XP` : ''}</b><small>${esc(L.reward)}</small></div>${i === l + 1 ? `<span class="lockt">${L.xp - S.xp} XP TO GO</span>` : ''}</div>`).join('')}
@@ -528,10 +534,10 @@
       <button class="row" id="hBank"><span class="ic">${ic('bank')}</span><div><b>Capital Bank</b><small>Income, costs and what you've sold</small></div></button>`,
       bind: r => { picture(r.querySelector('[data-ph="home"]'), h); $('hv').onclick = () => visit(h); $('hBank').onclick = () => open('bank', null, true); bindCards(r); } }; },
     bank: () => { const own = World.buildings.filter(b => b.sale && isMine(b)), inc = own.reduce((a, b) => a + rentOf(b), 0), st = E.stats; return { title: 'Capital Bank', html: `<div class="stats"><div>Cash<b>${usd(S.cash)}</b></div><div>Food sold<b>${st.sold} boxes</b></div><div>Revenue<b>${usd(st.revenue)}</b></div></div>
-      <div class="stats"><div>Net profit<b>${usd(st.profit)}</b></div><div>Rent value<b>${usd(inc)}/wk</b></div><div>Loans<b>None</b></div></div><p class="note">Rent is shown as each property's value to a tenant; it isn't paid out yet in this version. Loans aren't available yet.</p>` }; },
+      <div class="stats"><div>Net profit<b>${usd(st.profit)}</b></div><div>Rent value<b>${usd(inc)}/wk</b></div><div>Loans<b>None</b></div></div><p class="note">Rent value here describes the original properties and is not paid out. Orchard Close homes have actual NPC rent in Land & houses. Loans aren't available yet.</p>` }; },
     build: () => { const G = { homes: ['house', 'flat'], villas: ['villa'], shops: ['shophouse', 'kiosk'], offices: ['tower'], harbour: ['warehouse'] }, list = World.buildings.filter(b => b.sale && !ownerOf(b) && G[filter].includes(b.type)).sort((a, b) => valueOf(a) - valueOf(b)).slice(0, 12), own = World.buildings.filter(b => b.sale && isMine(b));
       return { title: 'Build & property', html: `<div class="seg">${[['homes', 'Homes'], ['villas', 'Villas'], ['shops', 'Shops'], ['offices', 'Offices'], ['harbour', 'Harbour']].map(([k, n]) => `<button data-f="${k}" class="${k === filter ? 'on' : ''}">${n}</button>`).join('')}</div>
-        ${own.length ? `<p class="sec">Yours</p><div class="cards">${own.map(card).join('')}</div>` : ''}<p class="sec">For sale · cheapest first</p>${list.length ? `<div class="cards">${list.map(card).join('')}</div>` : '<p class="note">Everything here has an owner. Try another kind.</p>'}<p class="note">Buying puts your name on it for everyone. Property doesn't earn rent yet; it counts towards your worth.</p>`,
+        ${own.length ? `<p class="sec">Yours</p><div class="cards">${own.map(card).join('')}</div>` : ''}<p class="sec">For sale · cheapest first</p>${list.length ? `<div class="cards">${list.map(card).join('')}</div>` : '<p class="note">Everything here has an owner. Try another kind.</p>'}<p class="note">Buying puts your name on it for everyone. These original properties count towards your worth. For a home you can build and rent, open Land & houses above.</p>`,
         bind: r => { r.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { filter = b.dataset.f; open('build'); }); bindCards(r); } }; },
     card: id => { const b = byId(id), mine = isMine(b), other = !mine && ownerOf(b), p = valueOf(b); sel = b; World.mark(b); const fl = b.floors || (b.type === 'villa' ? 2 : 1);
       return { title: { warehouse: 'Warehouse', shophouse: 'Shop with flats', kiosk: 'Kiosk', house: 'House', villa: 'Villa', tower: 'Offices', flat: 'Flats' }[b.type] || 'Landmark',
@@ -593,7 +599,7 @@
       ${NET.online ? `<p class="sec">Players on the island now · ${NET.players.size + 1}</p><div class="row"><span class="ic" style="background:${esc(S.color)};color:#fff">${esc((S.name || '?')[0].toUpperCase())}</span><div><b>${esc(S.name)} (you)</b><small>Others see a pin in your colour where you are looking</small></div></div>${[...NET.players.values()].map(p => `<div class="row"><span class="ic" style="background:${esc(p.color)};color:#fff">${esc(String(p.name || '?')[0].toUpperCase())}</span><div><b>${esc(p.name)}</b><small>Near ${esc(areaAt(p.x, p.z))}</small></div><button class="btn ghost" data-pv="${esc(p.id)}">GO</button></div>`).join('') || '<p class="note">Nobody else is here right now. Send a friend the link.</p>'}` : '<p class="note">Offline: other players appear when you play online.</p>'}
       <p class="sec">Places</p>${AREAS.map(([n, , , d], i) => `<div class="row"><span class="ic">${ic('map')}</span><div><b>${n}${S.seen[n] ? '' : ' · first visit +10 XP'}</b><small>${d}</small></div><button class="btn ghost" data-a="${i}">GO</button></div>`).join('')}
       ${DEV ? `<p class="sec">Road checks (test)</p><div class="row"><span class="ic">${ic('truck')}</span><div><b>Traffic</b><small>${World.cars.length} vehicles · ${World.stats.teleports} jumps · ${World.stats.stuck} stuck</small></div><button class="btn ghost" id="mt">RUN</button></div><div id="rt"></div>` : ''}`,
-      bind: () => { $('mi').onclick = () => { World.mark(null); World.flyTo(World.overview(), 1.5); if (innerWidth < 760) close(); }; $('mh').onclick = () => visit(World.home);
+      bind: () => { $('mi').onclick = () => { World.mark(null); World.flyTo(World.overview(), 1.5); if (innerWidth < 760) close(); }; $('mh').onclick = () => visit(homeBase() || World.home);
         document.querySelectorAll('[data-pv]').forEach(b => b.onclick = () => { const p = NET.players.get(b.dataset.pv); if (!p) return; World.mark(null); World.flyTo(World.view(p.x, p.z, 160, 0.9, 0.5), 1.4); if (innerWidth < 760) close(); });
         document.querySelectorAll('[data-a]').forEach(b => b.onclick = () => { const [n, x, z] = AREAS[+b.dataset.a]; World.mark(null); World.flyTo(World.view(x, z, 320, 0.85, 0.4), 1.4); seeArea(n); if (innerWidth < 760) close(); });
         if ($('mt')) $('mt').onclick = () => { const res = World.routeTest(), rep = World.roadReport(); $('rt').innerHTML = `<p class="note">${rep.connected ? '<span class="ok">All roads connected.</span>' : '<span class="bad">Some roads are not connected.</span>'} Road points over water: ${rep.roadPointsOverWater}. Doors on the path network: ${World.access.joined}, at a road edge: ${World.access.road}, none: ${World.access.none.length}.</p><table class="t">${res.map(t => `<tr><td>${esc(t.route)}</td><td class="${t.ok ? 'ok' : 'bad'}">${t.ok ? 'PASS' : 'FAIL'} · ${t.length || ''} m</td></tr>`).join('')}</table>`; }; } }),
@@ -609,5 +615,6 @@
   let down = null;
   $('c').addEventListener('pointerdown', e => { down = [e.clientX, e.clientY, performance.now()]; if (follow) unfollow(); });
   $('c').addEventListener('pointerup', e => { if (!down || $('hud').hidden || World.flying) return; const moved = Math.hypot(e.clientX - down[0], e.clientY - down[1]), quick = performance.now() - down[2] < 450; down = null; if (moved > 8 || !quick) return; const b = World.pickAt(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); if (b) open('card', b.id); else if (!P.hidden && innerWidth >= 760) close(); });
+  HousingUI.install({panels:PANELS,panel:()=>panel,refresh,state:S,net:NET,homes,open,visit,picture,esc,ic,cash:logCash,save,toast,apply:applyState,uuid});
   window.App = { S, E, NET, open, close, visit, level, quote, confirm, economy, handles, lotOf, market, get OWN() { return OWN; }, get MARKET() { return MARKET; }, frame: () => loop(performance.now()) }; // frame(): one step by hand, for tests in a hidden tab
 })();
