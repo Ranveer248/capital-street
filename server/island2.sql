@@ -410,10 +410,11 @@ begin
   return public.ci_state();
 end $$;
 
--- the helpers only run inside the functions above
+-- the helpers (and the ledger's trigger function) only run inside the functions above
 revoke execute on function public.ci_take_inv(uuid, text, text, int) from public, anon, authenticated;
 revoke execute on function public.ci_board() from public, anon, authenticated;
 revoke execute on function public.ci_note(text) from public, anon, authenticated;
+revoke execute on function public.ci_ledger_trg() from public, anon, authenticated;
 -- the game's own functions are for signed-in players (guests count): nothing can be called without a session
 do $$ declare f text; begin
   foreach f in array array['ci_buy_goods(uuid, text, int)', 'ci_sell_goods(uuid, text, int, text)', 'ci_take_contract(uuid, text)'] loop

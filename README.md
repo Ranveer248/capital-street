@@ -357,7 +357,7 @@ Learned from the look of illustrated city builders (CityRT, SimCity BuildIt, Cit
 
 ## Goal 37: More than one way to earn: delivery contracts and wholesale trading
 
-From the upgrade brief (sections 6 to 9): stop making everyone grow, truck, process and sell everything themselves. Before it started, the site was tagged `main-before-goal37`. **The live database was not changed.** The server half is written and tested in [`server/island2.sql`](server/island2.sql) and waits for your go-ahead; until then the online island works as before and the two new tabs say why they are off. Offline (add `?offline` to the address) everything below works.
+From the upgrade brief (sections 6 to 9): stop making everyone grow, truck, process and sell everything themselves. Before it started, the site was tagged `main-before-goal37`. **The server half, [`server/island2.sql`](server/island2.sql), was applied to the live database on 2026-11-06** (see below), so contracts and wholesale also work online. Offline (add `?offline` to the address) they work without any server.
 
 | Check | Result |
 |---|---|
@@ -371,13 +371,20 @@ From the upgrade brief (sections 6 to 9): stop making everyone grow, truck, proc
 | Two players, one island | ✅ in two browsers on the local server: both see the same contracts; one takes one and the other no longer sees it; the second buyer pays more for the same goods; once the first player's goods are booked to the shops, the second player's SEND button is off. The first player's cash matched the arithmetic to the cent |
 | Money in and out | ✅ Home now shows money in and out for the last 10 minutes and what each change was for ("Seed for 10 crates", "Bought 40 cartons of goods from Harbour depot", "Contract: carried 12 cartons of goods"). Online the database writes this itself (every change to cash, with a note); offline the game keeps its own list |
 | The food business is unchanged | ✅ 10 crates still cost $125 in all and bring back $160 ($35 profit), offline and against the server |
-| The old server | ✅ with the current live server (no upgrade) the game plays as before: Jobs and Trade open on the food business, and Contracts and Wholesale explain that they aren't on yet |
+| The old server | ✅ against a server without the upgrade (the live one until 2026-11-06) the game plays as before: Jobs and Trade open on the food business, and Contracts and Wholesale explain that they aren't on yet |
 | Undo | ✅ [`server/island2-undo.sql`](server/island2-undo.sql) then `island.sql` puts the database back (checked: 31 functions and 15 tables go back to 18 and 9; running island2.sql twice changes nothing) |
 
-**What the upgrade does to the live database, if you approve it:** adds six tables (`ci_inv`, `ci_market`, `ci_tpl`, `ci_contracts`, `ci_ledger`, `ci_ops`), one trigger on `ci_players` (it writes the ledger), 13 new functions, three columns and a widened check on `ci_shipments` (the new kinds of trip), and replaces seven existing functions so they write notes to the ledger (`ci_state`, `ci_finish`, `ci_ship`, `ci_grow`, `ci_process`, `ci_buy_property`, `ci_buy_listing`). Nothing is deleted; it runs in seconds.
+**What the upgrade did to the live database:** adds six tables (`ci_inv`, `ci_market`, `ci_tpl`, `ci_contracts`, `ci_ledger`, `ci_ops`), one trigger on `ci_players` (it writes the ledger), 13 new functions, three columns and a widened check on `ci_shipments` (the new kinds of trip), and replaces seven existing functions so they write notes to the ledger (`ci_state`, `ci_finish`, `ci_ship`, `ci_grow`, `ci_process`, `ci_buy_property`, `ci_buy_listing`). Nothing is deleted; it runs in seconds.
+
+**Applied to the live database on 2026-11-06** (Supabase project Capital Street, migration `capital_island_economy_v2`, run as one all-or-nothing step that first checks the file's checksum). One line was added to the file on the way: the ledger's trigger function can't be called by players. What was checked on the live database itself:
+- Before: its tables, policies, constraints and indexes matched `island.sql` exactly, and so did its functions, except for trailing `--` comments in eight of them (checked line by line); nothing else differed.
+- After: 15 tables, 31 functions and one trigger. All tables, policies, constraints and indexes, and 28 of the 31 functions (all 13 new ones and the 7 replaced), match the tested copy exactly; the other three (`ci_deliver`, `ci_list_food`, `ci_settle`) were not touched and differ only by those comments. Players, cash, xp, stock, jobs and shipments are exactly as they were.
+- Who can call what: nobody who is signed out can call any island function (the market and the contract board can be read, as intended); signed-in players call only the 14 game functions; the helpers and the ledger trigger are closed to everyone. The security advisor shows only the expected additions (three more signed-in functions, five more tables with the same guest-friendly policies as the others).
+- A check that undoes itself (one transaction that is always rolled back, so nothing was kept): it bought 5 cartons for the exact price the rules give, the same booking sent twice charged nothing, it sent them to the shops and was paid on arrival with the right ledger note, took a contract and was paid, a second taker was refused, the contract board for 200 slots was identical to `island/sample/market.js`, other players' ledgers and warehouses stayed private, and the tables could not be written directly.
+- Undo, if it is ever needed: `server/island2-undo.sql`, then `server/island.sql`.
 
 **Not done or not tested yet:**
-- The upgrade isn't applied to the live project (it needs your approval), so online players don't have contracts or wholesale yet.
+- I did not sign in to the live game myself (that would create a guest player on your live island), so I have not looked at the online Contracts and Wholesale tabs in the game window; the live checks above were made in the database and through its public address.
 - From the brief and not started: players posting their own contracts (a farmer selling to a manufacturer while a third player carries it), dropshipping, hiring employees, rent and hotel income, timber and building materials, a warehouse anywhere but the quay, and player-set prices for goods.
 - Contract trips are fixed-route: there is no choice of route yet.
 - Not tried on a real phone or iPad.
@@ -546,7 +553,7 @@ From the 5 new reference videos (a player-run economy game on the real world map
 21. ✅ **High-end graphics:** bloom, grading, a sun that follows the clock, clouds, glass, water, night lights
 22. ✅ **Simpler:** a new menu, online-only play, a clean map and screen, a tutorial
 23. ✅ **Surprises:** more market events, planes in the sky, plane crashes
-37. ✅ **More than one way to earn:** delivery contracts that need no money, a wholesale market for traders, money in and out on Home, and the server half written and tested (waiting for your approval; see Goal 37)
+37. ✅ **More than one way to earn:** delivery contracts that need no money, a wholesale market for traders, money in and out on Home, and the server half, now applied to the live database (2026-11-06; see Goal 37)
 36. ✅ **Starts reliably, nothing overlaps, every door has a path:** a graphics check and options before Play, recovery messages, no more flickering flat roofs, no overlapping buildings, every door joined, a road to the car park, boatyard and sailing club (see Goal 36)
 35. ✅ **Capital Island is the game:** the main address opens it, the New York game stays at `?newyork`, Terms, Privacy and Credits on the title screen (see Goal 35)
 34. ✅ **Capital Island replanned:** connected streets and footpaths, working farms and districts, six house styles, new vehicles with turning wheels, people on the pavements, a clearer interface (see Goal 34)
@@ -583,7 +590,7 @@ Online play needs a free [Supabase](https://supabase.com) project. Until one is 
 
 Cloud saves: once you have a player, your game is saved to your account (table `cs_saves`, one row per player, only you can read or write it) every minute, when you buy or sell, and when you leave the page. On a device that last saw an older copy, the newer cloud copy loads and the old local save is kept as a backup (`capital-street-market-v1-backup`).
 
-The island (Capital Island) has its own tables, all prefixed `ci_`. [`server/island.sql`](server/island.sql) is applied to the live project (the food chain, property and offers between players). [`server/island2.sql`](server/island2.sql) (Goal 37: contracts, wholesale goods, the ledger) is written and tested but **not applied yet**: it needs the owner's approval; run it after island.sql, it only adds and is safe to run again, and [`server/island2-undo.sql`](server/island2-undo.sql) takes it back out. The game checks which version the server has and hides the new tabs until it does.
+The island (Capital Island) has its own tables, all prefixed `ci_`. [`server/island.sql`](server/island.sql) is applied to the live project (the food chain, property and offers between players). [`server/island2.sql`](server/island2.sql) (Goal 37: contracts, wholesale goods, the ledger) is applied to the live project too (2026-11-06, migration `capital_island_economy_v2`); run it after island.sql, it only adds and is safe to run again, and [`server/island2-undo.sql`](server/island2-undo.sql) takes it back out. The game checks which version the server has and hides the new tabs until it does.
 
 Who may change what is enforced by the database itself (row-level security plus two checked functions), not by the game, so a modified game can't take someone else's building, post as someone else or rename them.
 
