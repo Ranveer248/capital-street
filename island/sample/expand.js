@@ -3,7 +3,7 @@
 (function () {
   'use strict';
   const G = window.IslandGeo; if (!G.EXPANDED) return;
-  // the 38 plot sites exactly as plots() found them (the island server knows these ids, so they must never move). plots() uses this table instead of searching
+  // the plot sites exactly as plots() found them: pl0 to pl37 for the first islands (the island server knows these ids, so they must never move), then pl38 onward for the Southern Isle (server/island4.sql). plots() uses this table instead of searching
   // again; open the game with ?plotcalc to search afresh (then World.plotSites, minus n, v0 and v1, is the new table)
   const BAKED_PLOTS = [
     {"id":"pl0","kind":"town","area":"Millford","x":58,"z":-879.1,"y":3.01,"rx":57.99067729524833,"rz":-879.110977598052,"w":20,"d":22,"rot":0,"old":false},
@@ -43,7 +43,29 @@
     {"id":"pl34","kind":"tower","area":"Capital","x":-123.8,"z":-209.6,"y":2.96,"rx":-123.82703111685208,"rz":-209.63536811509886,"w":30,"d":30,"rot":0,"old":false},
     {"id":"pl35","kind":"harbour","area":"Eastgate docks","x":664.2,"z":-415.9,"y":9.11,"rx":664.1931268126672,"rz":-415.8692907243358,"w":28,"d":24,"rot":0,"old":false},
     {"id":"pl36","kind":"harbour","area":"Works quay","x":731.1,"z":-45.8,"y":8.86,"rx":731.1240133136157,"rz":-45.80549204061066,"w":28,"d":24,"rot":0,"old":true},
-    {"id":"pl37","kind":"harbour","area":"South quay","x":957.5,"z":197.3,"y":3.08,"rx":957.4733411508954,"rz":197.3252370475443,"w":28,"d":24,"rot":0,"old":true}
+    {"id":"pl37","kind":"harbour","area":"South quay","x":957.5,"z":197.3,"y":3.08,"rx":957.4733411508954,"rz":197.3252370475443,"w":28,"d":24,"rot":0,"old":true},
+    {"id":"pl38","kind":"town","area":"Belle Rive","x":803.6,"z":1051.2,"y":3.05,"rx":803.6243637016156,"rz":1051.216685250968,"w":20,"d":22,"rot":0,"old":true},
+    {"id":"pl39","kind":"town","area":"Belle Rive","x":1065,"z":901.3,"y":2.96,"rx":1065.0051878229738,"rz":901.3013460539753,"w":20,"d":22,"rot":0,"old":true},
+    {"id":"pl40","kind":"town","area":"Belle Rive","x":989.6,"z":1072,"y":3,"rx":989.6441815279629,"rz":1072.0443709064482,"w":20,"d":22,"rot":0,"old":false},
+    {"id":"pl41","kind":"town","area":"Belle Rive","x":1073.7,"z":1011.7,"y":2.96,"rx":1073.6602684732807,"rz":1011.7035118172428,"w":20,"d":22,"rot":0,"old":true},
+    {"id":"pl42","kind":"town","area":"Belle Rive","x":1065.3,"z":962.6,"y":3.07,"rx":1065.2969226079513,"rz":962.5683489034736,"w":20,"d":22,"rot":0,"old":false},
+    {"id":"pl43","kind":"farm","area":"Plaine des Cannes","x":1039.1,"z":1536.4,"y":3.65,"rx":1039.0813903599426,"rz":1536.432628937267,"w":44,"d":32,"rot":0,"old":false},
+    {"id":"pl44","kind":"farm","area":"Plaine des Cannes","x":780.2,"z":952.5,"y":3.03,"rx":780.1566524524972,"rz":952.5173845479811,"w":44,"d":32,"rot":0,"old":false},
+    {"id":"pl45","kind":"farm","area":"Plaine des Cannes","x":1062.1,"z":1356,"y":3.4,"rx":1062.0790045159306,"rz":1356.0237804968021,"w":44,"d":32,"rot":0,"old":false},
+    {"id":"pl46","kind":"farm","area":"Plaine des Cannes","x":868,"z":1118.8,"y":2.99,"rx":868.0364414528182,"rz":1118.7605858029615,"w":44,"d":32,"rot":0,"old":false},
+    {"id":"pl47","kind":"farm","area":"Plaine des Cannes","x":974,"z":1201.9,"y":2.96,"rx":973.9755064593514,"rz":1201.9175931447733,"w":44,"d":32,"rot":0,"old":false},
+    {"id":"pl48","kind":"farm","area":"Plaine des Cannes","x":953.6,"z":804.9,"y":3.13,"rx":953.6198041465226,"rz":804.8545244917527,"w":44,"d":32,"rot":0,"old":false},
+    {"id":"pl49","kind":"villa","area":"Anse Perle","x":-260.1,"z":851,"y":8.29,"rx":-260.0713780615812,"rz":851.0289801336029,"w":28,"d":30,"rot":0,"old":false},
+    {"id":"pl50","kind":"villa","area":"Anse Perle","x":-420.9,"z":821,"y":5.25,"rx":-420.93604749112205,"rz":820.9820305141536,"w":28,"d":30,"rot":0,"old":true},
+    {"id":"pl51","kind":"villa","area":"Anse Perle","x":-559.8,"z":875.5,"y":3,"rx":-559.8006763541143,"rz":875.4796738342753,"w":28,"d":30,"rot":0,"old":false},
+    {"id":"pl52","kind":"town","area":"Pointe Filaos","x":2167.2,"z":1330.6,"y":5.5,"rx":2167.1954327668973,"rz":1330.6448724170425,"w":20,"d":22,"rot":0,"old":true},
+    {"id":"pl53","kind":"town","area":"Pointe Filaos","x":2160.5,"z":1276.5,"y":3.45,"rx":2160.4567627331508,"rz":1276.4871412685548,"w":20,"d":22,"rot":0,"old":true},
+    {"id":"pl54","kind":"town","area":"Pointe Filaos","x":2143.7,"z":1117.3,"y":3.28,"rx":2143.7001565907617,"rz":1117.252677840764,"w":20,"d":22,"rot":0,"old":true},
+    {"id":"pl55","kind":"stone","area":"Mont Brumeux quarry","x":869.4,"z":1513.5,"y":4.43,"rx":869.4312747891206,"rz":1513.4723060361446,"w":34,"d":34,"rot":0,"old":false,"res":"stone"},
+    {"id":"pl56","kind":"stone","area":"Mont Brumeux quarry","x":865.1,"z":1557.3,"y":4.69,"rx":865.064187797282,"rz":1557.3447038220916,"w":34,"d":34,"rot":0,"old":false,"res":"stone"},
+    {"id":"pl57","kind":"industrial","area":"Moulin Doré yard","x":1061.7,"z":1300.6,"y":3.23,"rx":1061.6859115528343,"rz":1300.6039216372203,"w":38,"d":38,"rot":0,"old":false},
+    {"id":"pl58","kind":"harbour","area":"Belle Rive quay","x":914.8,"z":742.4,"y":3.29,"rx":914.7831497549932,"rz":742.3990809649225,"w":28,"d":24,"rot":0,"old":false},
+    {"id":"pl59","kind":"tower","area":"Belle Rive","x":836.3,"z":903.2,"y":3.02,"rx":836.3423011900588,"rz":903.2021975019957,"w":30,"d":30,"rot":0,"old":false}
   ];
   // new shop and place signs join the picture atlas (they must be added before the game starts)
   const NEWSIGNS = [['BUTCHER', '#b03a2e'], ['HARDWARE', '#3d5a80'], ['TEA ROOMS', '#8a5a44'], ['BOOKS', '#5b3f8c'], ['FISH MARKET', '#1f78a8'], ['CHANDLER', '#2c5f7c'], ['FISH & CHIPS', '#c47f17'], ['ICE HOUSE', '#4a90a4'], ['POTTERY', '#b5651d'], ['WINE', '#7b1e3a'], ['OLIVE OIL', '#6b7d1e'], ['POST OFFICE', '#c0392b'], ['DIVE SHOP', '#0e7c86'], ['SURF HIRE', '#e8742c'], ['SEAFOOD GRILL', '#c0392b'], ['GELATO', '#e66b9a'], ['SOUVENIRS', '#7d5ba6'],
@@ -648,7 +670,10 @@
         ['industrial', 'Works Estate', [[740, 1040, -330, -70]], 38, 38, 5, null, 80], ['harbour', 'Northhaven quay', [[-190, 70, -990, -880]], 40, 36, 2, null, 100],
         ['tower', 'Capital', [[-260, 260, -330, 120]], 30, 30, 5, null, 70],
         // added later (Goal 40): new entries go at the END so the plots above keep their ids (the island server knows them)
-        ['harbour', 'Northhaven quay', [[-320, 160, -1080, -820]], 28, 24, 2, { port: 1 }, 200], ['harbour', 'Marina Cove', [[-900, -600, -560, -280]], 28, 24, 1, { port: 1 }, 200], ['harbour', 'Eastgate docks', [[560, 1100, -800, -380]], 28, 24, 1, { port: 1 }, 200], ['harbour', 'Works quay', [[640, 1150, -380, -40]], 28, 24, 1, { port: 1 }, 200], ['harbour', 'South quay', [[560, 1100, -60, 200]], 28, 24, 1, { port: 1 }, 200]];
+        ['harbour', 'Northhaven quay', [[-320, 160, -1080, -820]], 28, 24, 2, { port: 1 }, 200], ['harbour', 'Marina Cove', [[-900, -600, -560, -280]], 28, 24, 1, { port: 1 }, 200], ['harbour', 'Eastgate docks', [[560, 1100, -800, -380]], 28, 24, 1, { port: 1 }, 200], ['harbour', 'Works quay', [[640, 1150, -380, -40]], 28, 24, 1, { port: 1 }, 200], ['harbour', 'South quay', [[560, 1100, -60, 200]], 28, 24, 1, { port: 1 }, 200],
+        // Goal 43: the Southern Isle (the island server needs a ci_plot_sites row for each of these: server/island4.sql)
+        ['town', 'Belle Rive', [[780, 1100, 900, 1090]], 20, 22, 5, null, 60], ['farm', 'Plaine des Cannes', [[700, 1960, 800, 1560]], 44, 32, 6, null, 90], ['villa', 'Anse Perle', [[-780, -250, 770, 900]], 28, 30, 3, null, 70], ['town', 'Pointe Filaos', [[2120, 2290, 1090, 1340]], 20, 22, 3, null, 60],
+        ['stone', 'Mont Brumeux quarry', [[300, 1000, 1500, 1800]], 34, 34, 2, { res: 'stone' }, 140], ['industrial', 'Moulin Doré yard', [[930, 1130, 1260, 1440]], 38, 38, 1, null, 80], ['harbour', 'Belle Rive quay', [[700, 1150, 560, 760]], 28, 24, 1, { port: 1 }, 200], ['tower', 'Belle Rive', [[800, 1100, 900, 1090]], 30, 30, 1, null, 70]];
       for (const [kind, area, boxes, w, d, n, extra0, near] of CAT) { const res = !!(extra0 && extra0.res), port = !!(extra0 && extra0.port), extra = port ? null : extra0;
         const w0 = Object.assign({}, WHY); let made = 0, far = 0; for (let t = 0; t < 1800 && made < n; t++) {
           const b = boxes[t % boxes.length], x = b[0] + R() * (b[1] - b[0]), z = b[2] + R() * (b[3] - b[2]);

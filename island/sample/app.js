@@ -57,6 +57,7 @@
         N.me = session.user.id;
         const st = await N.call('ci_join', { p_name: name, p_color: color });
         try { N.pst = await N.call('ci_plots_state'); N.v3 = true; } catch (e) { N.v3 = false; } // plots, resources and auctions, once the server has them
+        if (N.v3) { try { const q = await sb.from('ci_plot_sites').select('id'); N.siteIds = q.error ? null : new Set((q.data || []).map(r => r.id)); } catch (e) { N.siteIds = null; } } // which plots the server knows (the Southern Isle's come with server upgrade 4)
         N.online = true; return { ok: true, state: st };
       } catch (e) { if (/Could not find the function|does not exist/i.test(e.message)) return { ok: false, missing: true }; return { ok: false, net: e.net, why: e.net ? 'Can\'t reach the island server. Check your connection and try again.' : e.message }; }
     };
@@ -161,6 +162,7 @@
       setQ('low'); jmsg('The island couldn\'t be built here (' + why + '). Graphics are now set to Low: reload and press Play. Your progress is safe.', true); const b = $('play'); b.disabled = false; b.textContent = 'RELOAD'; b.onclick = () => location.reload(); return;
     }
     if (World.weather) { if (!new URLSearchParams(location.search).get('weather') && wpref !== 'auto') World.weather.set(wpref); World.weather.onThunder = thunder; rainHiss(); } // the player's weather choice comes back, and thunder gets its sound
+    if (NET.online && World.plotSites) World.plotSites = World.plotSites.filter(p => NET.siteIds ? NET.siteIds.has(p.id) : +p.id.slice(2) < 38); // online, only the plots the server has a row for
     if (World.plotSites && window.Plots) { try { Plots.init(World, World.scene, typeof World.camera === 'function' ? World.camera() : World.camera, World.plotSites); } catch (e) { console.error('plots', e); } plotsSyncAll(); if (NET.pst) applyPlots(NET.pst); }
     $('cover').hidden = true; World.place(World.overview()); if (NET.online) { NET.live(); applyState(lastState); } else { NET.setStatus('offline'); resume(); } loop(performance.now());
     World.flyTo(World.homeView(), 2, () => { $('hud').hidden = false; draw(); objective(); });
@@ -175,7 +177,7 @@
   // ---------- updates, like Traffic Rush: version.json (the site's root) names the newest release, APP_VERSION this copy.
   // Bump BOTH for every release. When they differ the game says so, fetches its files fresh (past the browser's cache) and
   // reloads: at once on the cover, or while playing the next time no panel is open (and you go straight back in).
-  const APP_VERSION = '2026-11-07.8';
+  const APP_VERSION = '2026-11-07.9';
   let updBusy = false;
   async function checkUpdate() {
     if (updBusy || building || (joining && !started) || !/^https?:$/.test(location.protocol)) return; // not inside the desktop app
