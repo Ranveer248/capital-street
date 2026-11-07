@@ -1,5 +1,5 @@
 // Capital Street offline support. Bump VERSION whenever data/ or the page changes.
-const VERSION = 'capital-street-2026-11-07.2';
+const VERSION = 'capital-street-2026-11-07.3';
 const CORE = ['./', './js/boot.js', './js/cities.js', './js/market.js', './js/city.js', './js/ui.js', './js/net-config.js', './js/net.js', './js/property.js', './js/land.js', './js/auctions.js', './js/business.js', './js/trade.js', './js/interior.js', './js/company.js', './js/logistics.js', './js/office.js', './js/world.js', './js/pc.js', './js/levels.js', './js/smooth.js', './js/gfx.js', './js/sky.js', './js/hud.js', './js/tutorial.js', './js/life.js', './js/build.js', './js/tasks.js', './js/icons.js', './js/app.js', './js/saves.js', './lib/three.min.js', './lib/OrbitControls.js', './lib/supabase.js', './fonts/fonts.css', './fonts/inter-latin.woff2', './fonts/archivo-black-latin.woff2', './fonts/lilita-one-latin.woff2', './manifest.webmanifest', './data/nyc.bin', './data/world.bin', './data/countries.json', './data/nyc-streets.json', './icons/icon-192.png'];
 self.addEventListener('install', e => {
   self.skipWaiting();
@@ -18,7 +18,7 @@ self.addEventListener('fetch', e => {
     e.respondWith(caches.open(VERSION).then(c => c.match(req).then(hit => hit || fetch(req).then(res => { if (res.ok || res.type === 'opaque') c.put(req, res.clone()); return res; }))));
     return;
   }
-  if (url.origin !== self.location.origin) return;
+  if (url.origin !== self.location.origin || url.pathname.endsWith('/version.json')) return; // the update check always asks the site
   // the page itself: network first so updates show up, cache when offline
   e.respondWith(fetch(req).then(res => {
     if (res.ok) { const copy = res.clone(); caches.open(VERSION).then(c => c.put(req, copy)); }

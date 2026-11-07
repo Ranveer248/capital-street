@@ -1,6 +1,6 @@
 # Capital Street for PC (Windows, Mac, Linux)
 
-The game (this repo's root, one folder up) in a desktop window, made with [Electron](https://www.electronjs.org). The app carries every file inside it, so it plays offline; signing in to play online works as on the website.
+The game (this repo's root, one folder up) in a desktop window, made with [Electron](https://www.electronjs.org). The app carries every file inside it, so it plays offline; signing in to play online works as on the website. It opens Capital Island (`island/sample/`), like the website; the New York version is still inside the app.
 
 ## Getting the builds
 

@@ -15,20 +15,20 @@ function open() {
     width: 1600, height: 900, minWidth: 1024, minHeight: 640, title: 'Capital Street', backgroundColor: '#1c2a78', autoHideMenuBar: true, show: !SMOKE,
     webPreferences: { contextIsolation: true, sandbox: true }
   });
-  win.loadURL('app://game/index.html');
+  // the app opens Capital Island, like the website (New York is still inside at app://game/index.html). The check plays it
+  // offline under a test name, so it never adds a guest player to the live island server.
+  win.loadURL(SMOKE ? 'app://game/island/sample/index.html?offline&play&name=BuildCheck' : 'app://game/island/sample/index.html');
   const errors = [];
   if (SMOKE) win.webContents.on('console-message', e => { if (e.level === 'error' || e.level === 3) errors.push(String(e.message).slice(0, 160)); });
   if (SMOKE) win.webContents.once('did-finish-load', async () => {
-    for (let i = 0; i < 90; i++) {
-      // a new player is asked to pick graphics before the city is built: the check picks Low (the build machine has no graphics card)
-      await win.webContents.executeJavaScript("{ const b = document.querySelector('#lq [data-q=low]'); if (window.Boot && Boot.waiting() && b) b.click(); }").catch(() => {});
-      const ok = await win.webContents.executeJavaScript("!!(window.CS && document.getElementById('load').hidden && window.Land && Land.plots.size)").catch(() => false);
-      if (ok) { console.log('SMOKE OK: the city loaded'); app.exit(0); return; }
+    for (let i = 0; i < 120; i++) {
+      const ok = await win.webContents.executeJavaScript("!!(window.World && document.getElementById('cover').hidden && !document.getElementById('c').hidden)").catch(() => false);
+      if (ok) { console.log('SMOKE OK: the island loaded'); app.exit(0); return; }
       await new Promise(r => setTimeout(r, 1000));
     }
-    const load = await win.webContents.executeJavaScript("(document.getElementById('load') || {}).innerText || ''").catch(() => '?');
+    const load = await win.webContents.executeJavaScript("(document.getElementById('jmsg') || {}).textContent || ''").catch(() => '?');
     // ::error:: lines become annotations on the GitHub run, readable without opening the log
-    console.log(`::error::SMOKE FAIL: the city did not load in 90 s. Loading screen: ${load.replace(/\s+/g, ' ').slice(0, 120)}. Errors: ${errors.slice(0, 3).join(' | ') || 'none'}`);
+    console.log(`::error::SMOKE FAIL: the island did not load in 120 s. Cover message: ${load.replace(/\s+/g, ' ').slice(0, 120)}. Errors: ${errors.slice(0, 3).join(' | ') || 'none'}`);
     app.exit(1);
   });
   // the Terms, Wiki and so on open in their own window; links to anywhere else open in the player's browser

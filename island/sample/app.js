@@ -164,7 +164,33 @@
   $('play').onclick = join; nm.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); join(); } };
   $('offline').onclick = () => { offline = true; joining = false; join(); };
   if (matchMedia('(pointer: fine)').matches && !new URLSearchParams(location.search).has('play')) setTimeout(() => nm.focus(), 200); // a keyboard is there: start typing (on phones the keyboard would cover the picture)
-  { const q = new URLSearchParams(location.search); if (q.get('name')) $('nm').value = q.get('name'); if (q.has('offline')) offline = true; if (q.has('play')) join(); }
+  { const q = new URLSearchParams(location.search); if (q.get('name')) $('nm').value = q.get('name'); if (q.has('offline')) offline = true; if (q.has('play')) join();
+    const rs = q.get('resume'); // back from an update made while playing: straight back in, the same way (online or offline)
+    if (rs) { if (rs === 'off') offline = true; q.delete('resume'); q.delete('v'); history.replaceState(null, '', location.pathname + (String(q) ? '?' + q : '') + location.hash); if (nm.value.trim()) join(); } }
+
+  // ---------- updates, like Traffic Rush: version.json (the site's root) names the newest release, APP_VERSION this copy.
+  // Bump BOTH for every release. When they differ the game says so, fetches its files fresh (past the browser's cache) and
+  // reloads: at once on the cover, or while playing the next time no panel is open (and you go straight back in).
+  const APP_VERSION = '2026-11-07.3';
+  let updBusy = false;
+  async function checkUpdate() {
+    if (updBusy || (joining && !started) || !/^https?:$/.test(location.protocol)) return; // not inside the desktop app
+    updBusy = true;
+    try {
+      const r = await fetch('../../version.json?t=' + Date.now(), { cache: 'no-store' });
+      const v = r.ok ? String((await r.json()).version || '') : '';
+      if (!v || v === APP_VERSION || (started && !$('panel').hidden)) return; // up to date, or busy in a panel: tried again later
+      try { if (sessionStorage.getItem('cs-upd') === v) return; sessionStorage.setItem('cs-upd', v); } catch (e) { /* once per version per visit, so a slow server can't cause a reload loop */ }
+      toast('Updating to the newest version…', 'Version ' + v);
+      if (!NET.online) save();
+      const files = [location.pathname, ...[...document.scripts].map(s => s.src), ...[...document.querySelectorAll('link[rel=stylesheet]')].map(l => l.href)].filter(u => u && new URL(u, location.href).origin === location.origin);
+      await Promise.all(files.map(u => fetch(u, { cache: 'reload' }).catch(() => {})));
+      const q = new URLSearchParams(location.search); q.set('v', v); if (started) q.set('resume', offline || !NET.online ? 'off' : 'on');
+      setTimeout(() => location.replace(location.pathname + '?' + q + location.hash), 900);
+    } catch (e) { /* offline or a slow connection: tried again later */ } finally { updBusy = false; }
+  }
+  setTimeout(checkUpdate, 1500); setInterval(checkUpdate, 5 * 60e3);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(); });
 
   let last = 0, frames = 0, fpsT = 0, follow = null;
   function loop(t) {

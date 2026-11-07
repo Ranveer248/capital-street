@@ -4,6 +4,13 @@ A trading game. You're a broke student in New York: borrow a little, trade, and 
 
 Play it at https://ranveer248.github.io/capital-street/ : the address opens Capital Island (Goal 35). The older New York game is at https://ranveer248.github.io/capital-street/?newyork. To run your own copy, open `index.html` from a web server (GitHub Pages works). It's built for high-end phones and computers.
 
+## Releasing an update
+
+Every push to `main` that changes the game sets the same new version (`YYYY-MM-DD.N`) in three places:
+`version.json`, `APP_VERSION` in `island/sample/app.js`, and `VERSION` in `sw.js`. Players with the island open
+(or opening it later) then see "Updating to the newest version…" and get it: at once on the cover, or the next time
+no panel is open while playing (they go straight back in). The desktop app carries its own copy and updates with a new download.
+
 ## How we build it
 
 One small goal at a time. Each goal has a short checklist. When it's built, we check it against the list. If it doesn't pass, we fix it or redefine the goal. No extras that aren't in the goal.
