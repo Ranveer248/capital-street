@@ -48,7 +48,7 @@
   // new shop and place signs join the picture atlas (they must be added before the game starts)
   const NEWSIGNS = [['BUTCHER', '#b03a2e'], ['HARDWARE', '#3d5a80'], ['TEA ROOMS', '#8a5a44'], ['BOOKS', '#5b3f8c'], ['FISH MARKET', '#1f78a8'], ['CHANDLER', '#2c5f7c'], ['FISH & CHIPS', '#c47f17'], ['ICE HOUSE', '#4a90a4'], ['POTTERY', '#b5651d'], ['WINE', '#7b1e3a'], ['OLIVE OIL', '#6b7d1e'], ['POST OFFICE', '#c0392b'], ['DIVE SHOP', '#0e7c86'], ['SURF HIRE', '#e8742c'], ['SEAFOOD GRILL', '#c0392b'], ['GELATO', '#e66b9a'], ['SOUVENIRS', '#7d5ba6'],
     ['HOTEL CORAL', '#e0607e'], ['SUNSET HOTEL', '#e07b39'], ['PEARL RESORT', '#2a8fa6'], ['LAGOON HOTEL', '#1f9d8a'], ['MARINA CLUB', '#1f4f86'], ['RESTAURANT', '#8a2f2f'], ['TERMINAL', '#1f4f86'], ['AIRPORT', '#27496d'], ['ARRIVALS', '#2f8f5b'], ['DEPARTURES', '#c0392b'], ['FREIGHT', '#d97a1c'], ['RECYCLING', '#2f8f3a'], ['STEEL', '#5a6270'], ['TIMBER YARD', '#7a4e2d'], ['FACTORY', '#34495e'], ['CUSTOMS', '#8e44ad'], ['PORT OFFICE', '#1f6f9a'],
-    ['QUARRY', '#9a7b4f'], ['MINE', '#5a5a5a'], ['CEMENT', '#7f8c8d'], ['FORT', '#6b5a43'], ['LIGHTHOUSE', '#c0392b'], ['GARDENS', '#2f8f3a'], ['TEAHOUSE', '#a15c38'], ['VISITORS', '#2e74c9'], ['FALLS', '#2a8fd0'], ['LOOKOUT', '#2f8f3a'], ['GRAIN STORE', '#a87b32'], ['ORCHARD', '#c0392b'], ['DAIRY', '#4a90d9'], ['MILL', '#8a5a44'], ['BEACH CLUB', '#0f6fb8'], ['SPA', '#7fb5a4'], ['MARKET HALL', '#8a5a44'], ['TOWN HALL', '#5b3f33'], ['CHURCH', '#7a7f87'], ['BOATYARD', '#1f4f86'], ['NETS', '#3f6a7a'], ['SMOKEHOUSE', '#8a4a2a'], ['HOTEL PERLE', '#e0607e'], ['LAGON BLEU', '#1f9d8a'], ['FLAMBOYANT', '#e07b39'], ['RESIDENCE CORAIL', '#2a8fa6']];
+    ['QUARRY', '#9a7b4f'], ['MINE', '#5a5a5a'], ['CEMENT', '#7f8c8d'], ['FORT', '#6b5a43'], ['LIGHTHOUSE', '#c0392b'], ['GARDENS', '#2f8f3a'], ['TEAHOUSE', '#a15c38'], ['VISITORS', '#2e74c9'], ['FALLS', '#2a8fd0'], ['LOOKOUT', '#2f8f3a'], ['GRAIN STORE', '#a87b32'], ['ORCHARD', '#c0392b'], ['DAIRY', '#4a90d9'], ['MILL', '#8a5a44'], ['BEACH CLUB', '#0f6fb8'], ['SPA', '#7fb5a4'], ['MARKET HALL', '#8a5a44'], ['TOWN HALL', '#5b3f33'], ['CHURCH', '#7a7f87'], ['BOATYARD', '#1f4f86'], ['NETS', '#3f6a7a'], ['SMOKEHOUSE', '#8a4a2a'], ['HOTEL PERLE', '#e0607e'], ['LAGON BLEU', '#1f9d8a'], ['FLAMBOYANT', '#e07b39'], ['RESIDENCE CORAIL', '#2a8fa6'], ['SUPERMARKET', '#d83a3a']];
   const S0 = World.signs.SIGNS.length, SG = {}; NEWSIGNS.forEach(([t, c], i) => { World.signs.SIGNS.push(t); World.signs.SIGNC.push(c); SG[t] = S0 + i; });
   Object.assign(SG, { BAKERY: 0, 'CAFÉ': 1, GROCER: 2, PHARMACY: 3, FLOWERS: 4, LIBRARY: 5, HARBOUR: 6, SEAFOOD: 8, 'BEACH BAR': 9, MARKET: 13, 'ICE CREAM': 14, DEPOT: 15, HOTEL: 30, 'FARM SHOP': 31 });
   World.regions.push(function (K, LOTS) {
@@ -756,12 +756,37 @@
       const L1 = lines.filter(l => l.length > 3).sort((p, q) => q.length - p.length)[0] || []; [['Beach bar', SG['BEACH BAR'], 0xff8a3d, 0.25], ['Dive shop', SG['DIVE SHOP'], 0x0e7c86, 0.55], ['Surf hire', SG['SURF HIRE'], 0xe8742c, 0.85]].forEach(([name, sg2, awn, f], i) => { for (let tries = 0; tries < 6; tries++) { const p = L1[Math.min(L1.length - 1, Math.floor(L1.length * f) + tries)]; if (!p) return; const kx = p.x + p.nx * 9, kz = p.z + p.nz * 9, rot = Math.atan2(-p.nx, -p.nz); if (!fitsAt(kx, kz, 8, 6, rot, { slope: 3, road: 0.5, coast: 5, river: 6 })) continue; addBuilding({ id: 'pbk' + i, type: 'kiosk', name, area: 'Anse Perle', x: kx, z: kz, y: groundY(kx, kz), rot, w: 7, d: 5, sign: sg2, awn, owner: 'city' }); reserve({ x: kx, z: kz, w: 9, d: 7, rot }); break; } });
       LABELS.push({ text: 'Anse Perle', level: 'district', x: -560, y: 30, z: 860 }); WORKS.perle = { hotels: n, names, chains: chains.map(c => [Math.round(c.len), Math.round(c.pts[0][0]), Math.round(c.pts[0][2]), Math.round(c.pts[c.pts.length - 1][0]), Math.round(c.pts[c.pts.length - 1][2]), c.a.id, c.b.id]) }; lap('perle');
     }
+    // ---------- supermarkets: a long store with a big sign, a car park in front with parked cars and a trolley corral, a delivery lorry at the side ----------
+    function supermarket(id, name, area, box, near, seedN, PARK = 24) {
+      const R = rng(seedN), W = 30, D = 18;
+      for (let tries = 0; tries < 900; tries++) {
+        const x = box[0] + R() * (box[1] - box[0]), z = box[2] + R() * (box[3] - box[2]), rd = nearRoad(x, z)[0]; if (rd < near[0] || rd > near[1]) continue;
+        let best = null; for (const rot of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) { const dd = nearRoad(x + Math.sin(rot) * (D / 2 + PARK), z + Math.cos(rot) * (D / 2 + PARK))[0]; if (!best || dd < best.dd) best = { rot, dd }; } // the front turns to the nearest road
+        const rot = best.rot, fx = Math.sin(rot), fz = Math.cos(rot), cx = x + fx * (PARK / 2 + 0.5), cz = z + fz * (PARK / 2 + 0.5);
+        if (!fitsAt(cx, cz, W + 8, D + PARK + 4, rot, { slope: 1.8, road: 1.5, coast: 16, river: 8 })) continue;
+        let onRoad = false; for (let u = -(W + 6) / 2; u <= (W + 6) / 2 && !onRoad; u += 3) for (let v = -(D + PARK + 2) / 2; v <= (D + PARK + 2) / 2; v += 3) { const wx = cx + Math.cos(rot) * u + Math.sin(rot) * v, wz = cz - Math.sin(rot) * u + Math.cos(rot) * v; if (nearRoad(wx, wz)[0] < 0.8) { onRoad = true; break; } } if (onRoad) continue; // no road may cross the store or its car park
+        reserve({ x: cx, z: cz, w: W + 8, d: D + PARK + 6, rot }); LOTS.push({ x: cx, z: cz, w: W + 8, d: D + PARK + 6, rot });
+        const b = addBuilding({ id, type: 'shophouse', name, area, x, z, y: groundY(x, z), rot, w: W, d: D, floors: 1, shop: true, sign: SG.SUPERMARKET, color: 0xfff6e2, roof: 0x2f8f5b, awn: 0xd83a3a, owner: 'city', found: 2 });
+        const px = x + fx * (D / 2 + PARK / 2 + 1), pz = z + fz * (D / 2 + PARK / 2 + 1), M = new THREE.Matrix4().makeRotationY(rot).setPosition(px, groundY(px, pz), pz); tileAt(px, pz);
+        boxAt('lawn', M, W + 2, 0.12, PARK, 0, 0, 0, C(0x5c616b));
+        for (let lx = -W / 2 + 3; lx < W / 2 - 1; lx += 3.2) { boxAt('lawn', M, 0.18, 0.16, 5, lx, 0.01, PARK / 2 - 4, C(0xf4f4f0)); if (R() < 0.6) { const v = new THREE.Vector3(lx + 1.6, 0, PARK / 2 - 4).applyMatrix4(M); PARKED.push([['sedan', 'compact', 'suv'][Math.floor(R() * 3)], v.x, v.z, rot + (R() < 0.5 ? 0 : Math.PI)]); } }
+        for (let i = 0; i < 5; i++) boxAt('trim', M, 1.4, 0.9, 0.8, -W / 2 + 1.6 + i * 1.6, 0.05, -PARK / 2 + 1.2, C(0x9aa3ab)); // the trolley corral by the entrance
+        const tx = x + Math.cos(rot) * (W / 2 + 7), tz = z - Math.sin(rot) * (W / 2 + 7); PARKED.push(['truck', tx, tz, rot + Math.PI / 2]); // a delivery lorry at the side
+        LABELS.push({ text: name, level: 'place', x, y: 16, z, small: true }); WORKS[id] = { at: [Math.round(x), Math.round(z)] }; return b;
+      }
+      WORKS[id] = { at: null }; return null;
+    }
+    function supermarkets() {
+      supermarket('sm1', 'Capital Fresh Supermarket', 'Business Centre', [-250, 330, -330, 190], [22, 60], 5101, 12);
+      supermarket('sm3', 'Soleil Supermarket', 'Belle Rive', [690, 830, 925, 1055], [36, 75], 5103);
+      lap('supermarkets');
+    }
     function southLabels() { // the island, its mountain, its lagoon and its small islands
       LABELS.push({ text: 'Southern Isle', level: 'island', x: 560, y: 60, z: 1330 }, { text: 'Mont Brumeux', level: 'district', x: 640, y: 210, z: 1880 }, { text: 'Le Rocher', level: 'place', x: -420, y: 190, z: 1500, small: true }, { text: 'Grand Lagon', level: 'district', x: -250, y: 20, z: 640 },
         { text: 'Île aux Palmistes', level: 'place', x: -300, y: 40, z: 560, small: true }, { text: 'Île des Tortues', level: 'place', x: 2440, y: 40, z: 1480, small: true }, { text: 'Île aux Cerfs', level: 'place', x: -1150, y: 40, z: 1500, small: true });
     }
     function anse() { anseResort(roadChains(id => ['SW3', 'SW4', 'SW5', 'AP0', 'AP1'].includes(id))); }
-    const ORDER = [millford, northhaven, eastgate, hillcrest, farms, estateBlocks, terminal, airport, quarry, mine, westCoast, landmarks, plots, skyline, belleRive, sugarMill, canePlain, pointeFilaos, sainteAurore, anse, southLabels];
+    const ORDER = [millford, northhaven, eastgate, hillcrest, farms, estateBlocks, terminal, airport, quarry, mine, westCoast, landmarks, plots, skyline, belleRive, sugarMill, canePlain, pointeFilaos, sainteAurore, anse, supermarkets, southLabels];
     for (const f of ORDER) { try { f(); } catch (e) { console.error('region failed:', f.name, e); } }
     obstacleIndex(LOTS); entrances(LOTS);
     K.WORLD_WORKS.times = TIMES; K.WORLD_WORKS.why = WHY; K.WORLD_WORKS.fwhy = FW; Object.assign(K.WORLD_WORKS, WORKS); World.expansion = K.WORLD_WORKS;
