@@ -3,6 +3,7 @@
 -- Additive only: 22 new rows in public.ci_plot_sites (pl38 to pl59). No table or function changes: the plot, auction and island-trader
 -- functions work for any row in that table. The prices use the same formula as the game (the kind's base price x 0.90 to 1.10 by the plot's
 -- number, to the nearest 10), the same way pl0 to pl37 were priced in island3.sql. The game only shows these plots online once these rows exist.
+-- APPLIED to the live project on 2026-11-07 with the owner's OK (migration island4_southern_isle_plots).
 -- Safe to run twice. Undo: island4-undo.sql (it keeps any plot a player has already bought).
 
 insert into public.ci_plot_sites (id, kind, area, price, old, res) values
