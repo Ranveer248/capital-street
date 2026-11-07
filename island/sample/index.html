@@ -150,6 +150,7 @@ svg.i { width: 22px; height: 22px; fill: currentColor; flex: none; }
 .note.bad { color: var(--red); font-weight: 800; } .note.why { background: #fff4f4; border-radius: 10px; padding: 7px 9px; color: #a3303c; font-weight: 700; }
 .seg { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; touch-action: pan-x; } .seg::-webkit-scrollbar { display: none; }
 .row.wrap { flex-wrap: wrap; } .row.wrap > div:first-child { flex: 1 1 100%; } .row.wrap .seg { flex: 1 1 100%; } /* a row whose choices need the full width: the label above, the choices below */
+.seg.fit { overflow: visible; } .seg.fit button { flex: 1 1 0; min-width: 0; padding: 0 4px; } /* five choices that must all show on a phone */
 .seg button { flex: none; min-height: 36px; padding: 0 13px; border-radius: 99px; background: #fff; border: 1px solid var(--line); font-weight: 800; font-size: 12.5px; color: var(--ink); } .seg button.on { background: var(--navy); color: var(--gold); border-color: var(--navy); }
 table.t { width: 100%; border-collapse: collapse; font-size: 12px; } table.t td { padding: 6px 2px; border-bottom: 1px solid var(--line); vertical-align: top; } table.t td:last-child { text-align: right; font-weight: 800; } table.t tr.key td { font-size: 13.5px; color: var(--ink); } table.t tr.sum td { border-bottom: 0; font-size: 14px; }
 .est { color: var(--soft); font-weight: 700; font-style: italic; }

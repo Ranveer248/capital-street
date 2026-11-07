@@ -157,17 +157,27 @@ window.World = (function () {
     const tex = new THREE.DataTexture(data, NX, NZ, THREE.LuminanceFormat); tex.magFilter = tex.minFilter = THREE.LinearFilter; tex.needsUpdate = true;
     const mat = new THREE.ShaderMaterial({ fog: true,
       uniforms: Object.assign(THREE.UniformsUtils.clone(THREE.UniformsLib.fog), { sd: { value: tex }, O: { value: new THREE.Vector4(EX0, EZ0, EW, EH) }, t: { value: 0 },
-        deep: { value: lin(0x0f5fb8) }, mid: { value: lin(0x1693d8) }, shallow: { value: lin(0x22c9cf) }, edge: { value: lin(0x5fcfc6) }, foam: { value: lin(0xffffff) } }),
+        deep: { value: lin(0x0f5fb8) }, mid: { value: lin(0x1693d8) }, shallow: { value: lin(0x22c9cf) }, edge: { value: lin(0x7fe3d4) }, foam: { value: lin(0xffffff) }, lagoon: { value: lin(0x4fdcd2) }, lagoonDeep: { value: lin(0x1fb4cf) }, deep2: { value: lin(0x0a4896) } }),
       vertexShader: 'varying vec2 vW;\n#include <fog_pars_vertex>\nvoid main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xz; vec4 mvPosition = viewMatrix * w; gl_Position = projectionMatrix * mvPosition;\n#include <fog_vertex>\n}',
-      fragmentShader: `uniform sampler2D sd; uniform vec4 O; uniform float t; uniform vec3 deep, mid, shallow, edge, foam; varying vec2 vW;
+      fragmentShader: `uniform sampler2D sd; uniform vec4 O; uniform float t; uniform vec3 deep, deep2, mid, shallow, edge, foam, lagoon, lagoonDeep; varying vec2 vW;
         #include <fog_pars_fragment>
         void main(){
           vec2 uv = (vW - O.xy) / O.zw; float d = (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? 240.0 : texture2D(sd, uv).r * 240.0;
           float w = sin(vW.x * 0.05 + t * 0.9) * sin(vW.y * 0.055 - t * 0.7) + sin((vW.x + vW.y) * 0.12 + t * 1.5) * 0.5;
-          float nz = sin(vW.x * 0.021) * sin(vW.y * 0.017) * 0.5 + 0.5; vec3 c = mix(edge, shallow, smoothstep(1.0, 9.0 + nz * 14.0, d)); // a soft, uneven shallow band rather than one bright outline c = mix(c, mid, smoothstep(16.0, 70.0, d)); c = mix(c, deep, smoothstep(70.0, 200.0, d));
+          float nz = sin(vW.x * 0.021) * sin(vW.y * 0.017) * 0.5 + 0.5;
+          float nz2 = sin(vW.x * 0.0093 + 1.7) * sin(vW.y * 0.0079 - 0.6) * 0.5 + 0.5;
+          // a lagoon of light water over sand out to a reef, then the drop to deep blue; how far out the reef lies changes along the coast (70 to 200 m)
+          float reef = 70.0 + nz2 * 130.0;
+          vec3 c = mix(edge, shallow, smoothstep(1.0, 9.0 + nz * 14.0, d)); // a soft, uneven shallow band rather than one bright outline
+          c = mix(c, lagoon, smoothstep(10.0, 46.0, d));
+          c = mix(c, lagoonDeep, smoothstep(40.0, reef, d) * 0.65);
+          c = mix(c, mid, smoothstep(reef - 8.0, reef + 18.0, d));
+          c = mix(c, deep, smoothstep(reef + 18.0, min(reef + 90.0, 232.0), d)); // (open sea, which the texture reports as 240 m, is one even deep blue wherever the reef lies)
+          c = mix(c, deep2, smoothstep(160.0, 235.0, d) * 0.6);
           c *= 1.0 + w * 0.025 * (1.0 - smoothstep(60.0, 200.0, d));
           float f = (1.0 - smoothstep(0.0, 4.5, d + w * 1.2)) * (0.6 + 0.4 * sin(t * 1.4 + vW.x * 0.08 + vW.y * 0.06));
-          gl_FragColor = vec4(mix(c, foam, clamp(f, 0.0, 1.0) * 0.6), 1.0);
+          float rf = (1.0 - smoothstep(0.0, 4.0, abs(d - reef + w * 1.4))) * smoothstep(0.42, 0.62, nz) * step(30.0, d); // surf breaking on the reef, with gaps where a pass cuts through
+          gl_FragColor = vec4(mix(mix(c, foam, clamp(f, 0.0, 1.0) * 0.6), foam, rf * 0.7), 1.0);
           #include <fog_fragment>
         }` });
     mat.polygonOffset = true; mat.polygonOffsetFactor = 2; mat.polygonOffsetUnits = 4;
@@ -1287,7 +1297,7 @@ window.World = (function () {
 
   // ---------- weather: rain that comes and goes, thunder and lightning in the heavy storms, and now and then a tornado far out over the sea (it never touches the land) ----------
   function buildWeather() {
-    const mode = (new URLSearchParams(location.search).get('weather') || 'auto'), N = Q === 'low' ? 900 : 2200, SPAN = 260, TOP = 150, W = World.weather = { rain: 0, target: 0, storm: false, bolts: 0, tornado: null, mode };
+    let mode = (new URLSearchParams(location.search).get('weather') || 'auto'); const N = Q === 'low' ? 900 : 2200, SPAN = 260, TOP = 150, W = World.weather = { rain: 0, target: 0, storm: false, bolts: 0, tornado: null, mode };
     const pos = new Float32Array(N * 6), vel = new Float32Array(N), geo = new THREE.BufferGeometry(); for (let i = 0; i < N; i++) { const x = (Math.random() - 0.5) * SPAN, y = Math.random() * TOP, z = (Math.random() - 0.5) * SPAN; pos.set([x, y, z, x - 0.7, y - 5, z - 0.4], i * 6); vel[i] = 55 + Math.random() * 25; }
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); const rainMat = new THREE.LineBasicMaterial({ color: 0xcfe0f2, transparent: true, opacity: 0, depthWrite: false }), rain = new THREE.LineSegments(geo, rainMat); rain.frustumCulled = false; rain.visible = false; scene.add(rain);
     const bolt = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xf4f0ff, transparent: true, opacity: 0.95, fog: false })); bolt.visible = false; bolt.frustumCulled = false; scene.add(bolt);
@@ -1295,17 +1305,23 @@ window.World = (function () {
     // the tornado: a funnel of rings, wide at the top and narrow at the foot, with a skirt of spray; it drifts over open water
     const tor = new THREE.Group(), rings = []; for (let i = 0; i < 16; i++) { const f = i / 15, r = 3 + f * f * 34, m = new THREE.Mesh(new THREE.TorusGeometry(r, 1.6 + f * 3, 5, 18), new THREE.MeshBasicMaterial({ color: new THREE.Color().setHSL(0.6, 0.06, 0.34 + f * 0.2), transparent: true, opacity: 0.72, depthWrite: false })); m.rotation.x = Math.PI / 2; m.position.y = f * 120; tor.add(m); rings.push(m); }
     const spray = new THREE.Mesh(new THREE.CylinderGeometry(24, 30, 9, 16, 1, true), new THREE.MeshBasicMaterial({ color: 0xdfe7ee, transparent: true, opacity: 0.45, side: THREE.DoubleSide, depthWrite: false })); spray.position.y = 4; tor.add(spray); tor.visible = false; scene.add(tor);
-    const place = () => { const c = controls.target; for (let k = 0; k < 40; k++) { const a = Math.random() * Math.PI * 2, r = 500 + Math.random() * 500, x = c.x + Math.cos(a) * r, z = c.z + Math.sin(a) * r; if (land(x, z) < -90) return { x, z, a: Math.random() * Math.PI * 2, life: 70 + Math.random() * 40, age: 0 }; } return null; };
-    W.set = (what) => { if (what === 'clear') { W.target = 0; W.storm = false; clearT = 1e9; } else if (what === 'rain') { W.target = 0.6; W.storm = false; clearT = 1e9; } else if (what === 'storm') { W.target = 1; W.storm = true; clearT = 1e9; nextBolt = 1; } else if (what === 'tornado') { W.target = 1; W.storm = true; clearT = 1e9; W.tornado = place(); } else { clearT = 5; } };
+    const place = () => { const c = controls.target; for (let k = 0; k < 80; k++) { const a = Math.random() * Math.PI * 2, r = (k < 40 ? 450 : 250) + Math.random() * 550, x = c.x + Math.cos(a) * r, z = c.z + Math.sin(a) * r; if (land(x, z) < -90) return { x, z, a: Math.random() * Math.PI * 2, life: 70 + Math.random() * 40, age: 0 }; } return null; };
+    // what the player chooses in Settings: auto (it comes and goes by itself), or sunny, rain, storm or tornado held until changed
+    W.set = (what) => {
+      if (what === 'auto') { mode = 'auto'; W.mode = 'auto'; clearT = 3; nextTornado = 90 + Math.random() * 120; return; }
+      mode = what; W.mode = what;
+      if (what === 'clear') { W.target = 0; W.storm = false; clearT = 1e9; W.tornado = null; tor.visible = false; } else if (what === 'rain') { W.target = 0.6; W.storm = false; clearT = 1e9; W.tornado = null; tor.visible = false; } else if (what === 'storm') { W.target = 1; W.storm = true; clearT = 1e9; nextBolt = 1; W.tornado = null; tor.visible = false; } else if (what === 'tornado') { W.target = 1; W.storm = true; clearT = 1e9; nextBolt = 2; W.tornado = place(); } else { clearT = 5; }
+    };
     if (mode !== 'auto') W.set(mode);
     tick.push((dt) => {
       if (mode === 'auto') { clearT -= dt; if (clearT <= 0) { if (W.target > 0) { W.target = 0; W.storm = false; clearT = 120 + Math.random() * 240; } else { W.storm = Math.random() < 0.35; W.target = W.storm ? 1 : 0.55; clearT = 40 + Math.random() * 60; } } }
       W.rain += (W.target - W.rain) * Math.min(1, dt * 0.5); const r = W.rain; rain.visible = r > 0.03; rainMat.opacity = 0.8 * Math.min(1, r * 1.5);
       const dark = r * 0.5 + flash; scene.background.copy(sky0).lerp(grey, r * 0.8); scene.fog.color.copy(scene.background); sun.intensity = sun0 * (1 - r * 0.6) + flash * 2.2; hemi.intensity = hemi0 * (1 - r * 0.35) + flash * 1.1; renderer.toneMappingExposure = 1 - r * 0.38 + flash * 0.9; void dark;
       if (rain.visible) { const c = controls.target; rain.position.set(c.x, 0, c.z); const p = geo.attributes.position.array, base = Math.max(0, c.y - 20); for (let i = 0; i < N; i++) { const j = i * 6, d = vel[i] * dt; p[j + 1] -= d; p[j + 4] -= d; if (p[j + 4] < base - 4) { const x = (Math.random() - 0.5) * SPAN, z = (Math.random() - 0.5) * SPAN, y = base + TOP * (0.7 + Math.random() * 0.3); p[j] = x; p[j + 1] = y; p[j + 2] = z; p[j + 3] = x - 0.7; p[j + 4] = y - 5; p[j + 5] = z - 0.3; } } geo.attributes.position.needsUpdate = true; }
-      if (W.storm && r > 0.7) { nextBolt -= dt; if (nextBolt <= 0) { nextBolt = 5 + Math.random() * 13; flash = 0.9; W.bolts++; const c = controls.target, bx = c.x + (Math.random() - 0.5) * 700, bz = c.z + (Math.random() - 0.5) * 700, pts = []; let x = bx, z = bz; for (let y = 260; y > 0; y -= 26) { pts.push(x, y, z); x += (Math.random() - 0.5) * 22; z += (Math.random() - 0.5) * 22; } pts.push(x, 0, z); bolt.geometry.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3)); bolt.visible = true; setTimeout(() => { bolt.visible = false; }, 140); } }
+      if (W.storm && r > 0.7) { nextBolt -= dt; if (nextBolt <= 0) { nextBolt = 5 + Math.random() * 13; flash = 0.9; W.bolts++; const c = controls.target, bx = c.x + (Math.random() - 0.5) * 700, bz = c.z + (Math.random() - 0.5) * 700, pts = []; let x = bx, z = bz; for (let y = 260; y > 0; y -= 26) { pts.push(x, y, z); x += (Math.random() - 0.5) * 22; z += (Math.random() - 0.5) * 22; } pts.push(x, 0, z); bolt.geometry.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3)); bolt.visible = true; setTimeout(() => { bolt.visible = false; }, 140); if (W.onThunder) W.onThunder(Math.hypot(bx - c.x, bz - c.z)); } }
       flash = Math.max(0, flash - dt * (flash > 0.45 ? 3 : 2.2)); if (flash > 0.4 && flash < 0.5) flash = 0.85; // a second flicker
       if (mode === 'auto') { nextTornado -= dt; if (nextTornado <= 0 && W.storm && !W.tornado) { W.tornado = place(); nextTornado = 240 + Math.random() * 360; } }
+      if (mode === 'tornado' && !W.tornado) W.tornado = place(); // held on: a new one rises as soon as the last has gone
       const T = W.tornado; if (T) { T.age += dt; T.x += Math.cos(T.a) * 7 * dt; T.z += Math.sin(T.a) * 7 * dt; const fade = Math.min(1, T.age / 6, (T.life - T.age) / 8); if (T.age > T.life || land(T.x, T.z) > -25) { W.tornado = null; tor.visible = false; } else { tor.visible = true; tor.position.set(T.x, 0, T.z); rings.forEach((m, i) => { m.rotation.z += dt * (2.4 - i * 0.08); m.material.opacity = 0.72 * Math.max(0, fade); m.position.x = Math.sin(clock * 0.9 + i * 0.5) * i * 0.9; m.position.z = Math.cos(clock * 0.8 + i * 0.4) * i * 0.9; }); spray.material.opacity = 0.45 * Math.max(0, fade); spray.rotation.y += dt * 3; } }
     });
   }

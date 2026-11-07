@@ -160,6 +160,7 @@
       if (/webgl|context/i.test(why)) { jmsg('This device couldn\'t start 3D graphics (' + why + '). Turn on hardware acceleration, update the browser or try another one. A lower graphics level can\'t fix this.', true); playBtn(false, 'TRY AGAIN'); return; }
       setQ('low'); jmsg('The island couldn\'t be built here (' + why + '). Graphics are now set to Low: reload and press Play. Your progress is safe.', true); const b = $('play'); b.disabled = false; b.textContent = 'RELOAD'; b.onclick = () => location.reload(); return;
     }
+    if (World.weather) { if (!new URLSearchParams(location.search).get('weather') && wpref !== 'auto') World.weather.set(wpref); World.weather.onThunder = thunder; rainHiss(); } // the player's weather choice comes back, and thunder gets its sound
     if (World.plotSites && window.Plots) { try { Plots.init(World, World.scene, typeof World.camera === 'function' ? World.camera() : World.camera, World.plotSites); } catch (e) { console.error('plots', e); } plotsSyncAll(); if (NET.pst) applyPlots(NET.pst); }
     $('cover').hidden = true; World.place(World.overview()); if (NET.online) { NET.live(); applyState(lastState); } else { NET.setStatus('offline'); resume(); } loop(performance.now());
     World.flyTo(World.homeView(), 2, () => { $('hud').hidden = false; draw(); objective(); });
@@ -174,7 +175,7 @@
   // ---------- updates, like Traffic Rush: version.json (the site's root) names the newest release, APP_VERSION this copy.
   // Bump BOTH for every release. When they differ the game says so, fetches its files fresh (past the browser's cache) and
   // reloads: at once on the cover, or while playing the next time no panel is open (and you go straight back in).
-  const APP_VERSION = '2026-11-07.5';
+  const APP_VERSION = '2026-11-07.6';
   let updBusy = false;
   async function checkUpdate() {
     if (updBusy || building || (joining && !started) || !/^https?:$/.test(location.protocol)) return; // not inside the desktop app
@@ -526,6 +527,37 @@
   $('pExp').onclick = () => { P.classList.toggle('big'); $('pExp').setAttribute('aria-label', P.classList.contains('big') ? 'Make smaller' : 'Expand'); }; // phones: half height, or nearly full
   $('pBack').onclick = () => { const [n, a] = stack.pop() || []; if (n) { const st = stack.slice(); panel = ''; open(n, a); stack = st; $('pBack').hidden = !stack.length; } };
   document.querySelectorAll('#nav button').forEach(b => b.onclick = () => { const p = b.dataset.p; if (panel === p && !stack.length) close(); else open(p); });
+  // ---------- weather you can choose (Settings), and sound: thunder and the hiss of rain, made from noise (no sound files) ----------
+  const WX = [['auto', 'Auto'], ['clear', 'Sunny'], ['rain', 'Rain'], ['storm', 'Storm'], ['tornado', 'Tornado']];
+  let wpref = 'auto'; try { wpref = localStorage.getItem('cs-sample3-w') || 'auto'; } catch (e) { /* fine */ } if (!WX.some(w => w[0] === wpref)) wpref = 'auto';
+  const wmode = () => (World.weather && World.weather.mode) || wpref;
+  function setWeather(k) {
+    wpref = k; try { localStorage.setItem('cs-sample3-w', k); } catch (e) { /* fine */ }
+    const W = World.weather; if (!W) return; W.set(k);
+    if (k === 'tornado') {
+      const T = W.tornado, c = World.current();
+      if (T) { const dx = c.t.x - T.x, dz = c.t.z - T.z; World.flyTo(World.view((T.x + c.t.x) / 2, (T.z + c.t.z) / 2, Math.max(620, Math.hypot(dx, dz) * 1.1), 1.0, Math.atan2(dx, dz)), 2.2); }
+      else { toast('A tornado needs open sea', 'Move the camera towards the coast and try again'); return; }
+    }
+    toast({ auto: 'Weather: auto', clear: 'Sunny', rain: 'Rain', storm: 'Thunderstorm', tornado: 'A tornado out at sea' }[k], k === 'auto' ? 'It changes by itself' : 'Held until you change it');
+  }
+  const SND = { ctx: null, on: true, rain: null };
+  try { SND.on = localStorage.getItem('cs-sample3-snd') !== 'off'; } catch (e) { /* fine */ }
+  function sndWake() { if (!SND.on) return; try { if (!SND.ctx) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) SND.ctx = new AC(); } if (SND.ctx && SND.ctx.state !== 'running') SND.ctx.resume().catch(() => {}); } catch (e) { /* no sound here */ } } // a phone only lets sound start after a touch
+  addEventListener('pointerdown', sndWake, { passive: true }); addEventListener('keydown', sndWake);
+  function noise(sec, brown) { const A = SND.ctx, n = Math.floor(A.sampleRate * sec), b = A.createBuffer(1, n, A.sampleRate), d = b.getChannelData(0); let last = 0; for (let i = 0; i < n; i++) { const w = Math.random() * 2 - 1; if (brown) { last = (last + 0.02 * w) / 1.02; d[i] = last * 3.5; } else d[i] = w; } return b; }
+  function thunder(dist) { // a low rumble that arrives after the flash: the further the bolt, the later and the softer
+    const A = SND.ctx; if (!SND.on || !A || A.state !== 'running' || document.hidden) return;
+    const t0 = A.currentTime + Math.min(3, dist / 340), len = 2.6 + Math.random() * 1.4, src = A.createBufferSource(), lp = A.createBiquadFilter(), g = A.createGain(), peak = 0.6 * (1 - Math.min(0.75, dist / 1100));
+    src.buffer = noise(len, true); lp.type = 'lowpass'; lp.frequency.value = Math.max(140, 520 - dist * 0.4);
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(peak, t0 + 0.05); g.gain.exponentialRampToValueAtTime(peak * 0.35, t0 + 0.6); g.gain.exponentialRampToValueAtTime(0.0001, t0 + len);
+    src.connect(lp); lp.connect(g); g.connect(A.destination); src.start(t0);
+  }
+  function rainHiss() { // a soft hiss that follows how hard it is raining
+    setInterval(() => { const A = SND.ctx, W = World.weather; if (!A || !W) return;
+      if (!SND.rain && A.state === 'running' && SND.on) { const src = A.createBufferSource(), bp = A.createBiquadFilter(), g = A.createGain(); src.buffer = noise(2, false); src.loop = true; bp.type = 'bandpass'; bp.frequency.value = 1800; bp.Q.value = 0.5; g.gain.value = 0; src.connect(bp); bp.connect(g); g.connect(A.destination); src.start(); SND.rain = g; }
+      if (SND.rain) SND.rain.gain.setTargetAtTime(SND.on && !document.hidden ? Math.min(1, W.rain) * 0.09 : 0, A.currentTime, 0.4); }, 500);
+  }
   $('gear').onclick = () => panel === 'settings' ? close() : open('settings');
   addEventListener('keydown', e => { if (e.key === 'Escape' && !P.hidden) (stack.length ? $('pBack') : $('pX')).click(); });
 
@@ -643,8 +675,10 @@
         document.querySelectorAll('[data-a]').forEach(b => b.onclick = () => { const [n, x, z] = AREAS[+b.dataset.a]; World.mark(null); World.flyTo(World.view(x, z, 320, 0.85, 0.4), 1.4); seeArea(n); if (innerWidth < 760) close(); });
         if ($('mt')) $('mt').onclick = () => { const res = World.routeTest(), rep = World.roadReport(); $('rt').innerHTML = `<p class="note">${rep.connected ? '<span class="ok">All roads connected.</span>' : '<span class="bad">Some roads are not connected.</span>'} Road points over water: ${rep.roadPointsOverWater}. Doors on the path network: ${World.access.joined}, at a road edge: ${World.access.road}, none: ${World.access.none.length}.</p><table class="t">${res.map(t => `<tr><td>${esc(t.route)}</td><td class="${t.ok ? 'ok' : 'bad'}">${t.ok ? 'PASS' : 'FAIL'} · ${t.length || ''} m</td></tr>`).join('')}</table>`; }; } }),
     settings: () => ({ title: 'Settings', html: `<div class="row wrap"><div><b>Graphics</b><small>${qpref === 'auto' ? 'Auto is using ' + cap(effQ()) : 'Low is fastest on older phones'} · applies after a reload</small></div><div class="seg">${QS.map(k => `<button data-q="${k}" class="${k === qpref ? 'on' : ''}">${k}</button>`).join('')}</div></div>
+      <div class="row wrap"><div><b>Weather</b><small>${wmode() === 'auto' ? 'Rain and storms come and go' : 'Held until you change it'}</small></div><div class="seg fit">${WX.map(([k, t]) => `<button data-w="${k}" class="${k === wmode() ? 'on' : ''}">${t}</button>`).join('')}</div></div>
+      <div class="row"><div><b>Sound</b><small>Thunder and rain</small></div><button class="btn ghost" id="ssn">${SND.on ? 'ON' : 'OFF'}</button></div>
       <div class="row"><div><b>Frame rate</b><small>A counter in the corner</small></div><button class="btn ghost" id="sf">${$('fps').hidden ? 'SHOW' : 'HIDE'}</button></div><div class="row"><div><b>Clear this device</b><small>${NET.online ? 'Online progress stays on the island server' : 'Deletes your offline progress'}</small></div><button class="btn ghost" id="sr">CLEAR</button></div>${saveFail ? '<p class="note" style="color:#c0392b">This device is not saving your progress (storage is full or blocked).' + (NET.online ? ' Online progress is kept on the island server.' : ' Playing online keeps it on the server.') + '</p>' : ''}<div class="row"><div><b>What's new</b><small>What changed on the island, and when</small></div><button class="btn ghost" id="swn">OPEN</button></div><p class="note">© 2026 Pocket Rocket Studio</p>`,
-      bind: r => { $('swn').onclick = () => window.open('../../changelog.html', '_blank', 'noopener'); r.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { setQ(b.dataset.q); open('settings'); toast('Graphics: ' + b.dataset.q, 'Reload to apply'); }); $('sf').onclick = () => { $('fps').hidden = !$('fps').hidden; open('settings'); }; $('sr').onclick = () => { try { localStorage.removeItem(KEY); } catch (e) { /* fine */ } location.reload(); }; } }),
+      bind: r => { r.querySelectorAll('[data-w]').forEach(b => b.onclick = () => { setWeather(b.dataset.w); open('settings'); }); $('ssn').onclick = () => { SND.on = !SND.on; try { localStorage.setItem('cs-sample3-snd', SND.on ? 'on' : 'off'); } catch (e) { /* fine */ } sndWake(); open('settings'); }; $('swn').onclick = () => window.open('../../changelog.html', '_blank', 'noopener'); r.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { setQ(b.dataset.q); open('settings'); toast('Graphics: ' + b.dataset.q, 'Reload to apply'); }); $('sf').onclick = () => { $('fps').hidden = !$('fps').hidden; open('settings'); }; $('sr').onclick = () => { try { localStorage.removeItem(KEY); } catch (e) { /* fine */ } location.reload(); }; } }),
   };
   // ---------- plots: buy ground, pull down the old house, build, rent, farm, mine, renovate, customise; resources, the island market and business jobs ----------
   if (S.offPlots) { S.plots = S.offPlots; S.res = S.offRes || {}; S.cd = S.offCd || {}; delete S.offPlots; delete S.offRes; delete S.offCd; } // this device's own plots come back when it plays offline again
