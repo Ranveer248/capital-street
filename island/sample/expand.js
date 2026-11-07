@@ -48,7 +48,7 @@
   // new shop and place signs join the picture atlas (they must be added before the game starts)
   const NEWSIGNS = [['BUTCHER', '#b03a2e'], ['HARDWARE', '#3d5a80'], ['TEA ROOMS', '#8a5a44'], ['BOOKS', '#5b3f8c'], ['FISH MARKET', '#1f78a8'], ['CHANDLER', '#2c5f7c'], ['FISH & CHIPS', '#c47f17'], ['ICE HOUSE', '#4a90a4'], ['POTTERY', '#b5651d'], ['WINE', '#7b1e3a'], ['OLIVE OIL', '#6b7d1e'], ['POST OFFICE', '#c0392b'], ['DIVE SHOP', '#0e7c86'], ['SURF HIRE', '#e8742c'], ['SEAFOOD GRILL', '#c0392b'], ['GELATO', '#e66b9a'], ['SOUVENIRS', '#7d5ba6'],
     ['HOTEL CORAL', '#e0607e'], ['SUNSET HOTEL', '#e07b39'], ['PEARL RESORT', '#2a8fa6'], ['LAGOON HOTEL', '#1f9d8a'], ['MARINA CLUB', '#1f4f86'], ['RESTAURANT', '#8a2f2f'], ['TERMINAL', '#1f4f86'], ['AIRPORT', '#27496d'], ['ARRIVALS', '#2f8f5b'], ['DEPARTURES', '#c0392b'], ['FREIGHT', '#d97a1c'], ['RECYCLING', '#2f8f3a'], ['STEEL', '#5a6270'], ['TIMBER YARD', '#7a4e2d'], ['FACTORY', '#34495e'], ['CUSTOMS', '#8e44ad'], ['PORT OFFICE', '#1f6f9a'],
-    ['QUARRY', '#9a7b4f'], ['MINE', '#5a5a5a'], ['CEMENT', '#7f8c8d'], ['FORT', '#6b5a43'], ['LIGHTHOUSE', '#c0392b'], ['GARDENS', '#2f8f3a'], ['TEAHOUSE', '#a15c38'], ['VISITORS', '#2e74c9'], ['FALLS', '#2a8fd0'], ['LOOKOUT', '#2f8f3a'], ['GRAIN STORE', '#a87b32'], ['ORCHARD', '#c0392b'], ['DAIRY', '#4a90d9'], ['MILL', '#8a5a44'], ['BEACH CLUB', '#0f6fb8'], ['SPA', '#7fb5a4'], ['MARKET HALL', '#8a5a44'], ['TOWN HALL', '#5b3f33'], ['CHURCH', '#7a7f87'], ['BOATYARD', '#1f4f86'], ['NETS', '#3f6a7a'], ['SMOKEHOUSE', '#8a4a2a']];
+    ['QUARRY', '#9a7b4f'], ['MINE', '#5a5a5a'], ['CEMENT', '#7f8c8d'], ['FORT', '#6b5a43'], ['LIGHTHOUSE', '#c0392b'], ['GARDENS', '#2f8f3a'], ['TEAHOUSE', '#a15c38'], ['VISITORS', '#2e74c9'], ['FALLS', '#2a8fd0'], ['LOOKOUT', '#2f8f3a'], ['GRAIN STORE', '#a87b32'], ['ORCHARD', '#c0392b'], ['DAIRY', '#4a90d9'], ['MILL', '#8a5a44'], ['BEACH CLUB', '#0f6fb8'], ['SPA', '#7fb5a4'], ['MARKET HALL', '#8a5a44'], ['TOWN HALL', '#5b3f33'], ['CHURCH', '#7a7f87'], ['BOATYARD', '#1f4f86'], ['NETS', '#3f6a7a'], ['SMOKEHOUSE', '#8a4a2a'], ['HOTEL PERLE', '#e0607e'], ['LAGON BLEU', '#1f9d8a'], ['FLAMBOYANT', '#e07b39'], ['RESIDENCE CORAIL', '#2a8fa6']];
   const S0 = World.signs.SIGNS.length, SG = {}; NEWSIGNS.forEach(([t, c], i) => { World.signs.SIGNS.push(t); World.signs.SIGNC.push(c); SG[t] = S0 + i; });
   Object.assign(SG, { BAKERY: 0, 'CAFÉ': 1, GROCER: 2, PHARMACY: 3, FLOWERS: 4, LIBRARY: 5, HARBOUR: 6, SEAFOOD: 8, 'BEACH BAR': 9, MARKET: 13, 'ICE CREAM': 14, DEPOT: 15, HOTEL: 30, 'FARM SHOP': 31 });
   World.regions.push(function (K, LOTS) {
@@ -671,7 +671,97 @@
         addBuilding({ id: 'sky' + k, type: 'tower', name: NAMES[k], area: 'Business Centre', x, z, y: groundY(x, z), rot: 0, w, d: w, floors: 18 + Math.floor(R() * 13), style: 1 + (k % 2), color: COLS[k], owner: 'city' }); made.push({ x, z }); }
       WORKS.skyline = made.length; lap('skyline');
     }
-    const ORDER = [millford, northhaven, eastgate, hillcrest, farms, estateBlocks, terminal, airport, quarry, mine, westCoast, landmarks, plots, skyline];
+    // ---------- Goal 42: the Southern Isle ----------
+    // Belle Rive (a market town on the cane plain), the sugar cane, the Moulin Doré sugar mill, the fishing village Pointe Filaos,
+    // the foothill village Sainte-Aurore, and the Anse Perle resort on the lagoon bay. Everything here runs after plots, so plot ids stay put.
+    const CREOLE = { style: 'coral', w: [8, 11], d: [8, 10], mw: [9, 12], md: [9, 11], mainW: 9, setback: 3.4, tight: 2.4, gap: 1.6, slope: 2.4, road: 1.8, coast: 14, river: 6 };
+    function churchNear(id, name, area, spots, rot0) { // a church on the first of these spots where it fits
+      for (const [x, z, rot] of spots) { const r = rot === undefined ? rot0 : rot; if (!fitsAt(x, z, 10, 17, r, { slope: 3, road: 2, coast: 16, river: 6 })) continue; reserve({ x, z, w: 12, d: 19, rot: r }); LOTS.push({ x, z, w: 13, d: 20, rot: r });
+        addBuilding({ id, type: 'church', name, area, x, z, y: groundY(x, z), rot: r, w: 10, d: 17, owner: 'city', noPath: true }); LABELS.push({ text: name, level: 'place', x, y: 30, z, small: true }); return true; }
+      return false;
+    }
+    function belleRive() { // pastel Creole houses and shops round a market square, a church and a town hall
+      const town = G.NEW_TOWNS.find(t => t.id === 'BR'); if (!town) return; const sx = 937, sz = 1013;
+      NOLOT.push([908, 966, 996, 1034]); NOFIELD.push([760, 1110, 880, 1090]); keepClear(790, 1090, 890, 1090);
+      slab(sx, sz, 56, 24, 0xe6dcc8, { y: groundY(sx, sz) + 0.13 }); slab(sx, sz, 14, 14, 0xd9c9a8, { y: groundY(sx, sz) + 0.15, tile: 2 });
+      { const M = new THREE.Matrix4().setPosition(sx, groundY(sx, sz), sz); tileAt(sx, sz); geoAt('trim', CYL, M, 0, 0.5, 0, C(0xcfc8ba), 0, 3.4, 0.9, 3.4); geoAt('water', CYL, M, 0, 0.95, 0, C(0x4fc3e8), 0, 3, 0.1, 3); geoAt('trim', CYL8, M, 0, 1.8, 0, C(0xcfc8ba), 0, 0.45, 2.6, 0.45); geoAt('water', CYL, M, 0, 3.2, 0, C(0x4fc3e8), 0, 1.3, 0.2, 1.3); }
+      for (let i = 0; i < 4; i++) stall(sx - 10.5 + i * 7, sz + 8.5, Math.PI, [0xe8483f, 0x1f8f5b, 0x2e74c9, 0xf2a531][i]);
+      for (const [x, z, ry] of [[sx - 8, sz - 3, Math.PI / 2], [sx + 8, sz - 3, -Math.PI / 2], [sx - 8, sz + 3, Math.PI / 2], [sx + 8, sz + 3, -Math.PI / 2]]) bench(x, z, ry, groundY(x, z) + 0.13);
+      for (const [x, z] of [[sx - 23, sz - 6], [sx + 23, sz - 6], [sx - 23, sz + 3], [sx + 23, sz + 3]]) planter(x, z, 2.4, 2.4, 'palm', groundY(x, z) + 0.13);
+      addBuilding({ id: 'brhall', type: 'guildhall', name: 'Belle Rive Town Hall', area: 'Belle Rive', x: sx, z: 996.5, y: groundY(sx, 996.5), rot: 0, w: 20, d: 9, owner: 'city' });
+      addBuilding({ id: 'brmarket', type: 'markethall', name: 'Belle Rive Market', area: 'Belle Rive', x: sx, z: 1029.5, y: groundY(sx, 1029.5), rot: Math.PI, w: 24, d: 7, sign: SG.MARKET, owner: 'city', noPath: true });
+      churchNear('brchurch', 'Notre-Dame de Belle Rive', 'Belle Rive', [[790, 948, -Math.PI / 2], [790, 1030, -Math.PI / 2], [1085, 948, Math.PI / 2], [1085, 1030, Math.PI / 2]]);
+      LABELS.push({ text: 'Belle Rive', level: 'district', x: 937, y: 40, z: 985 }, { text: 'Market Square', level: 'place', x: sx, y: 12, z: sz, small: true });
+      const n = buildLots(town, Object.assign({}, CREOLE, { shop: 0.5, signs: [SG.GROCER, SG.BAKERY, SG.PHARMACY, SG['TEA ROOMS'], SG['FISH MARKET'], SG.HARDWARE, SG['POST OFFICE'], SG.FLOWERS] }));
+      WORKS.belleRive = { lots: n }; lap('belleRive');
+    }
+    function caneMosaic([z0, z1, x0, x1], seedN) { // the plain is a patchwork of sugar cane in every stage of growth, with a few fields of vegetables and pasture, each inside a hedgerow
+      const R = rng(seedN), KINDS = ['cane', 'cane', 'cane', 'cane', 'cane', 'cane', 'veg', 'pasture', 'sun', 'cane']; let n = 0;
+      for (let z = z0; z < z1; z += 52) for (let x = x0; x < x1; x += 60) { const cx = x + 30, cz = z + 26; if (G.zoneMask('farm', cx, cz) < 0.55 || R() < 0.1) continue; if (!fieldFits(cx, cz, 54, 44, 0)) continue;
+        const kind = KINDS[Math.floor(R() * KINDS.length)], st = kind === 'cane' ? ['ripe', 'ripe', 'ripe', 'grow', 'grow', 'sown'][Math.floor(R() * 6)] : ['ripe', 'grow'][Math.floor(R() * 2)];
+        const M = new THREE.Matrix4().setPosition(cx, groundY(cx, cz), cz); tileAt(cx, cz); crop(M, 54, 44, kind, st); hedgerow(M, 54, 44, true); n++;
+        if (R() < 0.07) tractor(M, (R() - 0.5) * 30, (R() - 0.5) * 20, R() * 6, 0xd8392b);
+        if (R() < 0.45) for (let t = -20; t < 20; t += 13) extraTrees.push([cx + t, groundY(cx + t, cz + 22.6), cz + 22.6, 0.7 + R() * 0.25, R() < 0.4 ? 'palm' : 'round']); }
+      return n;
+    }
+    function canePlain() {
+      const n = caneMosaic([800, 1260, 700, 1960], 4201) + caneMosaic([1260, 1590, 700, 1500], 4202) + caneMosaic([880, 1170, -740, -90], 4203) + caneMosaic([1260, 1480, 1150, 2090], 4204);
+      LABELS.push({ text: 'Plaine des Cannes', level: 'district', x: 1300, y: 40, z: 1060 }); WORKS.cane = { fields: n }; lap('cane');
+    }
+    function sugarMill() { // the mill at the end of the cane road: the factory with its chimney, cane stacked in the yard, loaded trailers waiting
+      const N = nodes.MD, R = nodes.SS2; if (!N || !R) return; const ry = Math.atan2(R.x - N.x, R.z - N.z), c = Math.cos(ry), s = Math.sin(ry), L = (lx, lz) => [N.x + lx * c + lz * s, N.z - lx * s + lz * c], Mat = (lx, lz, extra = 0) => { const [x, z] = L(lx, lz); return new THREE.Matrix4().makeRotationY(ry + extra).setPosition(x, groundY(x, z), z); };
+      const yard = L(40, 0); reserve({ x: yard[0], z: yard[1], w: 90, d: 70, rot: ry }); keepClear(N.x - 40, N.x + 100, N.z - 60, N.z + 60); NOFIELD.push([N.x - 40, N.x + 100, N.z - 60, N.z + 60]);
+      { const [x, z] = yard; tileAt(x, z); boxAt('lawn', new THREE.Matrix4().makeRotationY(ry).setPosition(x, groundY(x, z), z), 84, 0.14, 62, 0, 0, 0, C(0xb7b3aa)); }
+      const m = L(50, 0); addBuilding({ id: 'sugarmill', type: 'plant', name: 'Moulin Doré sugar mill', area: 'Plaine des Cannes', x: m[0], z: m[1], y: groundY(m[0], m[1]), rot: ry + Math.PI / 2, w: 34, d: 22, owner: 'city' });
+      for (const [lx, lz, r, h] of [[16, -24, 7, 4.5], [30, -26, 6, 3.6], [8, 24, 6.5, 4]]) { const [x, z] = L(lx, lz); stockCone(x, z, r, h, 0xb4cf5e); } // cane stacked for crushing
+      for (let i = 0; i < 4; i++) { const M = Mat(14 + i * 9, 20, Math.PI / 2); boxAt('trim', M, 2.6, 0.5, 7, 0, 0.8, 0, C(0x4a525c)); boxAt('trim', M, 2.4, 1.9, 6.4, 0, 1.3, 0, C(0xa9c957)); for (const sx2 of [-1, 1]) for (const sz2 of [-2.4, 2.4]) geoAt('trim', CYL, M, sx2 * 1.1, 0.5, sz2, C(0x24282e), 0, 0.5, 0.4, 0.5); }
+      LABELS.push({ text: 'Moulin Doré sugar mill', level: 'place', x: m[0], y: 36, z: m[1], small: true }); WORKS.mill = { at: [Math.round(m[0]), Math.round(m[1])] }; lap('mill');
+    }
+    function pointeFilaos() { // a fishing village on the east beach: Creole cottages, a pier with boats, net racks on the sand
+      const town = G.NEW_TOWNS.find(t => t.id === 'PF'); if (!town) return; keepClear(2130, 2330, 1090, 1350); NOFIELD.push([2120, 2330, 1090, 1350]);
+      const n = buildLots(town, Object.assign({}, CREOLE, { coast: 24, shop: 0.45, signs: [SG['FISH & CHIPS'], SG['ICE HOUSE'], SG['CAFÉ'], SG.NETS, SG['BEACH BAR']] }));
+      const p0 = shoreFrom(2230, 1200, 1, 0, 300), cols = [[0xffffff, 0x2e74c9], [0xf4efe6, 0xd8392b], [0xffe9a8, 0x1f8f5b], [0xe8f2f6, 0x2f6fa8]];
+      if (p0[2] < 300) { pier(p0[0] - 4, p0[1], p0[0] + 40, p0[1] + 2, 4.2); for (let i = 0; i < 5; i++) { const side = i % 2 ? -1 : 1; boat(p0[0] + 6 + i * 7, p0[1] + 1 + side * 5.2, Math.PI / 2 + 0.05 * side, 7 + (i % 3), ...cols[i % 4]); }
+        for (let i = 0; i < 4; i++) { const s = shoreFrom(2230, 1150 + i * 18, 1, 0, 300), x = s[0] - 9, z = s[1]; netRack(x, z, Math.PI / 2, groundY(x, z)); } }
+      LABELS.push({ text: 'Pointe Filaos', level: 'district', x: 2200, y: 30, z: 1235 }); WORKS.filaos = { lots: n, pier: [Math.round(p0[0]), Math.round(p0[1])] }; lap('filaos');
+    }
+    function sainteAurore() { // a hill village at the foot of Mont Brumeux: plaster houses and terracotta roofs along one street, a chapel
+      const town = G.NEW_TOWNS.find(t => t.id === 'SA'); if (!town) return; keepClear(850, 1090, 1490, 1610);
+      let n = buildLots(town, { style: 'terrace', w: [7, 9], d: [7, 8.5], mw: [7, 9], md: [7, 8.5], mainW: 8, shop: 0.25, slope: 4, road: 1.5, coast: 14, river: 6, tight: 1.5, setback: 1.8, signs: [SG.BAKERY, SG.GROCER, SG['TEA ROOMS'], SG.POTTERY] });
+      churchNear('sachapel', 'Chapelle Sainte-Aurore', 'Sainte-Aurore', [[1010, 1515, 0], [960, 1578, Math.PI], [900, 1520, 0], [1040, 1580, Math.PI]]);
+      { const R2 = rng(4243), hx = 955, hz = 1550; let k = 0; for (let i = 0; i < 300 && k < 14; i++) { const a = R2() * Math.PI * 2, r = 30 + Math.sqrt(R2()) * 70, x = hx + Math.cos(a) * r, z = hz + Math.sin(a) * r * 0.8, w = 7.5 + R2() * 2.5, d = 7 + R2() * 1.6, rot = Math.atan2(hx - x, hz - z) + (R2() - 0.5) * 0.6;
+        if (!fitsAt(x, z, w, d, rot, { slope: 4, road: 3, coast: 14, river: 6 })) continue; reserve({ x, z, w: w + 1.6, d: d + 1.6, rot }); LOTS.push({ x, z, w: w + 2.5, d: d + 6, rot });
+        addBuilding({ id: 'sav' + k, type: 'lean', style: 'terrace', name: (k + 1) + ' ' + NAMES[(k * 7 + 5) % NAMES.length], area: 'Sainte-Aurore', x, z, y: groundY(x, z), rot, w: Math.round(w * 2) / 2, d: Math.round(d * 2) / 2, owner: 'city', found: 2 }); k++; } n += k; }
+      LABELS.push({ text: 'Sainte-Aurore', level: 'district', x: 955, y: 40, z: 1548 }); WORKS.aurore = { lots: n }; lap('aurore');
+    }
+    function anseResort(chains) { // Goal 42: the resort on the lagoon bay, cloned from the Coral Coast one
+      if (!chains.length) return; const HOTELS = [['Hôtel Perle', 'slab', 0xffffff, SG['HOTEL PERLE'], 46, 15], ['Lagon Bleu', 'ring', 0xe6f2f4, SG['LAGON BLEU'], 44, 28], ['Flamboyant', 'bungalows', 0xf6efe0, SG.FLAMBOYANT, 44, 34], ['Résidence Corail', 'steps', 0xffe6c8, SG['RESIDENCE CORAIL'], 40, 18]]; keepClear(-830, -330, 760, 960); NOFIELD.push([-830, -330, 740, 960]); const queue = HOTELS.slice(), names = [], lines = []; let n = 0;
+      for (const chain of chains) {
+        const [mx, , mz, mux, muz] = posAt(chain, chain.len / 2), sg = land(mx - muz * 40, mz + mux * 40) < land(mx + muz * 40, mz - mux * 40) ? 1 : -1;
+        for (const side of [sg, -sg]) { let at = 8;
+        while (queue.length && at < chain.len - 12) {
+          const [name, kind, col, sign_, w, d] = queue[0], s = at + w / 2; if (s > chain.len - 6) break;
+          const [x, , z, ux, uz] = posAt(chain, s), nx = -uz * side, nz = ux * side, rot = Math.atan2(-nx, -nz), off = chain.w / 2 + 7 + d / 2, cx = x + nx * off, cz = z + nz * off;
+          if (land(cx + nx * 45, cz + nz * 45) > 36 || !fitsAt(cx + nx * 11, cz + nz * 11, w + 2, d + 22, rot, { slope: 5, road: 0.5, coast: 5, river: 5 })) { at += 6; continue; }
+          const b = addBuilding({ id: 'perle' + n, type: 'resort', kind, name, area: 'Anse Perle', x: cx, z: cz, y: groundY(cx, cz), rot, w, d, color: col, owner: 'city', floors: kind === 'slab' ? 5 : undefined, found: 2.6 });
+          reserve({ x: cx + nx * 11, z: cz + nz * 11, w: w + 4, d: d + 22, rot }); sign(new THREE.Matrix4().makeRotationY(rot).setPosition(cx, b.y, cz), sign_, 9, 1.3, 0, b.signY || 10, d / 2 + 0.2, 0); LABELS.push({ text: name, level: 'place', x: cx, y: 24, z: cz, small: true }); names.push(name); queue.shift(); n++; at += w + 8;
+        } }
+        // the beach: a promenade along the sand 22 m from the water, umbrellas on the sand, palms on the landward side
+        const line = []; for (let s = 4; s < chain.len - 4; s += 9) { const [x, , z, ux, uz] = posAt(chain, s), nx = -uz * sg, nz = ux * sg; let k = 14; while (k < 130 && land(x + nx * k, z + nz * k) > 22) k += 2; if (k < 130) line.push({ x: x + nx * k, z: z + nz * k, nx, nz, ux, uz }); }
+        let seg = []; const flush = () => { if (seg.length > 2) path(seg.map(p => [p.x, p.z]), { w: 2.6, snap: 3 }); seg = []; };
+        for (const p of line) { if (riverNear(p.x, p.z, 9)) { flush(); continue; } seg.push(p); const i = seg.length; for (let j = 0; j < 3; j++) { const ux = p.x + p.nx * (6 + j * 5) + p.ux * (j - 1) * 5, uz = p.z + p.nz * (6 + j * 5) + p.uz * (j - 1) * 5; if (land(ux, uz) < 5 || riverNear(ux, uz, 6)) continue; const T = new THREE.Matrix4().setPosition(ux, groundY(ux, uz), uz); tileAt(ux, uz); geoAt('trim', CYL8, T, 0, 1.3, 0, C(0xffffff), 0, 0.06, 2.6, 0.06); geoAt('detail', new THREE.ConeGeometry(2, 0.8, 8), T, 0, 2.7, 0, C([0xe8483f, 0x0f6fb8, 0xf2b705, 0xffffff][(j + i) % 4])); boxAt('lawn', T, 1.1, 0.08, 2.1, 1.5, 0, 0.8, C([0xff6f91, 0x2e74c9, 0xffd21f][(i + j) % 3])); } if (i % 2 === 0) { const px = p.x - p.nx * 4, pz = p.z - p.nz * 4; if (!riverNear(px, pz, 6)) extraTrees.push([px, groundY(px, pz), pz, 0.9, 'palm']); } }
+        flush(); lines.push(line);
+      }
+      // three beach businesses on the sand, each with its own path to the promenade
+      const L1 = lines.filter(l => l.length > 3).sort((p, q) => q.length - p.length)[0] || []; [['Beach bar', SG['BEACH BAR'], 0xff8a3d, 0.25], ['Dive shop', SG['DIVE SHOP'], 0x0e7c86, 0.55], ['Surf hire', SG['SURF HIRE'], 0xe8742c, 0.85]].forEach(([name, sg2, awn, f], i) => { for (let tries = 0; tries < 6; tries++) { const p = L1[Math.min(L1.length - 1, Math.floor(L1.length * f) + tries)]; if (!p) return; const kx = p.x + p.nx * 9, kz = p.z + p.nz * 9, rot = Math.atan2(-p.nx, -p.nz); if (!fitsAt(kx, kz, 8, 6, rot, { slope: 3, road: 0.5, coast: 5, river: 6 })) continue; addBuilding({ id: 'pbk' + i, type: 'kiosk', name, area: 'Anse Perle', x: kx, z: kz, y: groundY(kx, kz), rot, w: 7, d: 5, sign: sg2, awn, owner: 'city' }); reserve({ x: kx, z: kz, w: 9, d: 7, rot }); break; } });
+      LABELS.push({ text: 'Anse Perle', level: 'district', x: -560, y: 30, z: 860 }); WORKS.perle = { hotels: n, names, chains: chains.map(c => [Math.round(c.len), Math.round(c.pts[0][0]), Math.round(c.pts[0][2]), Math.round(c.pts[c.pts.length - 1][0]), Math.round(c.pts[c.pts.length - 1][2]), c.a.id, c.b.id]) }; lap('perle');
+    }
+    function southLabels() { // the island, its mountain, its lagoon and its small islands
+      LABELS.push({ text: 'Southern Isle', level: 'island', x: 560, y: 60, z: 1330 }, { text: 'Mont Brumeux', level: 'district', x: 640, y: 210, z: 1880 }, { text: 'Le Rocher', level: 'place', x: -420, y: 190, z: 1500, small: true }, { text: 'Grand Lagon', level: 'district', x: -250, y: 20, z: 640 },
+        { text: 'Île aux Palmistes', level: 'place', x: -300, y: 40, z: 560, small: true }, { text: 'Île des Tortues', level: 'place', x: 2440, y: 40, z: 1480, small: true }, { text: 'Île aux Cerfs', level: 'place', x: -1150, y: 40, z: 1500, small: true });
+    }
+    function anse() { anseResort(roadChains(id => ['SW3', 'SW4', 'SW5', 'AP0', 'AP1'].includes(id))); }
+    const ORDER = [millford, northhaven, eastgate, hillcrest, farms, estateBlocks, terminal, airport, quarry, mine, westCoast, landmarks, plots, skyline, belleRive, sugarMill, canePlain, pointeFilaos, sainteAurore, anse, southLabels];
     for (const f of ORDER) { try { f(); } catch (e) { console.error('region failed:', f.name, e); } }
     obstacleIndex(LOTS); entrances(LOTS);
     K.WORLD_WORKS.times = TIMES; K.WORLD_WORKS.why = WHY; K.WORLD_WORKS.fwhy = FW; Object.assign(K.WORLD_WORKS, WORKS); World.expansion = K.WORLD_WORKS;

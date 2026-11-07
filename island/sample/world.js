@@ -38,7 +38,7 @@ window.World = (function () {
     camera = new THREE.PerspectiveCamera(34, 1, 1, 5000);
     controls = new THREE.MapControls(camera, canvas);
     controls.enableDamping = true; controls.dampingFactor = 0.1; controls.screenSpacePanning = false;
-    controls.minDistance = 30; controls.maxDistance = EXPANDED ? 3800 : 1500; controls.minPolarAngle = 0.25; controls.maxPolarAngle = 1.1;
+    controls.minDistance = 30; controls.maxDistance = EXPANDED ? 7200 : 1500; controls.minPolarAngle = 0.25; controls.maxPolarAngle = 1.1;
     hemi = new THREE.HemisphereLight(lin(0xd8ecff), lin(0x5d7a3a), 0.47); scene.add(hemi);
     sun = new THREE.DirectionalLight(lin(0xfff3df), 1.02);
     sun.castShadow = Q !== 'low'; sun.shadow.mapSize.setScalar(Q === 'high' ? 2048 : 1024); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.5; sun.shadow.radius = 3;
@@ -152,7 +152,7 @@ window.World = (function () {
     }
   }
   function buildOcean() { // turquoise shallows, a foam line, deeper blue further out
-    const EX0 = EXPANDED ? X0 - 300 : -1100, EZ0 = EXPANDED ? Z0 - 300 : -1000, EW = EXPANDED ? X1 - X0 + 600 : 2200, EH = EXPANDED ? Z1 - Z0 + 600 : 2200, NX = EXPANDED ? Math.round(EW / 8) : 256, NZ = EXPANDED ? Math.round(EH / 8) : 256, data = new Uint8Array(NX * NZ); // the sea's distance from the shore, one texel per 8 m
+    const EX0 = EXPANDED ? X0 - 300 : -1100, EZ0 = EXPANDED ? Z0 - 300 : -1000, EW = EXPANDED ? X1 - X0 + 600 : 2200, EH = EXPANDED ? Z1 - Z0 + 600 : 2200, NX = EXPANDED ? Math.round(EW / 12) : 256, NZ = EXPANDED ? Math.round(EH / 12) : 256, data = new Uint8Array(NX * NZ); // the sea's distance from the shore, one texel per 12 m on the bigger island, 8 m on the first
     for (let j = 0; j < NZ; j++) for (let i = 0; i < NX; i++) data[j * NX + i] = clamp(Math.round(-G.landFar(EX0 + (i + 0.5) / NX * EW, EZ0 + (j + 0.5) / NZ * EH) / 240 * 255), 0, 255);
     const tex = new THREE.DataTexture(data, NX, NZ, THREE.LuminanceFormat); tex.magFilter = tex.minFilter = THREE.LinearFilter; tex.needsUpdate = true;
     const mat = new THREE.ShaderMaterial({ fog: true,
@@ -876,6 +876,7 @@ window.World = (function () {
     if (kind === 'wheat') { boxAt('trim', M, W - 1.4, H, D - 1.4, 0, 0.1, 0, C(ripe ? 0xe0bf55 : 0x8cc152)); rows(2.4, z => boxAt('lawn', M, W - 1.4, 0.04, 0.22, 0, 0.12 + H, z, C(ripe ? 0xc9a43e : 0x79ab45))); }
     else if (kind === 'corn') rows(2.2, z => { boxAt('trim', M, W - 2, H, 1.1, 0, 0.1, z, C(0x5f9e3a)); if (ripe) boxAt('trim', M, W - 2, 0.25, 0.7, 0, H + 0.1, z, C(0xd9c25a)); });
     else if (kind === 'sun') rows(2.2, z => { boxAt('trim', M, W - 2, H, 0.7, 0, 0.1, z, C(0x5f9e3f)); boxAt('trim', M, W - 2, 0.4, 1.1, 0, H + 0.1, z, C(ripe ? 0xffc21f : 0x9ac94a)); });
+    else if (kind === 'cane') { const hc = ripe ? 2.6 : 1.5, c0 = [0x8fc255, 0x9ccb5c, 0xaed063, 0x7ab44c][Math.floor(hash(M.elements[12] * 0.13, M.elements[14] * 0.17) * 4) % 4]; boxAt('trim', M, W - 1.6, hc, D - 1.6, 0, 0.1, 0, C(c0)); for (let z = -D / 2 + 3; z < D / 2 - 2; z += 5.5) boxAt('lawn', M, W - 1.6, 0.04, 0.5, 0, hc + 0.11, z, C(0x6c9f3d)); if (ripe) boxAt('trim', M, W - 2.4, 0.3, D - 2.4, 0, hc + 0.1, 0, C(0xd2e394)); } // sugar cane: a tall block of stalks in rows, pale tassels when it is ripe
     else { let i = 0; rows(1.8, z => boxAt('trim', M, W - 2, H, 0.9, 0, 0.1, z, C([0x4caf3f, 0x3f8f3f, 0x7fc24a, 0x2f7f4f][i++ % 4]))); }
   }
   function hedgerow(M, W, D, gate) { // round a field, 0.6 m outside it; a gap with an open field gate on the near side
@@ -1183,22 +1184,34 @@ window.World = (function () {
     if (Math.abs(t[1] - g) > 0.7) t[1] = g - 0.1; // on a hillside it stands on the slope (planters and plazas keep their raised base)
     return true;
   }
-  function thin(T) { // no two trees closer than 1.5 m: their crowns would melt into one lump
-    const seen = new Map();
+  const THIN = new Map(); // where every tree stands (1.5 m cells), so trees planted later keep their distance from the ones already there
+  function thin(T, seen = new Map()) { // no two trees closer than 1.5 m: their crowns would melt into one lump
     for (const k in T) { if (k === 'flower' || k === 'bush') continue;
       T[k] = T[k].filter(t => { const i = Math.floor(t[0] / 1.5), j = Math.floor(t[2] / 1.5); for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) for (const u of seen.get((i + a) + ',' + (j + b)) || []) if (Math.hypot(u[0] - t[0], u[2] - t[2]) < 1.5) { LEFT_OUT.crowded = (LEFT_OUT.crowded || 0) + 1; return false; } const key = i + ',' + j; if (!seen.has(key)) seen.set(key, []); seen.get(key).push(t); return true; });
     }
   }
-  function wildForest(T) { // the land's own trees: on a jittered grid, thick where the ground is hilly and damp, thin on the plains, none on beaches, fields, works, rock or the roads
-    seed = 99; const S = Q === "low" ? 10 : Q === "high" ? 6 : 7; let n = 0;
-    for (let x = X0; x < X1; x += S) for (let z = Z0; z < Z1; z += S) {
+  function wildForest(T, bx0 = X0, bx1 = X1, bz0 = Z0, bz1 = Z1) { // the land's own trees: on a jittered grid, thick where the ground is hilly and damp, thin on the plains, none on beaches, fields, works, rock or the roads; for the square [bx0, bx1] x [bz0, bz1] (the grid is the same whichever square is asked for)
+    if (bx0 === X0 && bz0 === Z0 && bx1 === X1 && bz1 === Z1) seed = 99; const S = Q === "low" ? 10 : Q === "high" ? 6 : 7; let n = 0;
+    const xs = X0 + Math.max(0, Math.ceil((bx0 - X0) / S)) * S, zs = Z0 + Math.max(0, Math.ceil((bz0 - Z0) / S)) * S;
+    for (let x = xs; x < Math.min(X1, bx1); x += S) for (let z = zs; z < Math.min(Z1, bz1); z += S) {
       const jx = x + (hash(x * 0.37, z * 0.91) - 0.5) * S * 0.9, jz = z + (hash(x * 0.77 + 5, z * 0.13) - 0.5) * S * 0.9, d = land(jx, jz); if (d < 12) continue;
       const h = heightAt(jx, jz), dens = G.forestDensity(jx, jz, h, d); if (dens <= 0.01 || hash(jx * 1.9, jz * 2.3) > dens) continue;
       if (K.isle && d > 14) continue; if (nearRoad(jx, jz)[0] < 3.2 || !clearOf(jx, jz, 2.5) || wnear(jx, jz, 2.2)) continue; const rv = G.nearRiver(jx, jz); if (rv && rv.d < rv.hw + 3) continue;
       const r = hash(jx * 3.1, jz * 1.7), sc = 0.75 + hash(jx, jz * 5.3) * 0.5; n++;
       (h > 26 ? (r < 0.6 ? T.pine : r < 0.8 ? T.cypress : T.round) : r < 0.12 ? T.cypress : r < 0.2 ? T.bush : T.round).push([jx, h - 0.15, jz, sc]);
     }
-    LEFT_OUT.forest = n;
+    LEFT_OUT.forest = (LEFT_OUT.forest || 0) + n;
+  }
+  // the bigger island's wild forest is planted after the game starts: a 200 m tile at a time, 6 ms a frame, nearest home first, so the island is playable at once and the woods grow in round you
+  function wildTile(tx, tz, TS) {
+    const T2 = { round: [], pine: [], cypress: [], palm: [], bush: [], flower: [] }; wildForest(T2, tx * TS, (tx + 1) * TS, tz * TS, (tz + 1) * TS);
+    let any = false; for (const k in T2) { T2[k] = T2[k].filter(t => settle(t, k)); if (T2[k].length) any = true; } if (!any) return;
+    thin(T2, THIN); for (const k in T2) if (T2[k].length) { plant(k, T2[k]); for (const t of T2[k]) TREES[k].push(t); }
+  }
+  function forestLater() {
+    const TS = 200, HX = 27, HZ = -20, queue = []; for (let tx = Math.floor(X0 / TS); tx * TS < X1; tx++) for (let tz = Math.floor(Z0 / TS); tz * TS < Z1; tz++) { let wet = true; for (let a = 0; a <= 2 && wet; a++) for (let b = 0; b <= 2; b++) if (land(tx * TS + a * TS / 2, tz * TS + b * TS / 2) > -20) { wet = false; break; } if (!wet) queue.push([tx, tz]); }
+    queue.sort((p, q) => Math.hypot(p[0] * TS + TS / 2 - HX, p[1] * TS + TS / 2 - HZ) - Math.hypot(q[0] * TS + TS / 2 - HX, q[1] * TS + TS / 2 - HZ)); LEFT_OUT.forestTiles = queue.length; World.forestPending = () => queue.length;
+    tick.push(() => { if (!queue.length) return; const t1 = performance.now(); do { const [tx, tz] = queue.shift(); wildTile(tx, tz, TS); } while (queue.length && performance.now() - t1 < 6); });
   }
   function buildNature() {
     const T = { round: [], pine: [], cypress: [], palm: [], bush: [], flower: [] }; seed = 99;
@@ -1210,7 +1223,7 @@ window.World = (function () {
       const r = rnd(), f = fbm(x * 1.7, z * 1.7); if (h < 12 && f < 0.45 && r < 0.6) continue;
       (h > 22 ? (r < 0.6 ? T.pine : r < 0.8 ? T.cypress : T.round) : r < 0.12 ? T.cypress : r < 0.2 ? T.bush : T.round).push([x, h - 0.15, z, 0.75 + rnd() * 0.5]);
     }
-    if (EXPANDED) wildForest(T);
+    // (the bigger island's wild forest is planted later: see forestLater)
     for (let x = -205; x < 55; x += 12) for (const z of [136.5, 148]) { const y = z < 140 ? TOWN_Y : heightAt(x, z); if (Math.abs(x + 78) > 4 && Math.abs(x + 30) > 6 && Math.abs(x - 30) > 5) T.palm.push([x + (z > 140 ? 5 : 0), y, z, 0.9 + rnd() * 0.25]); }
     for (let i = 0; i < 90; i++) { const x = -60 + rnd() * 240, z = 70 + rnd() * 70; if (x > 60 && (Math.abs(x - 92) < 24 && Math.abs(z - 100) < 14 || Math.abs(x - 120) < 8 && Math.abs(z - 78) < 6 || x > 140 && z > 105)) continue; if (land(x, z) > 30 && clearOf(x, z, 1.5) && Math.abs(z - 142) > 5) (rnd() < 0.5 ? T.palm : T.round).push([x, TOWN_Y, z, 0.8 + rnd() * 0.3]); }
     const pits = []; // street trees in pits at the kerb edge of the pavement, lamps between them; none at a crossing, a corner or a front path
@@ -1218,10 +1231,10 @@ window.World = (function () {
       if (Math.round(s / 8) % 2) continue; if (inside(x, z, 1.2) || Object.values(nodes).some(N => Math.hypot(N.x - x, N.z - z) < N.r + 3.5) || CROSS.some(c => Math.hypot(c.x - x, c.z - z) < c.hw + 4.5) || wnear(x, z, 2.2, 'front') || wnear(x, z, 1.6, 'path')) continue;
       if (lamp) LAMPS.push([x, p[1] + 0.1, z]); else T.round.push([x, p[1] + 0.1, z, 0.55, 'street', dx / L, dz / L]); }
     triMesh(FOOT.path, off(new THREE.MeshStandardMaterial({ color: lin(0xe6dcc8), roughness: 0.9 }), -2)); triMesh(FOOT.front, off(new THREE.MeshStandardMaterial({ color: lin(0xe9e1d0), roughness: 0.9 }), -2));
-    for (const k in T) T[k] = T[k].filter(t => settle(t, k)); thin(T);
+    for (const k in T) T[k] = T[k].filter(t => settle(t, k)); thin(T, THIN);
     for (const t of T.round) if (t[4] === 'street') quad(pits, t[0], t[1], t[2], t[5], t[6], 0.6, 0.6, 0.015);
     if (pits.length) triMesh(pits, off(new THREE.MeshStandardMaterial({ color: lin(0x6b5640), roughness: 1 }), -3));
-    TREES = T; for (const k in T) plant(k, T[k]);
+    TREES = T; for (const k in T) plant(k, T[k]); if (EXPANDED) forestLater();
     const rocks = []; seed = 17;
     for (const pts of G.COAST_LISTS.map(P => curve(P, 12))) for (let i = 0; i < pts.length; i++) { const p = pts[i]; if (p[2] < 0.6 || rnd() < 0.4) continue; for (let k = 0; k < 2; k++) { const x = p[0] + (rnd() - 0.5) * 14, z = p[1] + (rnd() - 0.5) * 14; rocks.push([x, Math.min(heightAt(x, z), 1) - 0.4, z, 1.2 + rnd() * 2.6]); } }
     const rm = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ roughness: 0.95, flatShading: true }), rocks.length), rc = new THREE.Color();
@@ -1549,7 +1562,7 @@ window.World = (function () {
     frame(dt);
   }
   const fit = d => d * clamp(1.3 / camera.aspect, 1, 2);
-  const overview = () => EXPANDED ? view(250, -370, fit(3000), 0.55, 0.3) : view(-20, -90, fit(1350), 0.6, 0.3);
+  const overview = () => EXPANDED ? view(620, 470, fit(5800), 0.5, 0.3) : view(-20, -90, fit(1350), 0.6, 0.3);
   const viewOf = b => view(b.x, b.z, fit(clamp(Math.max(b.w, b.d, b.h) * 2.6, 60, 300)), 0.9, b.rot + 0.6);
   const homeView = () => view(World.home.x - 20, World.home.z, fit(95), 0.86, 0.9);
 
