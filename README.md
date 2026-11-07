@@ -736,3 +736,13 @@ The owner's complaint: thunder turned the whole screen white, the lightning coul
 - **Puddles.** Fixed pools along the streets (the same every time, a random generator of their own) that grow while it rains, each at its own moment, run with ripples, and dry up in about two minutes after the rain stops. Everything solid also darkens and turns glossy while wet.
 - **Storms are darker and greyer**: little sun, soft grey light, quieter colours.
 - Written so any phone's graphics chip accepts it (no reversed `smoothstep`). Weather you choose in Settings works as before.
+
+## Goal 45: life on the sea, in the air and on the beaches (release 2026-11-07.11)
+
+The owner asked for more beaches, lifeguards, boats, planes and cars. `island/sample/life.js` (new, loaded after expand.js) only moves or decorates things; it never changes the land, the roads or the plots.
+
+- **Boats (about 55):** ferries, cargo ships, tugs, fishing boats, sailing boats, speedboats and yachts on circuits kept in open water, computed from each coast (`lanes()`: a line 100 m and 215 m out from the shore, broken wherever the water is shallow or another island is near; each run becomes a closed out-and-back circuit). Each has a hull lofted from stations (pointed bow, painted topsides, dark bottom, deck), a V-shaped wake, and bobs on the waves. Far away they are drawn up to 3.2 times larger so they still show on the overview.
+- **Air:** three airliners on wide ovals with white trails, a prop plane, a rescue helicopter circling the capital with a spinning rotor, four hot-air balloons drifting over the Southern Isle, and 70 gulls flapping round the harbours and beaches.
+- **Beaches (about 7 km of sand):** a lifeguard tower every 110 to 170 m (stilts, ladder, flag, rescue buoy, a lifeguard watching the sea), umbrellas with loungers in clusters, beach kiosks, palms at the back of the sand, and swim zones off some towers with a line of buoys, swimmers, kayaks, jet skis and an orange rescue boat circling.
+- **Traffic:** 171 cars instead of 59, with taxis (yellow, roof sign), police cars (roof lights) and ambulances. 0 stuck, 0 jumps over 120 simulated seconds.
+- Costs about half a second of the start-up at phone speed (4x slower processor): about 24 s for the whole map, as before. `World.life` holds the counts and timings.

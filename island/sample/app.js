@@ -177,7 +177,7 @@
   // ---------- updates, like Traffic Rush: version.json (the site's root) names the newest release, APP_VERSION this copy.
   // Bump BOTH for every release. When they differ the game says so, fetches its files fresh (past the browser's cache) and
   // reloads: at once on the cover, or while playing the next time no panel is open (and you go straight back in).
-  const APP_VERSION = '2026-11-07.10';
+  const APP_VERSION = '2026-11-07.11';
   let updBusy = false;
   async function checkUpdate() {
     if (updBusy || building || (joining && !started) || !/^https?:$/.test(location.protocol)) return; // not inside the desktop app

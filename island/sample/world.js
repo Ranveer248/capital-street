@@ -1254,8 +1254,8 @@ window.World = (function () {
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals(); return g;
   }
   const VCOL = { glass: new THREE.Color(0.06, 0.1, 0.16), tyre: new THREE.Color(0.04, 0.04, 0.05), rim: new THREE.Color(0.7, 0.72, 0.75), lamp: new THREE.Color(1, 0.95, 0.75), tail: new THREE.Color(0.8, 0.05, 0.05), dark: new THREE.Color(0.12, 0.13, 0.15), white: new THREE.Color(1, 1, 1), cab: lin(0x1f4fbf), stripe: lin(0x1f6fd0) };
-  function vehicleGeo(type) { // the painted body (tinted per vehicle) and the fixed parts (glass, bumpers, grilles, lights); the wheels are separate so they turn and steer
-    const body = [], fixed = [], W = WHITE, at = (list, g, c, x, y, z) => list.push([g.clone().translate(x, y, z), c]), B = (w, h, d) => new THREE.BoxGeometry(w, h, d), D = VCOL.dark, G = VCOL.glass;
+  function vehicleGeo(type0) { // the painted body (tinted per vehicle) and the fixed parts (glass, bumpers, grilles, lights); the wheels are separate so they turn and steer
+    const type = ({ taxi: 'sedan', police: 'sedan', ambulance: 'van' })[type0] || type0, body = [], fixed = [], W = WHITE, at = (list, g, c, x, y, z) => list.push([g.clone().translate(x, y, z), c]), B = (w, h, d) => new THREE.BoxGeometry(w, h, d), D = VCOL.dark, G = VCOL.glass;
     const lights = (w, y, f, b) => { for (const s of [-1, 1]) { at(fixed, B(0.36, 0.16, 0.06), VCOL.lamp, s * (w / 2 - 0.3), y, f); at(fixed, B(0.32, 0.15, 0.06), VCOL.tail, s * (w / 2 - 0.28), y, b); } };
     const bumpers = (w, y, f, b) => { at(fixed, B(w + 0.04, 0.22, 0.24), D, 0, y, f); at(fixed, B(w + 0.04, 0.22, 0.24), D, 0, y, b); };
     const mirrors = (w, y, z) => { for (const s of [-1, 1]) at(fixed, B(0.2, 0.13, 0.1), D, s * (w / 2 + 0.1), y, z); };
@@ -1294,6 +1294,9 @@ window.World = (function () {
         at(fixed, B(2.2, 0.3, 6.4), D, 0, 1.05, -1.6); at(fixed, B(1.0, 0.1, 4.8), D, 0, 3.45, -1.6); at(fixed, B(0.9, 0.45, 0.9), D, 0, 3.5, -2.4); at(fixed, TK(0.18, 0.5), D, 0, 3.3, -3.9); at(fixed, B(0.08, 1.6, 0.08), D, 1.28, 2.2, -4.85); }
       else { at(fixed, B(2.5, 0.25, 6.6), lin(0x6b4a33), 0, 1.15, -1.6); for (const s of [-1, 1]) at(body, B(0.12, 0.6, 6.6), W, s * 1.22, 1.55, -1.6); at(body, B(2.5, 1.0, 0.12), W, 0, 1.8, 1.72);
         for (const z of [-3.7, -1.6, 0.5]) for (const s of [-0.6, 0.6]) { at(fixed, B(1.05, 0.8, 1.9), lin(0xb5885a), s, 1.68, z); at(fixed, B(1.05, 0.8, 1.9), lin(0xa8784e), s, 2.5, z); at(fixed, B(0.95, 0.12, 1.75), lin(0x6fbf3f), s, 2.96, z); } } }
+    if (type0 === 'taxi') at(fixed, B(0.62, 0.2, 0.28), lin(0xfff0a0), 0, 1.5, -0.25);
+    if (type0 === 'police') { at(fixed, B(0.45, 0.14, 0.26), lin(0xe8483f), -0.25, 1.5, -0.25); at(fixed, B(0.45, 0.14, 0.26), lin(0x2e74c9), 0.25, 1.5, -0.25); at(fixed, B(1.72, 0.1, 0.9), lin(0x15181c), 0, 0.82, 0.45); }
+    if (type0 === 'ambulance') { at(fixed, B(0.5, 0.16, 0.3), lin(0xe8483f), -0.4, 2.5, 1.1); at(fixed, B(0.5, 0.16, 0.3), lin(0x2e74c9), 0.4, 2.5, 1.1); at(fixed, B(2.04, 0.3, 3.8), lin(0xd8392b), 0, 1.5, -0.55); }
     const merge = list => { const pos = [], nor = [], col = []; for (const [g0, c] of list) { const g = g0.index ? g0.toNonIndexed() : g0; if (!g.attributes.normal) g.computeVertexNormals(); pos.push(...g.attributes.position.array); nor.push(...g.attributes.normal.array); for (let i = 0; i < g.attributes.position.count; i++) col.push(c.r, c.g, c.b); } const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); return g; };
     return { body: merge(body), fixed: merge(fixed) };
   }
@@ -1302,6 +1305,7 @@ window.World = (function () {
     sports: { len: 4.3, paint: [0xd8392b, 0xf2b705, 0x1f8fff, 0x16181c, 0xffffff, 0x2fbf6a], vf: 1.12, wheels: wl(0.82, 1.35, -1.35, 0.32, 0.27) }, suv: { len: 4.7, paint: [0x2e5aa8, 0x24282e, 0xb9c0c8, 0xffffff, 0x7a1f2b], vf: 0.95, wheels: wl(0.84, 1.5, -1.45, 0.4, 0.28) }, pickup: { len: 5.3, paint: [0xc0392b, 0x2f5f3a, 0xf2f2f2, 0x2e5aa8], vf: 0.92, wheels: wl(0.84, 1.75, -1.55, 0.4, 0.28) },
     van: { len: 5.3, paint: [0xffffff], vf: 0.9, wheels: wl(0.88, 1.75, -1.6, 0.36, 0.28) }, bus: { len: 11, paint: [0xf28c28], vf: 0.8, wheels: wl(1.08, 3.6, -3.6, 0.5, 0.32) },
     truck: { len: 9.5, paint: [0xf2b705, 0xe8762c, 0x1f8f5b, 0xd8392b], vf: 0.8, wheels: wl(1.0, 3.3, -2.8, 0.5, 0.36, -3.9) }, flatbed: { len: 9.5, paint: [0x2f8f3a], vf: 0.8, wheels: wl(1.0, 3.3, -2.8, 0.5, 0.36, -3.9) }, tanker: { len: 9.5, paint: [0xd8392b], vf: 0.8, wheels: wl(1.0, 3.3, -2.8, 0.5, 0.36, -3.9) } };
+  VT.taxi = Object.assign({}, VT.sedan, { paint: [0xf2b705] }); VT.police = Object.assign({}, VT.sedan, { paint: [0xf4f4f4, 0x15181c], vf: 1.12 }); VT.ambulance = Object.assign({}, VT.van, { paint: [0xffffff], vf: 1.05 }); // the same shapes with their own paint and roof lights
   let WHEEL = null; const _wm = new THREE.Matrix4(), _wq = new THREE.Matrix4();
   function setPose(type, i, M, roll = 0, steer = 0) { // a vehicle's body, fixed parts and wheels (rolling with the distance driven, the front pair steering)
     const m = meshes[type], W = VT[type].wheels; m.body.setMatrixAt(i, M); m.fixed.setMatrixAt(i, M);
@@ -1421,7 +1425,7 @@ window.World = (function () {
   const SHIP = []; // the delivery jobs the trucks and vans run: queued → loading → travelling → delivered (or failed)
   function buildTraffic() {
     seed = 3; const plan = [];
-    for (const [k, n] of (EXPANDED ? [['compact', 18], ['sedan', 17], ['suv', 11], ['pickup', 7], ['sports', 6]] : [['compact', 10], ['sedan', 9], ['suv', 6], ['pickup', 3]])) for (let i = 0; i < n; i++) plan.push({ type: k });
+    for (const [k, n] of (EXPANDED ? [['compact', 44], ['sedan', 40], ['suv', 28], ['pickup', 18], ['sports', 14], ['taxi', 12], ['police', 3], ['ambulance', 2]] : [['compact', 10], ['sedan', 9], ['suv', 6], ['pickup', 3]])) for (let i = 0; i < n; i++) plan.push({ type: k });
     plan.push({ type: 'bus', loop: ['A', 'B', 'C', 'D', 'X', 'E', 'F', 'F2', 'G2', 'H2', 'H', 'I'], stops: [['B', 'C', 0.55], ['G2', 'H2', 0.5]] });
     plan.push({ type: 'truck', job: { name: 'Containers → Processing Plant', from: 'K', to: 'P' } }, { type: 'truck', job: { name: 'Crates → Harbour quay', from: 'P', to: 'K' } }, { type: 'truck', job: { name: 'Goods → Delivery depot', from: 'K', to: 'G' } });
     plan.push({ type: 'van', job: { name: 'Groceries → Old Quarter shops', from: 'G', to: 'C' } }, { type: 'van', job: { name: 'Linen → Hotel Azure', from: 'G', to: 'J' } });
