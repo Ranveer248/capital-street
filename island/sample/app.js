@@ -56,6 +56,7 @@
         if (!session) { const r = await sb.auth.signInAnonymously(); if (r.error) return { ok: false, net: !/anonymous/i.test(msgOf(r.error)), why: /anonymous/i.test(msgOf(r.error)) ? 'Guest play is switched off on this server.' : 'Can\'t reach the island server. Check your connection and try again.' }; session = r.data.session; }
         N.me = session.user.id;
         const st = await N.call('ci_join', { p_name: name, p_color: color });
+        try { N.pst = await N.call('ci_plots_state'); N.v3 = true; } catch (e) { N.v3 = false; } // plots, resources and auctions, once the server has them
         N.online = true; return { ok: true, state: st };
       } catch (e) { if (/Could not find the function|does not exist/i.test(e.message)) return { ok: false, missing: true }; return { ok: false, net: e.net, why: e.net ? 'Can\'t reach the island server. Check your connection and try again.' : e.message }; }
     };
@@ -63,7 +64,7 @@
     N.refresh = () => { // fetch the whole state; one request at a time, and a call made meanwhile waits for a fresh one
       if (!N.online) return Promise.resolve(); if (pend) { again = true; return pend; }
       pend = (async () => { do { again = false;
-        try { applyState(await N.call('ci_state')); if (N.status === 'reconnecting' && live && live.ok) setStatus('live'); } catch (e) { if (e.net) setStatus('reconnecting'); }
+        try { applyState(await N.call('ci_state')); if (N.v3) applyPlots(await N.call('ci_plots_state')); if (N.status === 'reconnecting' && live && live.ok) setStatus('live'); } catch (e) { if (e.net) setStatus('reconnecting'); }
       } while (again); pend = null; })();
       return pend;
     };
@@ -74,7 +75,7 @@
       clearTimeout(rT); if (live) { const o = live; live = null; sb.removeChannel(o); } if (pres) { const o = pres; pres = null; sb.removeChannel(o); }
       const ch = live = sb.channel('ci-island'); ch.ok = false;
       /* not ci_players: every refresh stamps last_seen there, so open games would keep refreshing each other */
-      for (const t of ['ci_buyers', 'ci_property', 'ci_listings'].concat(N.v2 ? ['ci_market', 'ci_contracts'] : [])) ch.on('postgres_changes', { event: '*', schema: 'public', table: t }, () => N.refresh());
+      for (const t of ['ci_buyers', 'ci_property', 'ci_listings'].concat(N.v2 ? ['ci_market', 'ci_contracts'] : [], N.v3 ? ['ci_plots', 'ci_auctions'] : [])) ch.on('postgres_changes', { event: '*', schema: 'public', table: t }, () => N.refresh());
       ch.subscribe(st => { if (live !== ch) return; if (st === 'SUBSCRIBED') { ch.ok = true; backoff = 0; setStatus('live'); N.refresh(); } else if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT' || st === 'CLOSED') { ch.ok = false; setStatus('reconnecting'); rT = setTimeout(connect, Math.min(30000, 1000 * 2 ** Math.min(5, backoff++))); } });
       const pc = pres = sb.channel('ci-online', { config: { presence: { key: N.me } } });
       pc.on('presence', { event: 'sync' }, () => { if (pres !== pc) return; const m = new Map(); for (const metas of Object.values(pc.presenceState())) for (const x of metas) if (x && x.id && x.id !== N.me) m.set(x.id, x); N.players = m; setStatus(N.status); if (panel === 'map') refresh(); });
@@ -156,7 +157,7 @@
       if (/webgl|context/i.test(why)) { jmsg('This device couldn\'t start 3D graphics (' + why + '). Turn on hardware acceleration, update the browser or try another one. A lower graphics level can\'t fix this.', true); playBtn(false, 'TRY AGAIN'); return; }
       setQ('low'); jmsg('The island couldn\'t be built here (' + why + '). Graphics are now set to Low: reload and press Play. Your progress is safe.', true); const b = $('play'); b.disabled = false; b.textContent = 'RELOAD'; b.onclick = () => location.reload(); return;
     }
-    if (World.plotSites && window.Plots) { try { Plots.init(World, World.scene, typeof World.camera === 'function' ? World.camera() : World.camera, World.plotSites); } catch (e) { console.error('plots', e); } plotsSyncAll(); }
+    if (World.plotSites && window.Plots) { try { Plots.init(World, World.scene, typeof World.camera === 'function' ? World.camera() : World.camera, World.plotSites); } catch (e) { console.error('plots', e); } plotsSyncAll(); if (NET.pst) applyPlots(NET.pst); }
     $('cover').hidden = true; World.place(World.overview()); if (NET.online) { NET.live(); applyState(lastState); } else { NET.setStatus('offline'); resume(); } loop(performance.now());
     World.flyTo(World.homeView(), 2, () => { $('hud').hidden = false; draw(); objective(); });
   }
@@ -386,7 +387,7 @@
   // ---------- the new screens ----------
   let jobsTab = 'contracts', tradeTab = 'goods';
   const seg2 = (key, cur, items) => `<div class="seg">${items.map(([k, n]) => `<button data-${key}="${k}" class="${k === cur ? 'on' : ''}">${n}</button>`).join('')}</div>`;
-  const jobsSeg = () => seg2('jt', jobsTab, [['contracts', 'Contracts'], ['food', 'Food business'], ['business', 'My business']]), tradeSeg = () => seg2('tt', tradeTab, [['goods', 'Wholesale'], ['food', 'Food & players'], ['market', 'Resources']]);
+  const jobsSeg = () => seg2('jt', jobsTab, [['contracts', 'Contracts'], ['food', 'Food business'], ['business', 'My business']]), tradeSeg = () => seg2('tt', tradeTab, [['goods', 'Wholesale'], ['food', 'Food & players'], ['market', 'Resources'], ['auction', 'Auctions']]);
   const bindSegs = r => { r.querySelectorAll('[data-jt]').forEach(b => b.onclick = () => { jobsTab = b.dataset.jt; open('jobs'); }); r.querySelectorAll('[data-tt]').forEach(b => b.onclick = () => { tradeTab = b.dataset.tt; open('trade'); }); };
   const ledger = () => NET.online ? ((E.v2 && E.v2.ledger) || []).map(x => ({ t: srv(x.at), n: x.note, a: +x.amount, c: +x.cash })) : (S.ledger || []);
   function contractsPanel() {
@@ -571,7 +572,7 @@
         ${q.note ? `<p class="note">${esc(q.note)}</p>` : ''}${q.ok ? '' : `<p class="note why">${esc(q.why)}</p>`}
         <div class="acts sticky"><button class="btn ghost" id="qc">CANCEL</button><button class="btn go" id="qok" ${q.ok ? '' : 'disabled'}>${q.cost ? 'PAY ' + usd(q.cost) : q.act === 'contract' ? 'TAKE THE CONTRACT' : 'CONFIRM'}</button></div>`,
       bind: r => { r.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { qtyPick[a.act + (a.buyer || '')] = +b.dataset.q; open('quote', a, true); stack.pop(); }); $('qc').onclick = () => $('pBack').click(); $('qok').onclick = () => confirm(q, a.buyer); } }; },
-    trade: () => tradeTab === 'market' ? marketPanel() : tradeTab === 'goods' ? (v2on() ? goodsPanel() : soon('Trade · wholesale', tradeSeg())) : PANELS.foodtrade(),
+    trade: () => tradeTab === 'market' ? marketPanel() : tradeTab === 'auction' ? auctionPanel() : tradeTab === 'goods' ? (v2on() ? goodsPanel() : soon('Trade · wholesale', tradeSeg())) : PANELS.foodtrade(),
     foodtrade: () => { const mine = E.ships.slice().reverse(), rb = R('L', 'O'), rr = R('FA', 'P'); return { title: 'Trade · food', html: `${tradeSeg()}<p class="sec">Your shipments</p>${mine.length ? mine.map(shipRow).join('') : '<p class="note">None yet. Book trips in Jobs: steps 2 and 4.</p>'}
       <p class="sec">Buyers · shared by every player</p>
       <div class="row"><span class="ic">${ic('home')}</span><div><b>Old Quarter shops</b><small>${usd(priceOf('shops'))} a box · want ${Math.max(0, Math.floor(E.demand.shops))}${matchOn() ? ' · match day: +15% and more wanted' : ` · next match in ${clock(((NET.online ? E.matchAt : E.match) - now()) / 1000)}`}</small>${bar(E.demand.shops, BUYER.shops.max)}</div></div>
@@ -608,7 +609,8 @@
       bind: r => { $('swn').onclick = () => window.open('../../changelog.html', '_blank', 'noopener'); r.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { setQ(b.dataset.q); open('settings'); toast('Graphics: ' + b.dataset.q, 'Reload to apply'); }); $('sf').onclick = () => { $('fps').hidden = !$('fps').hidden; open('settings'); }; $('sr').onclick = () => { try { localStorage.removeItem(KEY); } catch (e) { /* fine */ } location.reload(); }; } }),
   };
   // ---------- plots: buy ground, pull down the old house, build, rent, farm, mine, renovate, customise; resources, the island market and business jobs ----------
-  S.plots = S.plots || {}; S.res = S.res || {}; S.cd = S.cd || {};
+  if (S.offPlots) { S.plots = S.offPlots; S.res = S.offRes || {}; S.cd = S.offCd || {}; delete S.offPlots; delete S.offRes; delete S.offCd; } // this device's own plots come back when it plays offline again
+  S.plots = S.plots || {}; S.res = S.res || {}; S.cd = S.cd || {}; S.auc = S.auc || [];
   const HOUR = 120e3; // one game hour is two real minutes, and income waits for you for up to eight of them
   const PT = { town: 'Town plot', villa: 'Villa plot', farm: 'Farmland', stone: 'Stone ground', coal: 'Coal ground', oil: 'Oil field', industrial: 'Industrial plot', harbour: 'Harbour plot', tower: 'Tower plot' };
   const PBASE = { town: 1400, villa: 3800, farm: 1000, stone: 1600, coal: 1800, oil: 2200, industrial: 2400, harbour: 3600, tower: 4200 };
@@ -617,7 +619,23 @@
   const RATEH = { house: 180, villa: 420, shop: 170, office: 260, tower: 700, warehouse: 150, harbour: 320 }, TOWERT = [1, 1.9, 3.2];
   const OUT = { stone: ['Stone', 16, 14], coal: ['Coal', 12, 22], oil: ['Oil', 10, 38], goods: ['Goods', 0, 95] };
   const SW = [0xf1e6d0, 0xf4c7a8, 0xbfe3d4, 0xc9d6f2, 0xf2e07a, 0xe8b8c8, 0xdadada, 0x9fb7a0], RW = [0xb4552d, 0x6b3a2a, 0x3d5a80, 0x2f6f5f, 0x4a4f57];
-  const plotsOn = () => !NET.online && !!(window.Plots && Plots.sites.length);
+  const plotsOn = () => !!(window.Plots && Plots.sites.length) && (!NET.online || !!NET.v3);
+  // online: the island server owns plots, resources, cool-downs and auctions; this mirrors what it says
+  let OTHERS = {}, AUC = [], AIS = null, PSK = 0; const LASTP = {};
+  function applyPlots(st) {
+    if (!st || !st.plots) return; if (!window.Plots || !Plots.sites.length) { NET.pst = st; return; } NET.pst = null;
+    if (!S.offPlots) { S.offPlots = S.plots; S.offRes = S.res; S.offCd = S.cd; }
+    PSK = Date.parse(st.now) - Date.now(); const ms = t => Date.parse(t) - PSK, mine = {}, oth = {};
+    for (const p of st.plots) { const b = p.b ? Object.assign({}, p.b, { t: ms(p.t) }) : null; if (p.owner === NET.me) mine[p.id] = { cleared: p.cleared, b, listed: p.listed }; else oth[p.id] = { name: p.name, b, cleared: p.cleared }; }
+    const before = Object.keys(S.plots).concat(Object.keys(OTHERS)); S.plots = mine; OTHERS = oth; S.res = Object.assign({}, st.res || {});
+    S.cd = {}; for (const k in st.cd || {}) S.cd[k.replace(/^biz:/, '')] = ms(st.cd[k]);
+    AUC = (st.auctions || []).map(a => Object.assign({}, a, { ends: ms(a.ends_at), reserve: +a.reserve, buyout: a.buyout == null ? null : +a.buyout, bid: a.bid == null ? null : +a.bid }));
+    AIS = { slot: st.slot, list: st.ai || [] };
+    for (const id of before) if (!mine[id] && !oth[id]) plotSync(id); for (const id in mine) plotSync(id); for (const id in oth) plotSync(id);
+  }
+  const pcall = async (fn, args, title, sub, after) => { if (pendingCall) return; pendingCall = true; // an online plot action: the server checks it and answers with the new state
+    try { applyPlots(await NET.call(fn, args)); NET.refresh(); toast(title, sub || ''); } catch (e) { toast(e.net ? 'No connection' : 'Not done', e.net ? 'Nothing changed. Try again when you are back online.' : e.message, true); }
+    pendingCall = false; if (after) after(); };
   const siteOf = id => Plots.by[id], pstate = id => S.plots[id] || null, plotPrice = s => Math.round(PBASE[s.kind] * (0.9 + (s.n * 37 % 21) / 100) / 10) * 10;
   const rateOf = b => b.kind === 'tower' ? RATEH.tower * TOWERT[(b.tier || 1) - 1] : (RATEH[b.kind] || 0) * (b.tier || 1);
   const yieldOf = b => b.kind === 'mine' ? OUT[b.res || 'stone'][1] * (b.tier || 1) : b.kind === 'farm' ? 14 * (b.tier || 1) : b.kind === 'factory' ? 6 * (b.tier || 1) : 0;
@@ -630,7 +648,10 @@
     if (b.kind === 'house' || b.kind === 'villa') return { cash: b.rent === false ? 0 : Math.floor(rateOf(b) * h), units: 0, what: 'rent' };
     return { cash: Math.floor(rateOf(b) * h), units: 0, what: 'rent' };
   }
-  function plotSync(id) { const s = siteOf(id), p = pstate(id); if (!s) return; Plots.set(id, { owned: !!p, old: !!s.old && !(p && (p.cleared || p.b)), b: p && p.b ? p.b : null }); }
+  const look = b => b ? { kind: b.kind, tier: b.tier, color: b.color, roof: b.roof, style: b.style, name: b.name, res: b.res } : null;
+  function plotSync(id) { const s = siteOf(id), p = pstate(id), o = OTHERS[id]; if (!s) return; // redraws a plot only when how it looks has changed
+    const st = p ? { owned: true, old: !!s.old && !(p.cleared || p.b), b: look(p.b) } : o ? { owned: false, other: true, old: !!s.old && !(o.cleared || o.b), b: look(o.b) } : { owned: false, old: !!s.old, b: null };
+    const k = JSON.stringify(st); if (LASTP[id] === k) return; LASTP[id] = k; Plots.set(id, st); }
   function plotsSyncAll() { if (!window.Plots || !Plots.sites.length) return; for (const id in S.plots) plotSync(id); }
   const collect = id => { const p = pstate(id), b = p && p.b; if (!b) return 0; const o = pending(b); if (!o.cash && !o.units) return 0; const h = hoursSince(b);
     if (o.cash) { logCash(o.cash, (BLD[b.kind] || ['Plot'])[0] + ' ' + (o.what === 'sales' ? 'sales' : 'rent') + ' at ' + (b.name || siteOf(id).area)); if (b.kind === 'shop') b.stock = Math.max(0, (b.stock || 0) - 25 * Math.min(h, (b.stock || 0) / 25)); }
@@ -638,31 +659,47 @@
     b.t = now(); save(); return o.cash || o.units; };
   const myBuilt = kind => Object.entries(S.plots).filter(([, p]) => p.b && (!kind || (Array.isArray(kind) ? kind.includes(p.b.kind) : p.b.kind === kind)));
   const needTxt = { mine: 'a Mine', farm: 'a Farm', shop: 'a Shop', harbour: 'a Harbour', office: 'an Office or a Tower', warehouse: 'a Warehouse' };
-  const wobble = k => 1 + 0.15 * Math.sin(now() / 45e3 + k.length * 2.1);
+  const wobble = k => 1 + 0.15 * Math.sin((now() + (NET.online ? PSK : 0)) / 45e3 + k.length * 2.1); // online: the server's clock, so the price shown is the price paid
   const price = k => Math.round(OUT[k][2] * wobble(k));
-  const plotRow = (id, mine) => { const s = siteOf(id), p = pstate(id), b = p && p.b; return `<div class="row"><span class="ic">${ic('map')}</span><div><b>${esc(b ? (b.name || BLD[b.kind][0]) : PT[s.kind])}${mine && !b && s.old && !p.cleared ? ' · old house' : ''}</b><small>${esc(s.area)} · ${s.w}×${s.d} m${s.res ? ' · ' + OUT[s.res][0] : ''}${b ? ' · ' + BLD[b.kind][0] + ' L' + (b.tier || 1) : ''}</small></div>${mine ? '' : `<span class="lockt">${usd(plotPrice(s))}</span>`}<button class="btn ghost" data-pl="${id}">${mine ? 'OPEN' : 'LOOK'}</button></div>`; };
+  const plotRow = (id, mine) => { const s = siteOf(id), p = pstate(id), b = p && p.b; return `<div class="row"><span class="ic">${ic('map')}</span><div><b>${esc(b ? (b.name || BLD[b.kind][0]) : PT[s.kind])}${mine && !b && s.old && !p.cleared ? ' · old house' : ''}${p && p.listed ? ' · in the auction house' : ''}</b><small>${esc(s.area)} · ${s.w}×${s.d} m${s.res ? ' · ' + OUT[s.res][0] : ''}${b ? ' · ' + BLD[b.kind][0] + ' L' + (b.tier || 1) : ''}</small></div>${mine ? '' : `<span class="lockt">${usd(plotPrice(s))}</span>`}<button class="btn ghost" data-pl="${id}">${mine ? 'OPEN' : 'LOOK'}</button></div>`; };
   const swatches = (cls, list, cur) => list.map(c => `<button class="csw ${c === cur ? 'on' : ''}" data-${cls}="${c}" style="background:#${c.toString(16).padStart(6, '0')}" aria-label="colour"></button>`).join('');
-  const plotsPanel = () => { const ids = Object.keys(S.plots).filter(i => siteOf(i)), forSale = Plots.sites.filter(s => !S.plots[s.id]).sort((a, b) => plotPrice(a) - plotPrice(b)); let cash = 0, units = {}; for (const i of ids) { const b = S.plots[i].b; if (b) { const o = pending(b); cash += o.cash; if (o.units) units[o.what] = (units[o.what] || 0) + o.units; } }
+  const plotsPanel = () => { const ids = Object.keys(S.plots).filter(i => siteOf(i)), forSale = Plots.sites.filter(s => !S.plots[s.id] && !OTHERS[s.id]).sort((a, b) => plotPrice(a) - plotPrice(b)); let cash = 0, units = {}; for (const i of ids) { const b = S.plots[i].b; if (b) { const o = pending(b); cash += o.cash; if (o.units) units[o.what] = (units[o.what] || 0) + o.units; } }
     const wait = [cash ? usd(cash) : '', ...Object.entries(units).map(([k, v]) => `${v} ${k}`)].filter(Boolean).join(' · ');
     return { title: 'Plots', html: `${plotsOn() ? '' : '<p class="note">Plots need the island server upgrade before they can be switched on for the online island. Add <b>?offline</b> to the address to try them on this device.</p>'}
       <div class="acts"><button class="btn gold" id="pcol" ${wait ? '' : 'disabled'}>${wait ? 'COLLECT ' + wait : 'NOTHING TO COLLECT'}</button></div><p class="sec">Yours (${ids.length})</p>${ids.length ? ids.map(i => plotRow(i, true)).join('') : '<p class="note">You own no plots yet. Pick one below, or tap a yellow border on the map. A flag on it says it is for sale.</p>'}
-      <p class="sec">For sale · cheapest first</p>${forSale.slice(0, 14).map(s => plotRow(s.id, false)).join('')}<p class="note">Buy a plot, clear the old house if there is one, then build a house, a shop, a farm, a mine or a tower on it.</p>`,
-      bind: r => { r.querySelectorAll('[data-pl]').forEach(b => b.onclick = () => { const s = siteOf(b.dataset.pl); World.flyTo(World.view(s.x, s.z, 110, 0.8, 0.5), 1.1); open('plot', b.dataset.pl, true); }); $('pcol').onclick = () => { let n = 0; for (const i of ids) n += collect(i) ? 1 : 0; toast(n ? 'Collected from ' + n + ' plot' + (n > 1 ? 's' : '') : 'Nothing yet', n ? 'Cash and goods are in your stores' : 'Income builds up while you play'); open('plots'); }; } }; };
+      <p class="sec">For sale · cheapest first</p>${forSale.length ? forSale.slice(0, 14).map(s => plotRow(s.id, false)).join('') : '<p class="note">Every plot has an owner. Watch the auction house: players sell plots there.</p>'}
+      ${Object.keys(OTHERS).length ? `<p class="sec">Other players' plots (${Object.keys(OTHERS).length})</p>${Object.entries(OTHERS).slice(0, 12).map(([i, o]) => { const s = siteOf(i); return s ? `<div class="row"><span class="ic">${ic('map')}</span><div><b>${esc(o.b ? (o.b.name || BLD[o.b.kind][0]) : PT[s.kind])}</b><small>${esc(o.name)} · ${esc(s.area)}</small></div><button class="btn ghost" data-pl="${i}">LOOK</button></div>` : ''; }).join('')}` : ''}
+      <p class="note">Buy a plot, clear the old house if there is one, then build a house, a shop, a farm, a mine or a tower on it. Blue borders belong to other players.</p>`,
+      bind: r => { r.querySelectorAll('[data-pl]').forEach(b => b.onclick = () => { const s = siteOf(b.dataset.pl); World.flyTo(World.view(s.x, s.z, 110, 0.8, 0.5), 1.1); open('plot', b.dataset.pl, true); }); $('pcol').onclick = () => { if (NET.online) return pcall('ci_plots_collect', {}, 'Collected', 'Cash and goods are in your stores', () => open('plots')); let n = 0; for (const i of ids) n += collect(i) ? 1 : 0; toast(n ? 'Collected from ' + n + ' plot' + (n > 1 ? 's' : '') : 'Nothing yet', n ? 'Cash and goods are in your stores' : 'Income builds up while you play'); open('plots'); }; } }; };
   const plotPanel = id => { const s = siteOf(id), p = pstate(id), b = p && p.b, mine = !!p; World.mark(null); const price = plotPrice(s), on = plotsOn();
-    let body = '', acts = '';
-    if (!mine) { acts = `<button class="btn go" id="pbuy" ${on && S.cash >= price ? '' : 'disabled'}>${!on ? 'OFFLINE ONLY FOR NOW' : S.cash < price ? 'NEED ' + usd(price - S.cash) + ' MORE' : 'BUY ' + usd(price)}</button>`; body = `<p class="note">${esc(PT[s.kind])} in ${esc(s.area)}. ${s.old ? 'There is an old house on it that you can pull down.' : 'Empty ground.'}${s.res ? ' Under it: <b>' + OUT[s.res][0] + '</b>.' : ''}</p>`; }
+    let body = '', acts = ''; const other = OTHERS[id], ob = other && other.b;
+    if (!mine && other) body = `<p class="note">Owned by <b>${esc(other.name)}</b>. ${ob ? 'A ' + BLD[ob.kind][0].toLowerCase() + ', level ' + (ob.tier || 1) + '.' : 'Nothing built yet.'} If they put it in the auction house you can bid for it (Trade → Auctions).</p>`;
+    else if (mine && p.listed) body = '<p class="note">This plot is in the auction house. You can\'t change it until the auction ends; if nobody buys it, it comes back to you.</p>';
+    else if (!mine) { acts = `<button class="btn go" id="pbuy" ${on && S.cash >= price ? '' : 'disabled'}>${!on ? 'OFFLINE ONLY FOR NOW' : S.cash < price ? 'NEED ' + usd(price - S.cash) + ' MORE' : 'BUY ' + usd(price)}</button>`; body = `<p class="note">${esc(PT[s.kind])} in ${esc(s.area)}. ${s.old ? 'There is an old house on it that you can pull down.' : 'Empty ground.'}${s.res ? ' Under it: <b>' + OUT[s.res][0] + '</b>.' : ''}</p>`; }
     else if (!b && s.old && !p.cleared) { acts = `<button class="btn go" id="pdem" ${S.cash >= 300 ? '' : 'disabled'}>DEMOLISH OLD HOUSE · $300</button><button class="btn ghost" id="psell">SELL PLOT · ${usd(price * 0.6)}</button>`; body = '<p class="note">An old, empty house stands here. Pull it down to build something new.</p>'; }
     else if (!b) { body = `<p class="sec">Build here</p>` + OPTS[s.kind].map(k => `<div class="row"><span class="ic">${ic('home')}</span><div><b>${BLD[k][0]} · ${usd(BLD[k][1])}</b><small>${BLD[k][2]}</small></div><button class="btn go" data-bk="${k}" ${S.cash >= BLD[k][1] ? '' : 'disabled'}>BUILD</button></div>`).join(''); acts = `<button class="btn ghost" id="psell">SELL PLOT · ${usd(price * 0.6)}</button>`; }
-    else { const o = pending(b), rent = b.kind === 'house' || b.kind === 'villa', up = (b.tier || 1) < 3, upc = Math.round(BLD[b.kind][1] * 0.8 * (b.tier || 1)), lock = b.kind === 'shop' || b.kind === 'house' || b.kind === 'villa';
+    else { const o = pending(b), rent = b.kind === 'house' || b.kind === 'villa', up = (b.tier || 1) < 3, upc = Math.round(BLD[b.kind][1] * 0.8 * (b.tier || 1)), lock = ['shop', 'house', 'villa', 'office', 'tower'].includes(b.kind), inside = rent || b.kind === 'shop' || b.kind === 'office';
       body = `<div class="stats"><div>Level<b>${b.tier || 1} of 3</b></div><div>${o.what === 'sales' || o.what === 'rent' ? 'Waiting' : 'Ready'}<b>${o.cash ? usd(o.cash) : o.units ? o.units + ' ' + o.what : '—'}</b></div><div>${b.kind === 'shop' ? 'Stock' : 'Per hour'}<b>${b.kind === 'shop' ? (b.stock || 0) + '%' : yieldOf(b) ? yieldOf(b) + ' units' : usd(rateOf(b))}</b></div></div>
         ${rent ? `<div class="row"><div><b>${b.rent === false ? 'You live here' : 'Rented out'}</b><small>${b.rent === false ? 'No rent comes in' : usd(rateOf(b)) + ' a game hour from tenants'}</small></div><button class="btn ghost" id="prent">${b.rent === false ? 'RENT OUT' : 'MOVE IN'}</button></div>` : ''}
         ${b.kind === 'shop' ? `<div class="row"><div><b>Shelves</b><small>${b.stock || 0}% stocked · sells 25% an hour</small></div><button class="btn ghost" id="pstock" ${S.cash >= 60 && (b.stock || 0) < 100 ? '' : 'disabled'}>RESTOCK · $60</button></div>` : ''}
         ${b.kind === 'factory' ? `<p class="note">Uses 2 stone, 1 coal and 1 oil from your stores for every goods you make. You have ${S.res.stone || 0} stone, ${S.res.coal || 0} coal, ${S.res.oil || 0} oil.</p>` : ''}
-        ${lock ? `<p class="sec">Customise</p><div class="csws">${swatches('c', SW, b.color)}</div><div class="csws">${swatches('r', RW, b.roof)}</div>${rent || b.kind === 'shop' ? `<div class="seg">${[['modern', 'Modern'], ['cosy', 'Cosy'], ['luxury', 'Luxury']].map(([k, n]) => `<button data-st="${k}" class="${(b.style || 'modern') === k ? 'on' : ''}">${n}</button>`).join('')}</div>` : ''}<div class="acts"><button class="btn ghost" id="pname">RENAME</button>${rent ? '<button class="btn ghost" id="pin">LOOK INSIDE</button>' : ''}</div>` : ''}`;
+        ${lock ? `<p class="sec">Customise</p><div class="csws">${swatches('c', SW, b.color)}</div><div class="csws">${swatches('r', RW, b.roof)}</div>${inside ? `<div class="seg">${[['modern', 'Modern'], ['cosy', 'Cosy'], ['luxury', 'Luxury']].map(([k, n]) => `<button data-st="${k}" class="${(b.style || 'modern') === k ? 'on' : ''}">${n}</button>`).join('')}</div>` : ''}<div class="acts"><button class="btn ghost" id="pname">RENAME</button>${inside ? '<button class="btn ghost" id="pin">LOOK INSIDE</button>' : ''}</div>` : ''}`;
       acts = `<button class="btn gold" id="pcol1" ${o.cash || o.units ? '' : 'disabled'}>COLLECT</button>${up ? `<button class="btn go" id="pup" ${S.cash >= upc ? '' : 'disabled'}>${b.kind === 'tower' ? 'ADD FLOORS' : 'RENOVATE'} · ${usd(upc)}</button>` : ''}<button class="btn ghost" id="pdem2">DEMOLISH</button>`; }
     return { title: b ? (b.name || BLD[b.kind][0]) : PT[s.kind], html: `<b class="big">${esc(b ? (b.name || BLD[b.kind][0]) : PT[s.kind])}</b><p class="note">${esc(s.area)} · ${s.w}×${s.d} m${b ? '' : ''}</p>${body}<div class="acts sticky"><button class="btn ghost" id="pview">${ic('map')}VIEW</button>${acts}</div>`,
       bind: r => { const sync = () => { plotSync(id); save(); open('plot', id, true); stack.pop(); }, view = () => World.flyTo(World.view(s.x, s.z, 90, 0.8, 0.5), 1.1);
+        const again = () => { if (panel === 'plot' && arg === id) { open('plot', id, true); stack.pop(); } }, act = (a, title, sub, extra) => pcall('ci_plot', { p_id: id, p_act: a, p_arg: extra || {} }, title, sub, again);
+        if (NET.online) { // the island server does it; the same buttons, its answers
+          if ($('pbuy')) $('pbuy').onclick = () => act('buy', 'Plot bought', 'It is yours now'); if ($('psell')) $('psell').onclick = () => act('sell', 'Plot sold', usd(price * 0.6));
+          if ($('pdem')) $('pdem').onclick = () => act('clear', 'Old house pulled down', 'The ground is clear');
+          r.querySelectorAll('[data-bk]').forEach(x => x.onclick = () => { const k = x.dataset.bk; act('build', BLD[k][0] + ' built', 'It starts earning straight away', { kind: k, color: SW[(s.n * 3) % SW.length], roof: RW[(s.n * 5) % RW.length] }); view(); });
+          if ($('pcol1')) $('pcol1').onclick = () => act('collect', 'Collected', ''); if ($('pup')) $('pup').onclick = () => { act('upgrade', 'Renovated', 'Up a level'); view(); };
+          if ($('pdem2')) $('pdem2').onclick = () => { Plots.cutaway(id, false); act('demolish', 'Demolished', 'A quarter of what you spent comes back'); };
+          if ($('prent')) $('prent').onclick = () => act('rent', b && b.rent === false ? 'Rented out' : 'You moved in', ''); if ($('pstock')) $('pstock').onclick = () => act('restock', 'Restocked', 'The shelves are full');
+          r.querySelectorAll('[data-c]').forEach(x => x.onclick = () => act('look', 'Painted', '', { color: +x.dataset.c })); r.querySelectorAll('[data-r]').forEach(x => x.onclick = () => act('look', 'New roof', '', { roof: +x.dataset.r })); r.querySelectorAll('[data-st]').forEach(x => x.onclick = () => act('look', 'Restyled', '', { style: x.dataset.st }));
+          if ($('pname')) $('pname').onclick = () => { const n = prompt('Name this place', (b && b.name) || ''); if (n != null) act('look', 'Renamed', '', { name: n.trim().slice(0, 18) }); };
+        }
         $('pview').onclick = () => { view(); if (innerWidth < 760) { P.hidden = true; panel = ''; } };
+        if (!NET.online) {
         if ($('pbuy')) $('pbuy').onclick = () => { if (!on || S.cash < price) return; logCash(-price, 'Bought a ' + PT[s.kind].toLowerCase() + ' in ' + s.area); S.plots[id] = { at: now() }; once('plot:first', 25, 'First plot'); sync(); toast('Plot bought', 'It is yours now'); };
         if ($('psell')) $('psell').onclick = () => { logCash(Math.round(price * 0.6), 'Sold a plot in ' + s.area); delete S.plots[id]; sync(); toast('Plot sold', usd(price * 0.6)); };
         if ($('pdem')) $('pdem').onclick = () => { logCash(-300, 'Cleared the old house in ' + s.area); p.cleared = true; sync(); toast('Old house pulled down', 'The ground is clear'); };
@@ -674,18 +711,73 @@
         if ($('pstock')) $('pstock').onclick = () => { collect(id); logCash(-60, 'Restocked the shop'); b.stock = 100; save(); open('plot', id, true); stack.pop(); };
         r.querySelectorAll('[data-c]').forEach(x => x.onclick = () => { b.color = +x.dataset.c; sync(); }); r.querySelectorAll('[data-r]').forEach(x => x.onclick = () => { b.roof = +x.dataset.r; sync(); }); r.querySelectorAll('[data-st]').forEach(x => x.onclick = () => { b.style = x.dataset.st; sync(); });
         if ($('pname')) $('pname').onclick = () => { const n = prompt('Name this place', b.name || ''); if (n != null) { b.name = n.trim().slice(0, 18); sync(); } };
+        }
         if ($('pin')) $('pin').onclick = () => { const on2 = Plots.open !== id; Plots.cutaway(id, on2); World.flyTo(World.view(s.x, s.z, on2 ? 42 : 90, on2 ? 1.0 : 0.8, on2 ? 0 : 0.5), 1.1); $('pin').textContent = on2 ? 'CLOSE THE HOUSE' : 'LOOK INSIDE'; if (on2 && innerWidth < 760) { P.hidden = true; panel = ''; } }; } }; };
   const bizDefs = [['mine', 'Mine shift', 'Dig for an hour and a half of output at once.'], ['farm', 'Harvest run', 'Bring in an hour of crates right now.'], ['shop', 'Counter shift', 'Serve customers at your shop for a lump of cash.'], ['harbour', 'Freight run', 'Take a cargo out of your harbour for port fees.']];
   const bizPanel = () => { const cd = k => Math.max(0, Math.ceil(((S.cd[k] || 0) - now()) / 1000));
     return { title: 'Jobs · my business', html: `${jobsSeg()}<p class="note">These jobs need something you own. Build it on a plot, then work shifts here for a quick boost on top of the income it makes while you play.</p>${bizDefs.map(([k, n, d]) => { const has = myBuilt(k).length, c = cd(k); return `<div class="row ${has ? '' : 'lock'}"><span class="ic">${ic('truck')}</span><div><b>${n}</b><small>${has ? d : 'Needs ' + needTxt[k] + ' on one of your plots'}</small></div>${has ? `<button class="btn go" data-bz="${k}" ${c ? 'disabled' : ''}>${c ? c + 's' : 'WORK'}</button>` : '<button class="btn ghost" id="bzf">FIND PLOTS</button>'}</div>`; }).join('')}`,
-      bind: r => { bindSegs(r); if ($('bzf')) r.querySelectorAll('#bzf').forEach(b => b.onclick = () => open('plots', null, true)); r.querySelectorAll('[data-bz]').forEach(b => b.onclick = () => { const k = b.dataset.bz, mine = myBuilt(k); if (!mine.length || (S.cd[k] || 0) > now()) return; const bl = mine[0][1].b; let what = '';
+      bind: r => { bindSegs(r); if ($('bzf')) r.querySelectorAll('#bzf').forEach(b => b.onclick = () => open('plots', null, true)); r.querySelectorAll('[data-bz]').forEach(b => b.onclick = () => { const k = b.dataset.bz, mine = myBuilt(k); if (!mine.length || (S.cd[k] || 0) > now()) return; if (NET.online) return pcall('ci_biz', { p_kind: k }, 'Shift done', bizDefs.find(d => d[0] === k)[1], () => open('jobs')); const bl = mine[0][1].b; let what = '';
         if (k === 'mine') { const n = Math.round(yieldOf(bl) * 1.5); S.res[bl.res || 'stone'] = (S.res[bl.res || 'stone'] || 0) + n; what = n + ' ' + (bl.res || 'stone'); } else if (k === 'farm') { const n = Math.round(yieldOf(bl)); E.farm.qty += n; E.farm.cost += n * 4; what = n + ' crates'; } else { const c = k === 'shop' ? Math.round(rateOf(bl) * 0.6) : Math.round(rateOf(bl) * 1.2); logCash(c, bizDefs.find(d => d[0] === k)[1]); what = usd(c); }
         S.cd[k] = now() + (k === 'harbour' ? 120e3 : 75e3); xp(4, 'Business job'); save(); toast('Shift done', what); open('jobs'); }); } }; };
   const marketPanel = () => { const trade = myBuilt(['office', 'tower']).length > 0, port = myBuilt('harbour').length > 0, mul = port ? 1.35 : 1;
     return { title: 'Trade · resources', html: `${tradeSeg()}<p class="note">${trade ? 'Island buyers pay these prices, and they move. ' + (port ? 'Your harbour ships exports for 35% more.' : 'A Harbour plot would add 35% on exports.') : 'To trade you need an Office or a Tower on one of your plots.'}</p>
       ${['stone', 'coal', 'oil', 'goods'].map(k => { const n = S.res[k] || 0, pr = Math.round(price(k) * mul); return `<div class="row"><span class="ic">${ic('truck')}</span><div><b>${OUT[k][0]} · ${usd(pr)} each</b><small>You have ${n}</small></div><button class="btn go" data-sell="${k}" ${trade && n ? '' : 'disabled'}>SELL ALL${n ? ' · ' + usd(n * pr) : ''}</button></div>`; }).join('')}
-      ${trade ? '' : '<button class="btn ghost" id="mfind">FIND PLOTS</button>'}`,
-      bind: r => { bindSegs(r); if ($('mfind')) $('mfind').onclick = () => open('plots', null, true); r.querySelectorAll('[data-sell]').forEach(b => b.onclick = () => { const k = b.dataset.sell, n = S.res[k] || 0; if (!n || !trade) return; const t = n * Math.round(price(k) * mul); S.res[k] = 0; logCash(t, 'Sold ' + n + ' ' + OUT[k][0].toLowerCase()); once('sell:' + k, 10, 'First sale of ' + OUT[k][0].toLowerCase()); save(); toast('Sold ' + n + ' ' + OUT[k][0].toLowerCase(), usd(t)); open('trade'); }); } }; };
+      ${trade ? '' : '<button class="btn ghost" id="mfind">FIND PLOTS</button>'}${aiHtml(trade)}`,
+      bind: r => { bindSegs(r); bindAi(r, trade); if ($('mfind')) $('mfind').onclick = () => open('plots', null, true); r.querySelectorAll('[data-sell]').forEach(b => b.onclick = () => { const k = b.dataset.sell, n = S.res[k] || 0; if (!n || !trade) return; if (NET.online) return pcall('ci_res_sell', { p_res: k }, 'Sold ' + n + ' ' + OUT[k][0].toLowerCase(), '', () => open('trade')); const t = n * Math.round(price(k) * mul); S.res[k] = 0; logCash(t, 'Sold ' + n + ' ' + OUT[k][0].toLowerCase()); once('sell:' + k, 10, 'First sale of ' + OUT[k][0].toLowerCase()); save(); toast('Sold ' + n + ' ' + OUT[k][0].toLowerCase(), usd(t)); open('trade'); }); } }; };
+  // ---------- island traders: three offers every five minutes, the same sums as the island server (ci_ai_offer) ----------
+  const SLOT = 300e3, TRN = ['Auntie Priya', 'Lee & Sons', 'Coral Supply', 'Dodo Hardware', 'Mr Bertrand', 'Harbour Mart', 'Island Build Co', 'Green Bay Traders'];
+  const aiOffer = (slot, n) => { const res = ['stone', 'coal', 'oil', 'goods'][(slot * 7 + n * 3) % 4], side = (slot + n) % 2 === 0 ? 'buy' : 'sell', k5 = (slot * 13 + n * 29) % 5;
+    return { n, res, side, qty: res === 'goods' ? 4 + k5 * 2 : 10 + k5 * 5, unit: Math.round(OUT[res][2] * (side === 'buy' ? 112 + (slot * 17 + n * 11) % 19 : 75 + (slot * 17 + n * 11) % 16) / 100), name: TRN[(slot * 5 + n * 7) % 8] }; };
+  const aiSlot = () => NET.online && AIS ? AIS.slot : Math.floor(now() / SLOT), aiList = () => NET.online && AIS ? AIS.list.map(o => Object.assign({}, o, { qty: +o.qty, unit: +o.unit })) : [0, 1, 2].map(n => aiOffer(aiSlot(), n));
+  const aiHtml = trade => { const left = Math.max(0, ((aiSlot() + 1) * SLOT - now() - (NET.online ? PSK : 0)) / 1000);
+    return `<p class="sec">Island traders · new offers in ${clock(left)}</p>${aiList().map(o => { const done = (S.cd['ai:' + o.n] || 0) > now(), t = o.qty * o.unit, can = trade && !done && (o.side === 'buy' ? (S.res[o.res] || 0) >= o.qty : S.cash >= t);
+      return `<div class="row"><span class="ic">${ic('bank')}</span><div><b>${esc(o.name)} ${o.side === 'buy' ? 'buys' : 'sells'} ${o.qty} ${OUT[o.res][0].toLowerCase()}</b><small>${usd(o.unit)} each · ${usd(t)} in all${o.side === 'buy' ? ' · you have ' + (S.res[o.res] || 0) : ''}</small></div><button class="btn ${done ? 'ghost' : 'go'}" data-ai="${o.n}" ${can ? '' : 'disabled'}>${done ? 'DONE' : o.side === 'buy' ? 'SELL' : 'BUY'}</button></div>`; }).join('')}
+      <p class="note">${trade ? 'Traders pay above the market when they buy and sell below it when they sell. One deal each per round.' : 'Trading with island traders also needs an Office or a Tower.'}</p>`; };
+  const bindAi = (r, trade) => r.querySelectorAll('[data-ai]').forEach(b => b.onclick = () => { const o = aiList().find(x => x.n === +b.dataset.ai), key = 'ai:' + o.n; if (!o || !trade || (S.cd[key] || 0) > now()) return;
+    if (NET.online) return pcall('ci_ai_deal', { p_n: o.n }, 'Deal done', o.name, () => open('trade'));
+    const t = o.qty * o.unit; if (o.side === 'buy') { if ((S.res[o.res] || 0) < o.qty) return; S.res[o.res] -= o.qty; logCash(t, 'Sold ' + o.qty + ' ' + o.res + ' to ' + o.name); } else { if (S.cash < t) return; logCash(-t, 'Bought ' + o.qty + ' ' + o.res + ' from ' + o.name); S.res[o.res] = (S.res[o.res] || 0) + o.qty; }
+    S.cd[key] = (aiSlot() + 1) * SLOT; xp(2, 'Trader deal'); save(); toast('Deal done', o.name); open('trade'); });
+  // ---------- the auction house: resources and whole plots; online other players bid, and an island trader buys what nobody bid on at a fair reserve ----------
+  let aucPick = { item: 'stone', qty: 10, mins: 5 };
+  const fairOf = a => a.item === 'plot' ? (() => { const s = siteOf(a.plot), p = pstate(a.plot); return s ? plotPrice(s) + ((p && p.b && p.b.invest) || 0) * 0.7 : 0; })() : a.qty * price(a.item);
+  const aucs = () => NET.online ? AUC : S.auc;
+  const lowBid = a => a.bid == null ? a.reserve : Math.max(a.bid + 1, Math.ceil(a.bid * 1.05));
+  function aucSettle() { if (NET.online) return; let ch = false; // offline: the auction ends with an island trader, or the item comes back
+    for (const a of S.auc) { if (a.status !== 'open' || a.ends > now()) continue; ch = true; const fair = fairOf(a), what = a.item === 'plot' ? 'a plot' : a.qty + ' ' + a.item;
+      if (a.reserve <= fair * 1.05) { const p = Math.max(a.reserve, Math.min(a.buyout || 1e12, Math.round(fair * 0.98))); logCash(Math.round(p * 0.95), 'Auction: sold ' + what + ' to an island trader'); a.status = 'sold'; a.bid = p; a.bidder_name = 'Island trader'; if (a.item === 'plot') { delete S.plots[a.plot]; plotSync(a.plot); } }
+      else { a.status = 'unsold'; if (a.item === 'plot') { if (S.plots[a.plot]) S.plots[a.plot].listed = false; } else S.res[a.item] = (S.res[a.item] || 0) + a.qty; }
+      a.closed = now(); toast(a.status === 'sold' ? 'Auction sold' : 'Auction ended', a.status === 'sold' ? what + ' for ' + usd(a.bid) : 'Nobody paid that much: ' + what + ' came back'); }
+    if (ch) { S.auc = S.auc.filter(a => a.status === 'open' || now() - (a.closed || 0) < 2 * 3600e3).slice(-30); save(); } }
+  const aucWhat = a => a.item === 'plot' ? (() => { const s = siteOf(a.plot); return s ? PT[s.kind] + ' in ' + s.area : 'A plot'; })() : a.qty + ' ' + OUT[a.item][0].toLowerCase();
+  const auctionPanel = () => { aucSettle(); const list = aucs(), open1 = list.filter(a => a.status === 'open'), done = list.filter(a => a.status !== 'open' && (a.mine || a.top || !NET.online));
+    const mineP = Object.entries(S.plots).filter(([, p]) => !p.listed).map(([i]) => i), items = [['stone', 'Stone'], ['coal', 'Coal'], ['oil', 'Oil'], ['goods', 'Goods']].map(([k, n]) => [k, `${n} (${S.res[k] || 0})`]).concat(mineP.map(i => ['plot:' + i, (pstate(i).b ? (pstate(i).b.name || BLD[pstate(i).b.kind][0]) : PT[siteOf(i).kind]) + ' · ' + siteOf(i).area]));
+    if (!items.some(([k]) => k === aucPick.item)) aucPick.item = 'stone';
+    const isPlot = aucPick.item.startsWith('plot:'), have = isPlot ? 1 : (S.res[aucPick.item] || 0), sugg = Math.max(1, Math.round(fairOf(isPlot ? { item: 'plot', plot: aucPick.item.slice(5) } : { item: aucPick.item, qty: Math.max(1, Math.min(have, aucPick.qty)) }) * 0.95));
+    const row = a => { const left = Math.max(0, (a.ends - now()) / 1000), mine = NET.online ? a.mine : true;
+      return `<div class="row"><span class="ic">${ic(a.item === 'plot' ? 'map' : 'truck')}</span><div><b>${esc(aucWhat(a))}</b><small>${mine ? 'Yours' : 'From ' + esc(a.seller_name)} · ${a.bid != null ? 'top bid ' + usd(a.bid) + (a.top ? ' (you)' : a.bidder_name ? ' by ' + esc(a.bidder_name) : '') : 'starts at ' + usd(a.reserve)}${a.buyout ? ' · buy now ' + usd(a.buyout) : ''} · ${a.status === 'open' ? 'ends in ' + clock(left) : a.status === 'sold' ? 'sold for ' + usd(a.bid) + (a.bidder_name ? ' to ' + esc(a.bidder_name) : '') : a.status}</small></div>
+        ${a.status !== 'open' ? '' : mine ? (a.bid == null ? `<button class="btn ghost" data-acx="${a.id}">CANCEL</button>` : '') : `${a.top ? '' : `<button class="btn go" data-abid="${a.id}" ${S.cash >= lowBid(a) ? '' : 'disabled'}>BID ${usd(lowBid(a))}</button>`}${a.buyout ? `<button class="btn gold" data-abuy="${a.id}" ${S.cash >= a.buyout ? '' : 'disabled'}>BUY</button>` : ''}`}</div>`; };
+    return { title: 'Trade · auction house', html: `${tradeSeg()}<p class="note">${NET.online ? 'Sell resources or a whole plot to other players. Bids are held by the island server and come back if you are outbid. If nobody bids, an island trader buys it at a fair price, as long as your starting price is not too high.' : 'Offline, island traders buy what you put up when the starting price is fair. Play online and other players bid too.'} The house keeps 5%.</p>
+      <p class="sec">Up for auction (${open1.length})</p>${open1.length ? open1.map(row).join('') : '<p class="note">Nothing up for auction right now. Be the first.</p>'}
+      <p class="sec">Sell something</p><div class="row wrap"><div><b>What</b></div><div class="seg">${items.map(([k, n]) => `<button data-ai2="${k}" class="${k === aucPick.item ? 'on' : ''}">${esc(n)}</button>`).join('')}</div></div>
+      ${isPlot ? '' : `<div class="row"><div><b>How many</b><small>You have ${have}</small></div><input id="aq" type="number" min="1" max="${Math.max(1, have)}" value="${Math.max(1, Math.min(have || 1, aucPick.qty))}" inputmode="numeric" style="width:90px"></div>`}
+      <div class="row"><div><b>Starting price</b><small>A fair price now: about ${usd(sugg)}</small></div><input id="ar" type="number" min="1" value="${sugg}" inputmode="numeric" style="width:110px"></div>
+      <div class="row"><div><b>Buy now (optional)</b><small>Anyone can take it at once for this</small></div><input id="ab" type="number" min="1" placeholder="—" inputmode="numeric" style="width:110px"></div>
+      <div class="row wrap"><div><b>Runs for</b></div><div class="seg">${[5, 15, 60].map(m => `<button data-am="${m}" class="${m === aucPick.mins ? 'on' : ''}">${m} min</button>`).join('')}</div></div>
+      <div class="acts"><button class="btn go" id="alist" ${have ? '' : 'disabled'}>PUT UP FOR AUCTION</button></div>
+      ${done.length ? `<p class="sec">Ended</p>${done.slice(0, 10).map(row).join('')}` : ''}`,
+      bind: r => { bindSegs(r); r.querySelectorAll('[data-ai2]').forEach(b => b.onclick = () => { aucPick.item = b.dataset.ai2; open('trade'); }); r.querySelectorAll('[data-am]').forEach(b => b.onclick = () => { aucPick.mins = +b.dataset.am; open('trade'); });
+        if ($('aq')) $('aq').onchange = () => { aucPick.qty = Math.max(1, Math.round(+$('aq').value || 1)); open('trade'); };
+        $('alist').onclick = () => { const qty = isPlot ? 1 : Math.max(1, Math.round(+($('aq') || {}).value || 1)), reserve = Math.round(+$('ar').value || 0), buyout = $('ab').value ? Math.round(+$('ab').value) : null, plot = isPlot ? aucPick.item.slice(5) : null, item = isPlot ? 'plot' : aucPick.item;
+          if (reserve < 1) return toast('Set a starting price', '', true); if (buyout != null && buyout < reserve) return toast('Buy now must be at least the starting price', '', true); if (!isPlot && qty > have) return toast('You don\'t have that many', '', true);
+          if (NET.online) return pcall('ci_auction_new', { p_item: item, p_qty: qty, p_plot: plot, p_reserve: reserve, p_buyout: buyout, p_minutes: aucPick.mins }, 'Up for auction', aucWhat({ item, qty, plot }), () => open('trade'));
+          if (S.auc.filter(a => a.status === 'open').length >= 5) return toast('You can have 5 auctions at a time', '', true);
+          if (isPlot) { const p = pstate(plot); if (!p) return; collect(plot); p.listed = true; } else S.res[item] -= qty;
+          S.auc.push({ id: 'a' + Date.now(), item, qty, plot, reserve, buyout, bid: null, seller_name: S.name, ends: now() + aucPick.mins * 60e3, status: 'open', mine: true }); once('auction:first', 10, 'First auction'); save(); toast('Up for auction', aucWhat({ item, qty, plot })); open('trade'); };
+        r.querySelectorAll('[data-acx]').forEach(b => b.onclick = () => { if (NET.online) return pcall('ci_auction_cancel', { p_id: b.dataset.acx }, 'Auction cancelled', 'It came back to you', () => open('trade'));
+          const a = S.auc.find(x => x.id === b.dataset.acx); if (!a || a.status !== 'open') return; a.status = 'cancelled'; a.closed = now(); if (a.item === 'plot') { if (S.plots[a.plot]) S.plots[a.plot].listed = false; } else S.res[a.item] = (S.res[a.item] || 0) + a.qty; save(); open('trade'); });
+        r.querySelectorAll('[data-abid]').forEach(b => b.onclick = () => { const a = AUC.find(x => x.id === b.dataset.abid); if (a) pcall('ci_auction_bid', { p_id: a.id, p_amount: lowBid(a) }, 'Bid placed', usd(lowBid(a)) + ' is held until the auction ends', () => open('trade')); });
+        r.querySelectorAll('[data-abuy]').forEach(b => b.onclick = () => { const a = AUC.find(x => x.id === b.dataset.abuy); if (a && confirm('Buy ' + aucWhat(a) + ' now for ' + usd(a.buyout) + '?')) pcall('ci_auction_bid', { p_id: a.id, p_amount: a.buyout }, 'Bought', aucWhat(a), () => open('trade')); }); } }; };
+  setInterval(aucSettle, 5000);
   PANELS.plots = plotsPanel; PANELS.plot = plotPanel;
   setInterval(() => { if ((panel === 'plot' || panel === 'plots' || panel === 'jobs' || panel === 'trade') && !P.hidden && !document.querySelector('#pbody :focus')) refresh(); }, 6000);
   let bridgeClosed = false, mlistPick = {};
@@ -696,5 +788,5 @@
   let down = null;
   $('c').addEventListener('pointerdown', e => { down = [e.clientX, e.clientY, performance.now()]; if (follow) unfollow(); });
   $('c').addEventListener('pointerup', e => { if (!down || $('hud').hidden || World.flying) return; const moved = Math.hypot(e.clientX - down[0], e.clientY - down[1]), quick = performance.now() - down[2] < 450; down = null; if (moved > 8 || !quick) return; const nx = e.clientX / innerWidth * 2 - 1, ny = -(e.clientY / innerHeight) * 2 + 1, pid = window.Plots && Plots.sites.length ? Plots.pick(nx, ny) : null; if (pid) { open('plot', pid); return; } const b = World.pickAt(nx, ny); if (b) open('card', b.id); else if (!P.hidden && innerWidth >= 760) close(); });
-  window.App = { S, E, NET, open, close, visit, level, quote, confirm, economy, handles, lotOf, market, get OWN() { return OWN; }, get MARKET() { return MARKET; }, frame: () => loop(performance.now()) }; // frame(): one step by hand, for tests in a hidden tab
+  window.App = { S, E, NET, applyPlots, open, close, visit, level, quote, confirm, economy, handles, lotOf, market, get OWN() { return OWN; }, get MARKET() { return MARKET; }, frame: () => loop(performance.now()) }; // frame(): one step by hand, for tests in a hidden tab
 })();

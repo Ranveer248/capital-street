@@ -277,7 +277,7 @@ window.World = (function () {
   const crossAt = e => { const out = []; for (const [N, s] of [[e.a, e.a.r + 7.5], [e.b, e.len - e.b.r - 7.5]]) if (e.kind === 'town' && N.deg >= 3 && s > 8 && s < e.len - 8) out.push([N, s]); if (out.length === 2 && out[1][1] - out[0][1] < 16) out.length = 1; return out; };
   function buildRoads() {
     textures();
-    const S = { asph: [], conc: [], grav: [], paving: [] }, pave = [], curb = [], tact = [], paint = [], marks = { road: [], villa: [], works: [] };
+    const S = { asph: [], conc: [], grav: [], paving: [] }, pave = [], curb = [], tact = [], paint = [], marks = { road: [], villa: [], works: [] }, ISL = [], ROUND = [];
     for (const e of edges) {
       const W = WALK[e.kind], hw = e.w / 2, sa = e.a.deg >= 3 ? e.a.r : 0, sb = e.len - (e.b.deg >= 3 ? e.b.r : 0), xs = crossAt(e);
       if (e.kind !== 'bridge') ribbon(S[SURF[e.kind]], e.pts, hw, hw, 0.14);
@@ -303,6 +303,10 @@ window.World = (function () {
         const A = armsOf(N), ring = [];
         A.forEach((a, i) => { const b = A[(i + 1) % A.length], k = kerb(a, b); ring.push(a.R, a.Lf, ...k.slice(1, -1)); const W = Math.min(WALK[a.e.kind] || 0, WALK[b.e.kind] || 0); if (W) { ribbon(pave, k, W, 0.6, 0.1); ribbon(curb, k, 0.28, 0.02, 0.17); } });
         fan(S[A.some(a => SURF[a.e.kind] === 'asph') ? 'asph' : 'conc'], [N.x, N.y, N.z], ring, 0.15); ring.c = [N.x, N.y, N.z]; JUNC.push(ring);
+        if (N.round) { // a roundabout: a round carriageway, a kerbed island of grass, a give-way ring painted round it
+          const circ = (r, n = 36) => Array.from({ length: n + 1 }, (_, i) => [N.x + Math.cos(i / n * Math.PI * 2) * r, N.y, N.z + Math.sin(i / n * Math.PI * 2) * r]);
+          disc(S.asph, N.x, N.y, N.z, N.r - 0.4, 0.155, 40); disc(ISL, N.x, N.y, N.z, N.round, 0.42, 32); ribbon(curb, circ(N.round), 0.05, 0.35, 0.44); ribbon(paint, circ(N.r - 1.4), 0.12, 0.12, 0.17); ROUND.push(N);
+        }
       } else if (N.deg === 2 && N.edges.every(e => e.kind !== 'bridge')) { // a bend: fill the outside of the corner
         const hw = Math.max(...N.edges.map(e => e.w)) / 2, W = Math.min(...N.edges.map(e => WALK[e.kind] || 0)); disc(S[SURF[N.edges[0].kind]], N.x, N.y, N.z, hw, 0.14); if (W) disc(pave, N.x, N.y, N.z, hw + W, 0.1);
       } else if (N.deg === 1) { // a dead end: a pad the vehicles turn on, in the surface of the place it serves
@@ -314,7 +318,14 @@ window.World = (function () {
     }
     const M = (c, f, o = {}) => off(new THREE.MeshStandardMaterial(Object.assign({ color: lin(c), roughness: 0.9 }, o)), f);
     triMesh(pave, M(0xd9d3c6, -1)); triMesh(S.asph, M(0x474c55, -2, { roughness: 0.85 })); triMesh(S.conc, M(0xb7b3aa, -2)); triMesh(S.grav, M(0xc4ad84, -2, { roughness: 1 })); triMesh(S.paving, M(0xe6dcc8, -2));
-    triMesh(curb, M(0xf1ede4, -3)); triMesh(tact, M(0xe2c66a, -2)); const pm = triMesh(paint, M(0xf7f7f2, -4, { roughness: 0.7 })); pm.renderOrder = 3;
+    triMesh(curb, M(0xf1ede4, -3)); triMesh(tact, M(0xe2c66a, -2)); if (ISL.length) triMesh(ISL, M(0x5fa83a, -1));
+    World.roundabouts = ROUND.map(N => [Math.round(N.x), Math.round(N.z)]);
+    for (const N of ROUND) { // in the middle: a palm and a ring of flowers
+      const g = new THREE.Group(); g.position.set(N.x, N.y + 0.42, N.z); const st = (geo, c, x, y, z, sx, sy, sz, rx, ry) => { const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: lin(c), roughness: 0.8 })); m.position.set(x, y, z); m.scale.set(sx, sy, sz); if (rx) m.rotation.x = rx; if (ry) m.rotation.y = ry; m.castShadow = true; g.add(m); return m; };
+      const cyl = new THREE.CylinderGeometry(1, 1, 1, 8), cone = new THREE.ConeGeometry(1, 1, 5), sph = new THREE.SphereGeometry(1, 8, 6);
+      st(cyl, 0x8a6a46, 0, 3, 0, 0.22, 6, 0.22); for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2, leaf = st(cone, 0x2f8f3a, Math.cos(a) * 1.4, 5.9, Math.sin(a) * 1.4, 0.5, 3, 0.25, 0, -a); leaf.rotation.z = Math.PI / 2 + 0.35; leaf.rotation.order = 'YZX'; }
+      for (let i = 0; i < 14; i++) { const a = i / 14 * Math.PI * 2; st(sph, [0xe8483f, 0xf2b705, 0xff8fb1, 0xffffff][i % 4], Math.cos(a) * (N.round - 0.9), 0.25, Math.sin(a) * (N.round - 0.9), 0.4, 0.3, 0.4); }
+      scene.add(g); } const pm = triMesh(paint, M(0xf7f7f2, -4, { roughness: 0.7 })); pm.renderOrder = 3;
     for (const [k, t] of [['road', tex.road], ['villa', tex.roadV], ['works', tex.roadW]]) { if (!marks[k].length) continue; const mk = triMesh(marks[k], off(new THREE.MeshStandardMaterial({ map: t, transparent: true, roughness: 0.8, depthWrite: false }), -3), 16); mk.renderOrder = 2; }
     for (const e of edges) if (e.kind === 'bridge') { const st = e.opt && e.opt.style; if (st === 'river') buildSmallBridge(e); else if (st === 'suspension') buildSuspension(e); else buildBridge(e); }
   }
@@ -1184,19 +1195,29 @@ window.World = (function () {
     const lights = (w, y, f, b) => { for (const s of [-1, 1]) { at(fixed, B(0.36, 0.16, 0.06), VCOL.lamp, s * (w / 2 - 0.3), y, f); at(fixed, B(0.32, 0.15, 0.06), VCOL.tail, s * (w / 2 - 0.28), y, b); } };
     const bumpers = (w, y, f, b) => { at(fixed, B(w + 0.04, 0.22, 0.24), D, 0, y, f); at(fixed, B(w + 0.04, 0.22, 0.24), D, 0, y, b); };
     const mirrors = (w, y, z) => { for (const s of [-1, 1]) at(fixed, B(0.2, 0.13, 0.1), D, s * (w / 2 + 0.1), y, z); };
+    // the finer parts: number plates, door seams and handles, dark wheel arches, window pillars, side skirts
+    const detail = (w, y, h, f, b, doors, arches, ar, pillar) => { for (const z of [f + 0.13, b - 0.13]) at(fixed, B(0.5, 0.12, 0.03), VCOL.white, 0, y - h / 2 + 0.08, z);
+      for (const s of [-1, 1]) { for (const z of doors) { at(fixed, B(0.02, h * 0.82, 0.03), D, s * (w / 2 + 0.005), y, z); at(fixed, B(0.03, 0.04, 0.18), VCOL.rim, s * (w / 2 + 0.01), y + h * 0.25, z - 0.3); }
+        for (const z of arches) at(fixed, B(0.03, ar * 0.75, ar * 2.4), D, s * (w / 2 + 0.008), ar * 1.35, z); at(fixed, B(0.03, 0.08, Math.abs(f - b) * 0.55), D, s * (w / 2 + 0.008), y - h / 2 + 0.04, (f + b) / 2);
+        if (pillar) at(fixed, B(0.06, pillar[1], 0.1), D, s * pillar[0], pillar[2], pillar[3]); } };
     if (type === 'compact') { // a hatchback: short bonnet, steep tailgate
       at(body, B(1.7, 0.52, 3.75), W, 0, 0.62, 0); at(body, taper(1.66, 0.12, 1.05, 1.6, 0.95, -0.05), W, 0, 0.88, 1.32); at(fixed, taper(1.62, 0.6, 2.45, 1.38, 1.6, -0.32), G, 0, 0.88, -0.4); at(body, B(1.42, 0.07, 1.55), W, 0, 1.5, -0.62);
-      bumpers(1.7, 0.42, 1.86, -1.86); lights(1.7, 0.74, 1.88, -1.88); mirrors(1.62, 1.02, 0.6); }
+      bumpers(1.7, 0.42, 1.86, -1.86); lights(1.7, 0.74, 1.88, -1.88); mirrors(1.62, 1.02, 0.6); detail(1.7, 0.62, 0.52, 1.86, -1.86, [0.45], [1.2, -1.15], 0.31, [0.74, 0.5, 1.15, -0.2]); }
     else if (type === 'sedan') { // a saloon: bonnet, cabin, boot
       at(body, B(1.8, 0.5, 4.65), W, 0, 0.62, 0); at(fixed, taper(1.74, 0.58, 2.4, 1.44, 1.55, -0.1), G, 0, 0.87, -0.2); at(body, B(1.46, 0.07, 1.5), W, 0, 1.47, -0.3); at(body, B(1.76, 0.06, 1.05), W, 0, 0.9, -1.75); at(body, B(1.76, 0.06, 1.3), W, 0, 0.9, 1.65);
-      at(fixed, B(1.0, 0.2, 0.05), D, 0, 0.62, 2.34); bumpers(1.8, 0.42, 2.36, -2.36); lights(1.8, 0.75, 2.36, -2.36); mirrors(1.74, 1.0, 0.8); }
+      at(fixed, B(1.0, 0.2, 0.05), D, 0, 0.62, 2.34); bumpers(1.8, 0.42, 2.36, -2.36); lights(1.8, 0.75, 2.36, -2.36); mirrors(1.74, 1.0, 0.8); detail(1.8, 0.62, 0.5, 2.36, -2.36, [0.75, -0.45], [1.45, -1.45], 0.33, [0.8, 0.5, 1.14, -0.15]); }
     else if (type === 'suv') { // tall body, upright cabin, roof rails
       at(body, B(1.92, 0.78, 4.6), W, 0, 0.84, 0); at(fixed, taper(1.88, 0.7, 3.05, 1.74, 2.7, -0.12), G, 0, 1.23, -0.35); at(body, B(1.76, 0.08, 2.65), W, 0, 1.96, -0.45); for (const s of [-1, 1]) at(fixed, B(0.06, 0.08, 2.4), D, s * 0.78, 2.04, -0.45);
-      at(fixed, B(1.2, 0.3, 0.05), D, 0, 0.86, 2.31); bumpers(1.92, 0.52, 2.34, -2.34); lights(1.92, 1.02, 2.31, -2.31); mirrors(1.88, 1.35, 0.95); }
+      at(fixed, B(1.2, 0.3, 0.05), D, 0, 0.86, 2.31); bumpers(1.92, 0.52, 2.34, -2.34); lights(1.92, 1.02, 2.31, -2.31); mirrors(1.88, 1.35, 0.95); detail(1.92, 0.84, 0.78, 2.34, -2.34, [0.85, -0.5], [1.5, -1.45], 0.4, [0.88, 0.62, 1.58, -0.2]); }
     else if (type === 'pickup') { // a cab and an open load bed
       at(body, B(1.94, 0.66, 5.2), W, 0, 0.76, 0); at(fixed, taper(1.9, 0.72, 2.0, 1.72, 1.7, -0.1), G, 0, 1.09, 0.75); at(body, B(1.74, 0.08, 1.7), W, 0, 1.84, 0.7);
       for (const s of [-1, 1]) at(body, B(0.1, 0.5, 2.3), W, s * 0.92, 1.34, -1.4); at(body, B(1.94, 0.5, 0.1), W, 0, 1.34, -2.55); at(fixed, B(1.72, 0.05, 2.3), D, 0, 1.11, -1.4);
-      at(fixed, B(1.2, 0.3, 0.05), D, 0, 0.8, 2.61); bumpers(1.94, 0.5, 2.64, -2.64); lights(1.94, 0.95, 2.61, -2.61); mirrors(1.9, 1.3, 1.4); }
+      at(fixed, B(1.2, 0.3, 0.05), D, 0, 0.8, 2.61); bumpers(1.94, 0.5, 2.64, -2.64); lights(1.94, 0.95, 2.61, -2.61); mirrors(1.9, 1.3, 1.4); detail(1.94, 0.76, 0.66, 2.64, -2.64, [1.1], [1.75, -1.55], 0.4, null);
+    }
+    else if (type === 'sports') { // a low coupe: long bonnet, small glasshouse, a rear wing
+      at(body, B(1.86, 0.42, 4.3), W, 0, 0.52, 0); at(body, taper(1.84, 0.1, 1.6, 1.74, 1.5, 0), W, 0, 0.73, 1.3); at(fixed, taper(1.72, 0.44, 2.1, 1.3, 1.1, -0.3), G, 0, 0.73, -0.3); at(body, B(1.28, 0.05, 1.0), W, 0, 1.17, -0.5);
+      at(fixed, B(1.76, 0.06, 0.38), D, 0, 1.02, -1.98); for (const s of [-1, 1]) { at(fixed, B(0.08, 0.3, 0.08), D, s * 0.6, 0.86, -1.98); at(fixed, B(0.04, 0.2, 0.7), D, s * 0.94, 0.62, 0.7); }
+      at(fixed, B(1.1, 0.12, 0.05), D, 0, 0.45, 2.16); bumpers(1.86, 0.34, 2.16, -2.16); lights(1.86, 0.62, 2.16, -2.16); mirrors(1.72, 0.92, 0.45); detail(1.86, 0.52, 0.42, 2.16, -2.16, [0.1], [1.35, -1.35], 0.32, null); }
     else if (type === 'van') { at(body, B(2, 1.95, 3.9), W, 0, 1.43, -0.55); at(body, taper(2, 1.2, 1.25, 1.9, 0.7, -0.27), W, 0, 0.45, 2.02); at(fixed, B(1.82, 0.62, 0.06), G, 0, 1.55, 2.0); at(fixed, B(2.02, 0.32, 3.4), VCOL.stripe, 0, 1.0, -0.5); for (const s of [-1, 1]) at(fixed, B(0.04, 0.55, 0.7), G, s * 1.0, 1.65, 1.15);
       bumpers(2, 0.42, 2.66, -2.52); lights(2, 0.75, 2.66, -2.51); mirrors(2, 1.6, 1.7); }
     else if (type === 'bus') { at(body, B(2.5, 2.7, 11), W, 0, 1.75, 0); at(fixed, B(2.54, 1.0, 9.6), G, 0, 2.05, -0.2); at(fixed, B(2.2, 1.3, 0.06), G, 0, 2.0, 5.51); at(fixed, B(1.6, 0.3, 0.06), lin(0xffd21f), 0, 2.85, 5.52); at(fixed, B(2.3, 0.12, 10.4), VCOL.white, 0, 3.15, 0); at(fixed, B(0.06, 2.1, 1.1), G, 1.26, 1.45, 3.9); lights(2.5, 0.85, 5.51, -5.51); }
@@ -1214,7 +1235,7 @@ window.World = (function () {
   }
   const wl = (x, f, b, r, wd = 0.24, rear2) => [[-x, f, r, wd, 1], [x, f, r, wd, 1], [-x, b, r, wd], [x, b, r, wd]].concat(rear2 != null ? [[-x, rear2, r, wd], [x, rear2, r, wd]] : []); // wheels: [x, z, radius, width, steers]
   const VT = { compact: { len: 3.8, paint: [0xe8483f, 0xf2b705, 0x2fb7c4, 0x8a4fd6, 0xffffff, 0x9fd36a], vf: 1, wheels: wl(0.74, 1.2, -1.15, 0.31) }, sedan: { len: 4.7, paint: [0xffffff, 0x2e5aa8, 0xb9c0c8, 0x24282e, 0xc0392b], vf: 1, wheels: wl(0.8, 1.45, -1.45, 0.33, 0.26) },
-    suv: { len: 4.7, paint: [0x2e5aa8, 0x24282e, 0xb9c0c8, 0xffffff, 0x7a1f2b], vf: 0.95, wheels: wl(0.84, 1.5, -1.45, 0.4, 0.28) }, pickup: { len: 5.3, paint: [0xc0392b, 0x2f5f3a, 0xf2f2f2, 0x2e5aa8], vf: 0.92, wheels: wl(0.84, 1.75, -1.55, 0.4, 0.28) },
+    sports: { len: 4.3, paint: [0xd8392b, 0xf2b705, 0x1f8fff, 0x16181c, 0xffffff, 0x2fbf6a], vf: 1.12, wheels: wl(0.82, 1.35, -1.35, 0.32, 0.27) }, suv: { len: 4.7, paint: [0x2e5aa8, 0x24282e, 0xb9c0c8, 0xffffff, 0x7a1f2b], vf: 0.95, wheels: wl(0.84, 1.5, -1.45, 0.4, 0.28) }, pickup: { len: 5.3, paint: [0xc0392b, 0x2f5f3a, 0xf2f2f2, 0x2e5aa8], vf: 0.92, wheels: wl(0.84, 1.75, -1.55, 0.4, 0.28) },
     van: { len: 5.3, paint: [0xffffff], vf: 0.9, wheels: wl(0.88, 1.75, -1.6, 0.36, 0.28) }, bus: { len: 11, paint: [0xf28c28], vf: 0.8, wheels: wl(1.08, 3.6, -3.6, 0.5, 0.32) },
     truck: { len: 9.5, paint: [0xf2b705, 0xe8762c, 0x1f8f5b, 0xd8392b], vf: 0.8, wheels: wl(1.0, 3.3, -2.8, 0.5, 0.36, -3.9) }, flatbed: { len: 9.5, paint: [0x2f8f3a], vf: 0.8, wheels: wl(1.0, 3.3, -2.8, 0.5, 0.36, -3.9) }, tanker: { len: 9.5, paint: [0xd8392b], vf: 0.8, wheels: wl(1.0, 3.3, -2.8, 0.5, 0.36, -3.9) } };
   let WHEEL = null; const _wm = new THREE.Matrix4(), _wq = new THREE.Matrix4();
@@ -1252,7 +1273,7 @@ window.World = (function () {
   const SHIP = []; // the delivery jobs the trucks and vans run: queued → loading → travelling → delivered (or failed)
   function buildTraffic() {
     seed = 3; const plan = [];
-    for (const [k, n] of (EXPANDED ? [['compact', 20], ['sedan', 18], ['suv', 12], ['pickup', 8]] : [['compact', 10], ['sedan', 9], ['suv', 6], ['pickup', 3]])) for (let i = 0; i < n; i++) plan.push({ type: k });
+    for (const [k, n] of (EXPANDED ? [['compact', 18], ['sedan', 17], ['suv', 11], ['pickup', 7], ['sports', 6]] : [['compact', 10], ['sedan', 9], ['suv', 6], ['pickup', 3]])) for (let i = 0; i < n; i++) plan.push({ type: k });
     plan.push({ type: 'bus', loop: ['A', 'B', 'C', 'D', 'X', 'E', 'F', 'F2', 'G2', 'H2', 'H', 'I'], stops: [['B', 'C', 0.55], ['G2', 'H2', 0.5]] });
     plan.push({ type: 'truck', job: { name: 'Containers → Processing Plant', from: 'K', to: 'P' } }, { type: 'truck', job: { name: 'Crates → Harbour quay', from: 'P', to: 'K' } }, { type: 'truck', job: { name: 'Goods → Delivery depot', from: 'K', to: 'G' } });
     plan.push({ type: 'van', job: { name: 'Groceries → Old Quarter shops', from: 'G', to: 'C' } }, { type: 'van', job: { name: 'Linen → Hotel Azure', from: 'G', to: 'J' } });
@@ -1274,7 +1295,7 @@ window.World = (function () {
     });
     for (const [type, x, z, h, y] of PARKED) { const m = meshes[type], i = m.n++; m.body.setColorAt(i, c.set(pick(VT[type].paint)).convertSRGBToLinear()); tmp.position.set(x, (y != null ? y : TOWN_Y) + 0.12, z); tmp.rotation.set(0, h, 0); tmp.scale.setScalar(1); tmp.updateMatrix(); setPose(type, i, tmp.matrix); }
     for (const k of ['truck', 'van', 'flatbed', 'tanker']) { const m = meshes[k]; for (let j = 0; j < 6; j++) { const i = m.n++; SPARE[k].push(i); hide(m, i); m.body.setColorAt(i, c.set(0xffc93c).convertSRGBToLinear()); } }
-    for (const k in meshes) meshes[k].body.instanceColor.needsUpdate = true;
+    for (const k in meshes) if (meshes[k].body.instanceColor) meshes[k].body.instanceColor.needsUpdate = true; // a type with no vehicles here has no colours
     // ---------- traffic lights: the busy junctions of the towns get signals; cars stop on red and go on green, and the poles show the colour ----------
     { const SIG = Object.values(nodes).filter(N => N.deg >= 3 && N.edges.some(e => e.kind === 'town') && N.edges.filter(e => e.kind !== 'bridge').length >= 3); World.signals = SIG.length; World.sigNodes = SIG.map(N => [Math.round(N.x), Math.round(N.z)]);
       const n = SIG.length * 4, pole = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.1, 0.1, 5, 6), new THREE.MeshStandardMaterial({ color: 0x2b3440 }), n), head = new THREE.InstancedMesh(new THREE.BoxGeometry(0.5, 1.5, 0.5), new THREE.MeshBasicMaterial({ color: 0xffffff }), n), m4 = new THREE.Matrix4(), col = new THREE.Color(), rig = [];

@@ -1,8 +1,8 @@
-# Server upgrade 3: what it would add, and why (not written as SQL yet, NOT applied)
+# Server upgrade 3: what it adds, and why (written as island3.sql and APPLIED on 2026-11-07 with the owner's OK)
 
 Plots, building, mining and the resource market work today on one device (offline). Online, the island server keeps
 cash and property, so these need new server tables and functions before they can be switched on for everyone.
-Nothing here has been run against the live Supabase project; it needs the owner's OK first.
+It was applied to the live Supabase project on 2026-11-07 after the owner said to go ahead; undo with island3-undo.sql.
 
 ## What it adds
 - `ci_plots`: one row per plot (id, owner, kind, building json: kind, level, colours, interior, name, last-collected time).

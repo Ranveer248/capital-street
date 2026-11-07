@@ -674,3 +674,19 @@ Map data © OpenStreetMap contributors and Overture Maps Foundation (ODbL / CDLA
 ## Goal 39: the bigger island
 
 The island is about four times larger (2.1 km² against 0.55 km²). `island/sample/geo.js` holds the geography (coast, ground, rivers, road network) as plain maths shared by the game and the tests; with `?classic` it reproduces the first island exactly. `island/sample/expand.js` builds the new regions (towns, farms, works, resort, airport, quarry, landmarks); `world.js` has the chunked ground, forest levels of detail, river water and bridges. Both generated files were produced from source parts that are not in the repo; edit them directly.
+
+## Goal 40: plots online, auction house, island traders, roundabouts, skyline
+
+- **Server upgrade 3** (`server/island3.sql`, applied to the live project on 2026-11-07 with the owner's OK; undo: `server/island3-undo.sql`). It only adds tables
+  (`ci_plot_sites`, `ci_plots`, `ci_res`, `ci_cd`, `ci_auctions`) and functions (`ci_plot`, `ci_plots_collect`, `ci_biz`, `ci_res_sell`, `ci_ai_deal`,
+  `ci_auction_new`, `ci_auction_bid`, `ci_auction_cancel`, `ci_plots_state`); nothing existing changed. Income is worked out on the server from timestamps.
+  The rules match the plots block in `island/sample/app.js`; the island trader offers (`ci_ai_offer`) use the same integer sums as `aiOffer` in app.js.
+- **Plot ids are fixed**: the server knows plots `pl0`…`pl37` by id, and `plots()` in expand.js makes them in order from a seeded random. New plot kinds or
+  anything that reserves ground must go AFTER the existing CAT entries (or after `plots` in ORDER), and new plots need a row in `ci_plot_sites`.
+- Online, the game mirrors `ci_plots_state` (`applyPlots`); this device's offline plots are kept aside (`S.offPlots`) and come back when playing offline.
+- Auction house: resources or a plot; the item and the bids are held by the server; an auction nobody bid on is bought by an island trader at 98% of a fair
+  price (within the reserve and the buy-now price) when the reserve is at most 5% over fair, otherwise it goes back. Settled whenever anyone loads the state.
+- Roundabouts: `geo.js` marks open junctions of main roads (`N.round`) when every arm is long enough; connectors go round the island; `world.js` draws them.
+- Skyline: `skyline()` in expand.js (after plots) places six city-owned towers (not for sale, so no server lots needed).
+- Cars: `detail()` in `vehicleGeo` adds plates, seams, arches and pillars; a new `sports` type.
+- Not done: the island is about 4× the first one, not 10×; no new roundabouts on the new land (its main roads are cut into short pieces); load time on a real phone not measured.

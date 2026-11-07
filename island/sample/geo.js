@@ -600,6 +600,10 @@
     edges.push(e); A.edges.push(e); B.edges.push(e);
   });
   for (const id in nodes) { const N = nodes[id], deg = N.edges.length; N.deg = deg; N.r = deg === 1 ? 10 : deg >= 3 ? Math.max(...N.edges.map(e => e.w)) / 2 + 2 : 0; }
+  // roundabouts (the bigger island): open junctions of the main roads, away from town streets and lights, where every arm is long enough,
+  // get a planted island that the traffic drives round (keeping it on the left: they drive on the right)
+  if (EXPANDED) for (const id in nodes) { const N = nodes[id], R = 11; if (N.deg < 3 || N.deg > 4 || !N.edges.some(e => e.kind === 'road') || N.edges.some(e => ['town', 'bridge', 'works', 'quay'].includes(e.kind))) continue;
+    if (N.edges.every(e => { const o = e.a === N ? e.b : e.a; return e.len - R - (o.deg >= 3 ? Math.max(o.r, R) : 8) >= 3; })) { N.round = 3.6; N.r = R; } }
   // lanes: drive on the right, a lane each way, offset from the centreline; trimmed where a junction takes over
   function offsetLine(pts, off) {
     return pts.map((p, i) => { const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)], dx = b[0] - a[0], dz = b[2] - a[2], L = Math.hypot(dx, dz) || 1; return [p[0] - dz / L * off, p[1], p[2] + dx / L * off]; });
@@ -621,6 +625,14 @@
   const conns = new Map();
   function connector(a, b) { // a smooth curve from the end of one lane to the start of the next, through the junction
     const key = a.id + '>' + b.id; if (conns.has(key)) return conns.get(key);
+    if (a.to.round) { // a roundabout: in, round the island the short way that keeps it on the left, and out (a U-turn goes all the way round)
+      const N = a.to, P0 = a.pts[a.pts.length - 1], P3 = b.pts[0], Rr = N.round + 3.4, dl = 0.45, ta = Math.atan2(P0[2] - N.z, P0[0] - N.x), tb = Math.atan2(P3[2] - N.z, P3[0] - N.x);
+      let D = ((ta - tb) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI); if (D < 2 * dl + 0.25) D += 2 * Math.PI;
+      const th = []; for (let t = ta - dl; t > ta - D + dl; t -= 0.14) th.push(t); th.push(ta - D + dl);
+      const r0 = Math.hypot(P0[0] - N.x, P0[2] - N.z), r3 = Math.hypot(P3[0] - N.x, P3[2] - N.z), at = (r, t) => [N.x + Math.cos(t) * r, 0, N.z + Math.sin(t) * r];
+      const raw = [P0, at(r0 * 0.62 + Rr * 0.38, ta - dl * 0.3), ...th.map(t => at(Rr, t)), at(r3 * 0.62 + Rr * 0.38, ta - D + dl * 0.3), P3], pts = raw.map((p, i) => [p[0], mix(P0[1], P3[1], i / (raw.length - 1)), p[2]]);
+      const c = makePath(pts, { kind: 'conn', node: N, from: a, to: b, uturn: a.e === b.e, round: true }); c.vmax = 7; conns.set(key, c); return c;
+    }
     const P0 = a.pts[a.pts.length - 1], P3 = b.pts[0], far = (pts, from, dir) => { let i = from; while (i + dir >= 0 && i + dir < pts.length && Math.hypot(pts[i][0] - pts[from][0], pts[i][2] - pts[from][2]) < 1.5) i += dir; return pts[i]; }, pa = far(a.pts, a.pts.length - 1, -1), pb = far(b.pts, 0, 1); // directions from points at least 1.5 m apart, never from a sliver
     const t0 = [P0[0] - pa[0], P0[2] - pa[2]], t3 = [pb[0] - P3[0], pb[2] - P3[2]], n0 = Math.hypot(...t0) || 1, n3 = Math.hypot(...t3) || 1;
     const uturn = a.e === b.e, dist = Math.hypot(P3[0] - P0[0], P3[2] - P0[2]), k = uturn ? 7.5 : Math.max(1.5, dist * 0.42);

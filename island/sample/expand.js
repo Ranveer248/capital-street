@@ -600,11 +600,13 @@
         ['stone', 'Redstone Quarry', [[880, 1130, -900, -640]], 34, 34, 3, { res: 'stone' }, 120], ['coal', 'Deepwell Mine', [[1040, 1280, -740, -540]], 34, 34, 3, { res: 'coal' }, 120], ['oil', 'Southern oil field', [[700, 1000, -20, 130]], 34, 34, 3, { res: 'oil' }, 120],
         ['villa', 'Luxury coast', [[-700, -540, -400, -200]], 28, 30, 4, null, 70], ['villa', 'Coral Coast', [[-860, -700, -760, -480]], 28, 30, 3, null, 70],
         ['industrial', 'Works Estate', [[740, 1040, -330, -70]], 38, 38, 5, null, 80], ['harbour', 'Northhaven quay', [[-190, 70, -990, -880]], 40, 36, 2, null, 100],
-        ['tower', 'Capital', [[-260, 260, -330, 120]], 30, 30, 5, null, 70]];
-      for (const [kind, area, boxes, w, d, n, extra, near] of CAT) { const res = !!(extra && extra.res);
+        ['tower', 'Capital', [[-260, 260, -330, 120]], 30, 30, 5, null, 70],
+        // added later (Goal 40): new entries go at the END so the plots above keep their ids (the island server knows them)
+        ['harbour', 'Northhaven quay', [[-320, 160, -1080, -820]], 28, 24, 2, { port: 1 }, 200], ['harbour', 'Marina Cove', [[-900, -600, -560, -280]], 28, 24, 1, { port: 1 }, 200], ['harbour', 'Eastgate docks', [[560, 1100, -800, -380]], 28, 24, 1, { port: 1 }, 200], ['harbour', 'Works quay', [[640, 1150, -380, -40]], 28, 24, 1, { port: 1 }, 200], ['harbour', 'South quay', [[560, 1100, -60, 200]], 28, 24, 1, { port: 1 }, 200]];
+      for (const [kind, area, boxes, w, d, n, extra0, near] of CAT) { const res = !!(extra0 && extra0.res), port = !!(extra0 && extra0.port), extra = port ? null : extra0;
         const w0 = Object.assign({}, WHY); let made = 0, far = 0; for (let t = 0; t < 1800 && made < n; t++) {
           const b = boxes[t % boxes.length], x = b[0] + R() * (b[1] - b[0]), z = b[2] + R() * (b[3] - b[2]);
-          if (!fitsAt(x, z, w + 6, d + 6, 0, { slope: res ? 9 : kind === 'farm' || kind === 'villa' ? 5.5 : 3.4, road: 3, coast: kind === 'harbour' ? 10 : 18, river: 8 })) continue; if (nearRoad(x, z)[0] > near || (kind === 'harbour' && land(x, z) > 75)) { far++; continue; }
+          if (!fitsAt(x, z, w + 6, d + 6, 0, { slope: res ? 9 : kind === 'farm' || kind === 'villa' ? 5.5 : 3.4, road: 3, coast: port ? 0.5 : kind === 'harbour' ? 10 : 18, river: 8 })) continue; if (nearRoad(x, z)[0] > near || (kind === 'harbour' && land(x, z) > (port ? 60 : 75))) { far++; continue; }
           if (!res && !['industrial', 'harbour'].includes(kind) && NOFIELD.some(r => x > r[0] && x < r[1] && z > r[2] && z < r[3]) || K.FARMRECTS.some(f => inR(x, z, { x: f.x, z: f.z, w: f.w + w + 10, d: f.d + d + 10, rot: f.rot || 0 }))) continue;
           if (out.some(p => Math.abs(p.x - x) < (p.w + w) / 2 + 8 && Math.abs(p.z - z) < (p.d + d) / 2 + 8)) continue;
           reserve({ x, z, w: w + 4, d: d + 4, rot: 0 }); out.push(Object.assign({ id: 'pl' + out.length, kind, area, x: Math.round(x * 10) / 10, z: Math.round(z * 10) / 10, y: Math.round(groundY(x, z) * 100) / 100, w, d, rot: 0, old: R() < (kind === 'town' || kind === 'villa' ? 0.5 : 0.15) }, extra || {})); made++;
@@ -615,7 +617,15 @@
     }
 
     // ---------- build every region, then give every new front door its path ----------
-    const ORDER = [millford, northhaven, eastgate, hillcrest, farms, estateBlocks, terminal, airport, quarry, mine, westCoast, landmarks, plots];
+    function skyline() { // Goal 40: a skyline for the capital: tall glass towers on free ground near its streets (after plots, so plot ids stay put)
+      const R = rng(4242), made = [], NAMES = ['Ocean Gate Tower', 'Coral Heights', 'Sugar Cane Plaza', 'The Lagoon Tower', 'Port Royal One', 'Island Trade Centre'], COLS = [0xcfe4f7, 0xbfe0f0, 0xe6f6ff, 0xd6ecff, 0xc9dcef, 0xdff3ff];
+      for (let t = 0; t < 2600 && made.length < 6; t++) { const x = -300 + R() * 620, z = -360 + R() * 520, w = 22 + Math.floor(R() * 3) * 2;
+        if (!fitsAt(x, z, w + 4, w + 4, 0, { slope: 2.4, road: 4, coast: 16, river: 8 }) || nearRoad(x, z)[0] > w / 2 + 16 || made.some(m => Math.hypot(m.x - x, m.z - z) < 70)) continue;
+        const k = made.length; reserve({ x, z, w: w + 6, d: w + 6, rot: 0 }); keepClear(x - w / 2 - 3, x + w / 2 + 3, z - w / 2 - 3, z + w / 2 + 3);
+        addBuilding({ id: 'sky' + k, type: 'tower', name: NAMES[k], area: 'Business Centre', x, z, y: groundY(x, z), rot: 0, w, d: w, floors: 18 + Math.floor(R() * 13), style: 1 + (k % 2), color: COLS[k], owner: 'city' }); made.push({ x, z }); }
+      WORKS.skyline = made.length; lap('skyline');
+    }
+    const ORDER = [millford, northhaven, eastgate, hillcrest, farms, estateBlocks, terminal, airport, quarry, mine, westCoast, landmarks, plots, skyline];
     for (const f of ORDER) { try { f(); } catch (e) { console.error('region failed:', f.name, e); } }
     obstacleIndex(LOTS); entrances(LOTS);
     K.WORLD_WORKS.times = TIMES; K.WORLD_WORKS.why = WHY; K.WORLD_WORKS.fwhy = FW; Object.assign(K.WORLD_WORKS, WORKS); World.expansion = K.WORLD_WORKS;

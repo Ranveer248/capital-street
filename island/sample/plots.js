@@ -39,12 +39,28 @@
     if (t >= 3 || villa) { box(g, w * 0.7, 0.2, 7, 0, 0.35, -d / 2 - 5, 0xece3cf); box(g, w * 0.6, 0.12, 5, 0, 0.5, -d / 2 - 5, 0x35c6ea, { roughness: 0.15 }); box(g, w * 0.6, 0.6, 0.5, 0, 0.5, d / 2 - 0.2, 0xf4f1ea); }
     if (t >= 2) for (let i = -1; i <= 1; i += 2) cyl(g, 0.5, 2.2, i * (w / 2 + 1.5), 0.2, -d / 2 - 1.5, 0x4f9e3a);
     return parts; }
-  function shop(g, o) { const t = o.tier || 1, w = 14, d = 9, fl = t >= 2 ? 2 : 1, H = fl * 3.4, col = o.color || 0xf2d9a8; box(g, w + 1, 0.4, d + 1, 0, 0, 0, 0xa8a090);
+  function shop(g, o) { const t = o.tier || 1, w = 14, d = 9, fl = t >= 2 ? 2 : 1, H = fl * 3.4, col = o.color || 0xf2d9a8, f = FUR[o.style] || FUR.modern; box(g, w + 1, 0.4, d + 1, 0, 0, 0, 0xa8a090);
     wall(g, w, H, 0.4, 0, 0.4, -d / 2, col, fl); wall(g, 0.4, H, d, -w / 2, 0.4, 0, col, fl); wall(g, 0.4, H, d, w / 2, 0.4, 0, col, fl); const front = wall(g, w, H, 0.4, 0, 0.4, d / 2, col, fl);
-    box(g, w - 2, 2.6, 0.2, 0, 0.6, d / 2 + 0.15, 0x9fc4e0, { transparent: true, opacity: 0.65, roughness: 0.1 }); for (let i = 0; i < 7; i++) box(g, 2, 0.5, 2.4, -w / 2 + 1.1 + i * 2.1, 3.05, d / 2 + 1.1, i % 2 ? 0xffffff : (o.roof || 0xd8392b));
-    const sb = new THREE.Mesh(new THREE.PlaneGeometry(8, 1.6), label(o.name || 'SHOP', '#' + (o.roof || 0xd8392b).toString(16).padStart(6, '0'), '#fff')); sb.position.set(0, 4.6, d / 2 + 0.3); g.add(sb);
-    box(g, w + 0.6, 0.5, d + 0.6, 0, H + 0.4, 0, 0xf4f1ea); box(g, 2, 1.2, 2, w / 3, H + 0.9, -1, 0xcfd6dc); for (let i = 0; i < 4; i++) box(g, 1.6, 1.1, 0.7, -3 + i * 1.8, 0.4, d / 2 + 0.9, [0xe8483f, 0xf2b705, 0x2e74c9, 0x4f9e3a][i]);
-    return { roof: [], front: [front] }; }
+    const glass = box(g, w - 2, 2.6, 0.2, 0, 0.6, d / 2 + 0.15, 0x9fc4e0, { transparent: true, opacity: 0.65, roughness: 0.1 }), awn = new THREE.Group(); g.add(awn); for (let i = 0; i < 7; i++) box(awn, 2, 0.5, 2.4, -w / 2 + 1.1 + i * 2.1, 3.05, d / 2 + 1.1, i % 2 ? 0xffffff : (o.roof || 0xd8392b));
+    const sb = new THREE.Mesh(new THREE.PlaneGeometry(8, 1.6), label(o.name || 'SHOP', '#' + (o.roof || 0xd8392b).toString(16).padStart(6, '0'), '#fff')); sb.position.set(0, 4.6, d / 2 + 0.3); awn.add(sb);
+    const rf = new THREE.Group(); g.add(rf); box(rf, w + 0.6, 0.5, d + 0.6, 0, H + 0.4, 0, 0xf4f1ea); box(rf, 2, 1.2, 2, w / 3, H + 0.9, -1, 0xcfd6dc); for (let i = 0; i < 4; i++) box(g, 1.6, 1.1, 0.7, -3 + i * 1.8, 0.4, d / 2 + 0.9, [0xe8483f, 0xf2b705, 0x2e74c9, 0x4f9e3a][i]);
+    // inside: a tiled floor, three aisles of shelves with stock, a counter with a till, a fridge and a light
+    box(g, w - 1, 0.06, d - 1, 0, 0.42, 0, 0xe9e4da); const CS = [0xe8483f, 0xf2b705, 0x2e74c9, 0x4f9e3a, 0xff8fb1, 0xffffff];
+    for (let i = 0; i < 3; i++) { const z = -d / 2 + 1.5 + i * 2.1; box(g, 7.4, 1.9, 0.7, -2, 0.45, z, f.wood); for (let k = 0; k < 8; k++) for (let lv = 0; lv < 2; lv++) box(g, 0.7, 0.4, 0.5, -5.2 + k * 0.92, 0.95 + lv * 0.62, z, CS[(k + i + lv) % 6]); }
+    box(g, 1.2, 1.1, 3.6, w / 2 - 2.2, 0.45, d / 2 - 2.6, f.acc); box(g, 0.6, 0.45, 0.5, w / 2 - 2.2, 1.55, d / 2 - 1.6, 0x2b2f36); box(g, 1.4, 2.3, 1, w / 2 - 1.3, 0.45, -d / 2 + 1.2, 0xdfe7ee);
+    add(g, SPH, mat(f.acc, { emissive: lin(f.acc), emissiveIntensity: 0.3 }), 0, Math.min(H, 3.4) - 0.2, 0, 0.35, 0.35, 0.35);
+    return { roof: [rf], front: [front, glass, awn] }; }
+  function office(g, o) { const t = o.tier || 1, fl = 2 + t, w = 14, d = 12, H = fl * 3.4, col = o.color || 0xbfd8ea, f = FUR[o.style] || FUR.modern; box(g, w + 5, 0.5, d + 5, 0, 0, 0, 0xb5b0a4);
+    const shell = new THREE.Group(); g.add(shell); wall(shell, w, H, 0.3, 0, 0.5, -d / 2, col, fl, true); wall(shell, 0.3, H, d, -w / 2, 0.5, 0, col, fl, true); wall(shell, 0.3, H, d, w / 2, 0.5, 0, col, fl, true); wall(shell, w, H, 0.3, 0, 0.5, d / 2, col, fl, true);
+    for (let k = 1; k < fl; k++) box(shell, w + 0.4, 0.25, d + 0.4, 0, 0.5 + k * 3.4 - 0.12, 0, 0xf4f4f0); // the floor bands outside
+    const rf = new THREE.Group(); g.add(rf); box(rf, w + 0.6, 0.5, d + 0.6, 0, H + 0.5, 0, 0xf4f4f0); box(rf, 3.4, 1.8, 3, -w / 4, H + 1, -d / 4, 0xcfd6dc); box(rf, 2, 1.2, 2, w / 4, H + 1, -d / 4, 0xcfd6dc);
+    for (let k = 0; k < fl; k++) box(g, w - 0.6, 0.2, d - 0.6, 0, 0.5 + k * 3.4, 0, 0xd9d4c8);
+    const y = 0.5 + (fl - 1) * 3.4 + 0.2; // the top floor is furnished: desks with screens and chairs, a meeting table, plants
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) { const x = -w / 2 + 3 + i * 4.2, z = -d / 4 + j * (d / 2) - 0.6; box(g, 2.6, 0.78, 1.2, x, y, z, f.wood); box(g, 1, 0.6, 0.08, x, y + 0.78, z - 0.35, 0x2b2f36); box(g, 0.7, 0.5, 0.7, x, y, z + 1.1, f.sofa); }
+    box(g, 2.2, 0.78, 3, w / 2 - 2.6, y, 0, f.acc); for (const s of [-1, 1]) cyl(g, 0.45, 1.5, s * (w / 2 - 1.2), y, d / 2 - 1.2, 0x4f9e3a);
+    box(g, 6, 0.3, 3, 0, 3.4, d / 2 + 1.5, 0xf4f4f0); box(g, 3, 2.6, 0.2, 0, 0.5, d / 2 + 0.1, 0x2b3440);
+    const sb = new THREE.Mesh(new THREE.PlaneGeometry(7, 1.6), label(o.name || 'OFFICES', '#10245a', '#ffd23f')); sb.position.set(0, 4.6, d / 2 + 0.25); g.add(sb);
+    return { roof: [rf], front: [shell, sb] }; }
   function farm(g, o) { const t = o.tier || 1, rc = o.roof || 0xb03a2e; box(g, 12, 0.4, 9, -4, 0, -5, 0xb8a078);
     wall(g, 12, 6, 8, -4, 0.4, -5, 0xc0392b, 1); const r = gable(g, 12, 8, 6.4, 3.2, 0x7a838c, 1); r.position.set(-4, 0, -5); box(g, 4, 4.6, 0.2, -4, 0.4, -0.95, 0xf4f1ea); cyl(g, 2.2, 11, 6, 0.4, -7, 0xd9dde0); add(g, SPH, mat(0x9aa5ad), 6, 11.4, -7, 2.2, 1.6, 2.2);
     const cs = [0x8ac04b, 0xe8c547, 0x5fa83a, 0xc9a13b]; for (let i = 0; i < 2 + t; i++) { const x = -8 + (i % 3) * 9, z = 5 + Math.floor(i / 3) * 8; box(g, 8, 0.25, 6.4, x, 0.1, z, cs[i % 4]); for (let k = 0; k < 5; k++) box(g, 7.6, 0.18, 0.3, x, 0.32, z - 2.4 + k * 1.2, [0x4f8f2f, 0xb08a2b][i % 2]); }
@@ -65,10 +81,10 @@
     let y = 7.5; const steps = fl > 14 ? [[16, 16, 0.55], [12, 12, 0.3]] : [[16, 16, 1]]; let used = 0; for (const [w, d, share] of steps) { const n = Math.round((fl - 2) * share), h = n * 3.2; wall(g, w, h, d, 0, y, 0, col, n, true); box(g, w + 0.6, 0.5, d + 0.6, 0, y + h, 0, 0xf4f4f0); y += h + 0.5; used += n; }
     box(g, 4, 2, 4, 0, y, 0, 0xcfd6dc); cyl(g, 0.2, 14 + t * 4, 0, y + 2, 0, 0xd8392b); add(g, SPH, mat(0xff4b3a, { emissive: lin(0xff4b3a), emissiveIntensity: 0.8 }), 0, y + 16 + t * 4, 0, 0.7, 0.7, 0.7); return { roof: [], front: [] }; }
   function ruin(g) { box(g, 11, 0.4, 9, 0, 0, 0, 0x8f8672); wall(g, 9, 5.6, 0.4, 0, 0.4, -4, 0xa59a86, 2); wall(g, 0.4, 5.6, 7, -4.5, 0.4, 0, 0xa59a86, 2); wall(g, 0.4, 3.2, 7, 4.5, 0.4, 0, 0xa59a86, 1); wall(g, 9, 3, 0.4, 0, 0.4, 3.5, 0xa59a86, 1); const r = add(g, BOX, mat(0x5a4a3a), 0, 6.2, -1, 9.8, 0.4, 5); r.rotation.z = 0.12; r.rotation.x = -0.1; box(g, 8, 0.2, 0.3, 0, 1.2, 3.8, 0x6a4a30); for (let i = 0; i < 6; i++) add(g, CONE4, mat(0x6f8f4b), -4 + i * 1.8, 0.7, 5.6 + (i % 2), 0.9, 1.2, 0.9); return { roof: [], front: [] }; }
-  const KINDS = { house: (g, o) => house(g, o, false), villa: (g, o) => house(g, o, true), shop, farm, mine, warehouse: industrial, factory: (g, o) => industrial(g, Object.assign({}, o, { kind: 'factory' })), harbour, tower, office: (g, o) => tower(g, Object.assign({}, o, { tier: 1 })), ruin };
+  const KINDS = { house: (g, o) => house(g, o, false), villa: (g, o) => house(g, o, true), shop, farm, mine, warehouse: industrial, factory: (g, o) => industrial(g, Object.assign({}, o, { kind: 'factory' })), harbour, tower, office, ruin };
   P.kinds = Object.keys(KINDS);
   // ---------- markers, picking, state ----------
-  const COLS = { sale: [1, 0.69, 0.13], mine: [0.19, 0.75, 0.38] };
+  const COLS = { sale: [1, 0.69, 0.13], mine: [0.19, 0.75, 0.38], other: [0.3, 0.55, 1] };
   P.init = function (w, sc, cam, sites) {
     W = w; scene = sc; camera = cam; P.sites = sites || []; P.by = {}; ray = new THREE.Raycaster(); const pos = [], col = [], idx = [];
     P.sites.forEach((s, n) => { P.by[s.id] = s; s.n = n; const hw = s.w / 2, hd = s.d / 2, ring = []; for (const [ax, az, bx, bz] of [[-hw, -hd, hw, -hd], [hw, -hd, hw, hd], [hw, hd, -hw, hd], [-hw, hd, -hw, -hd]]) { const L = Math.hypot(bx - ax, bz - az), k = Math.ceil(L / 4); for (let i = 0; i < k; i++) ring.push([ax + (bx - ax) * i / k, az + (bz - az) * i / k]); }
@@ -80,7 +96,7 @@
   };
   const paint = (s, rgb) => { const a = ribbon.geometry.attributes.color; for (let i = s.v0; i < s.v1; i++) a.setXYZ(i, rgb[0], rgb[1], rgb[2]); a.needsUpdate = true; const c = new THREE.Color(rgb[0], rgb[1], rgb[2]); flags.setColorAt(s.n, c); flags.instanceColor.needsUpdate = true; };
   // st: { owned, old, b: { kind, tier, color, roof, style, name, res } | null }
-  P.set = function (id, st) { const s = P.by[id]; if (!s) return; P.st[id] = st; paint(s, st.owned ? COLS.mine : COLS.sale);
+  P.set = function (id, st) { const s = P.by[id]; if (!s) return; P.st[id] = st; paint(s, st.owned ? COLS.mine : st.other ? COLS.other : COLS.sale);
     const old = P.groups[id]; if (old) { scene.remove(old); old.traverse(o => { if (o.isMesh && o.geometry && o.geometry !== BOX && o.geometry !== CYL && o.geometry !== CONE4 && o.geometry !== SPH && o.geometry !== CYL3 && o.geometry.dispose) o.geometry.dispose(); }); delete P.groups[id]; }
     const kind = st.b ? st.b.kind : st.old ? 'ruin' : null; if (!kind || !KINDS[kind]) return; const g = new THREE.Group(); g.position.set(s.x, s.y + 0.05, s.z); g.userData.plot = id; const plinth = box(g, s.w - 2, 3, s.d - 2, 0, -2.9, 0, 0x8f8672); void plinth; const parts = KINDS[kind](g, Object.assign({ res: s.res }, st.b || {})) || {}; g.userData.parts = parts; scene.add(g); P.groups[id] = g; if (P.open === id) P.cutaway(id, true); };
   P.cutaway = function (id, on) { const g = P.groups[id], p = g && g.userData.parts; if (!p) return false; for (const m of (p.front || [])) m.visible = !on; for (const r of (p.roof || [])) r.visible = !on; P.open = on ? id : null; return !!(p.front && p.front.length); };
