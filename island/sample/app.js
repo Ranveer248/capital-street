@@ -171,7 +171,7 @@
   // ---------- updates, like Traffic Rush: version.json (the site's root) names the newest release, APP_VERSION this copy.
   // Bump BOTH for every release. When they differ the game says so, fetches its files fresh (past the browser's cache) and
   // reloads: at once on the cover, or while playing the next time no panel is open (and you go straight back in).
-  const APP_VERSION = '2026-11-07.3';
+  const APP_VERSION = '2026-11-07.4';
   let updBusy = false;
   async function checkUpdate() {
     if (updBusy || (joining && !started) || !/^https?:$/.test(location.protocol)) return; // not inside the desktop app
@@ -189,6 +189,15 @@
       setTimeout(() => location.replace(location.pathname + '?' + q + location.hash), 900);
     } catch (e) { /* offline or a slow connection: tried again later */ } finally { updBusy = false; }
   }
+  // ---------- inside the phone app: no status bar; Android's back button closes the open panel, or puts the game away ----------
+  { const P = window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform() && Capacitor.Plugins;
+    if (P) {
+      if (P.StatusBar) P.StatusBar.hide().catch(() => {});
+      if (P.App) {
+        P.App.addListener('pause', () => { if (!NET.online) save(); });
+        P.App.addListener('backButton', () => { if (!$('panel').hidden) { $('pX').click(); return; } if (!NET.online) save(); P.App.minimizeApp(); });
+      }
+    } }
   setTimeout(checkUpdate, 1500); setInterval(checkUpdate, 5 * 60e3);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(); });
 

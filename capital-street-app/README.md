@@ -1,6 +1,6 @@
 # Capital Street: the app
 
-The game (this repo's root, one folder up) wrapped with [Capacitor](https://capacitorjs.com) for Android and iPhone. The app carries every file inside it (the game, three.js, fonts and all five cities' map data, about 17 MB), so it works offline.
+The game (this repo's root, one folder up) wrapped with [Capacitor](https://capacitorjs.com) for Android and iPhone. The app carries every file inside it (the game, three.js, fonts and map data, about 19 MB), so it works offline. It opens Capital Island (`island/sample/`, through a start line `copy-web.js` adds to its copy of `index.html`); the older New York game is still inside at `index.html?newyork`.
 
 - **App name:** Capital Street
 - **App ID:** `com.ranveer248.capitalstreet`. Change it in `capacitor.config.json`, `android/app/build.gradle` and the Xcode project **before** the first store upload; after that it can never change.
@@ -37,7 +37,7 @@ npm run assets    # after changing assets/*.png: regenerates every icon and spla
 3. On GitHub, open the repo → Settings → Secrets and variables → Actions, and add:
    `ANDROID_KEYSTORE_BASE64` (the base64 text), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` (`upload`), `ANDROID_KEY_PASSWORD`.
 4. Re-run the workflow. A new artifact, **capital-street-play-bundle**, holds `app-release.aab`.
-5. In the Play Console, create the app, fill in the store listing (text below), the privacy policy link, the content rating questionnaire and the data safety form ("no data collected"). Then upload the `.aab` to **Internal testing** first, then Production.
+5. In the Play Console, create the app, fill in the store listing (text below), the privacy policy link, the content rating questionnaire and the data safety form. Online play keeps an account ID, the player name, game progress and (only if the player adds one) an email, all for the game to work, never shared or sold; playing offline collects nothing. `privacy.html` lists it all. Then upload the `.aab` to **Internal testing** first, then Production.
 
 ## Apple App Store
 
@@ -53,23 +53,24 @@ The signed Android bundle and the App Store upload are wired up but have not run
 ## Store listing
 
 - **Name:** Capital Street
-- **Subtitle / short description:** Trade your way from rent day to Wall Street.
+- **Subtitle (Apple, 30 characters max):** Build your island empire
+- **Short description (Google Play, 80 max):** Farm, build and trade your way to the top of a tropical island.
 - **Category:** Games → Simulation
 - **Description:**
 
-  > Rent is due. You're alone in a tiny New York apartment with a stack of bills and an envelope of cash you just found. Trade it into a fortune.
+  > Start with one field and one truck on Capital Island, a sunny island country with a busy capital, seaside towns, farms, beaches, a harbour, an airport and a mountain.
   >
-  > Capital Street is a paper-trading game on a living, real-scale 3D map of Manhattan. Buy and sell shares in fictional companies on the Share Exchange while the market reacts to whatever the city throws at it: crashes, rallies, blackouts, hurricanes, hacks and worse.
+  > Grow crops, deliver them to the co-op and the island's hotels, and level up. Then buy plots of land and build on them: houses, shops, offices, farms, mines and skyscrapers. Mine stone, coal and oil, make goods, and trade your way to the top of the island.
   >
-  > • Pay your rent, or get evicted
-  > • Take bank loans, and build your credit score
-  > • Buy real buildings floor by floor and collect rent
-  > • Lift the roof off your Wall Street office, furnish it, and hire interns, employees and brokers
-  > • Open branches in London, Tokyo, Hong Kong and Dubai
+  > • Buy, build, upgrade, rent out or knock down your own plots
+  > • Look inside your shops and offices
+  > • Sell on the market, deal with the island traders, and bid in the auction house
+  > • A living island: traffic lights, roundabouts, delivery trucks, sunshine, rain, thunderstorms and the odd tornado out at sea
+  > • Play online on one shared island with other players, or offline on your own
   >
-  > Every company and price is fictional. No real money, no ads, no tracking, and it plays offline.
+  > No real money and no ads. Every business and price in the game is made up.
 
-- **Keywords (Apple):** stocks,trading,tycoon,wall street,business,simulator,market,money,new york,city
+- **Keywords (Apple, 100 characters max):** tycoon,island,business,farm,build,trade,city,simulator,empire,money,auction,tropical,builder
 - **Privacy policy URL:** `https://ranveer248.github.io/capital-street/privacy.html` (the game's `privacy.html`, live on GitHub Pages).
-- **Content rating notes:** fictional stock trading with no real money and no gambling. One of the random market events is a plane crashing into a Midtown tower (shown as smoke and a news headline). Reviewers may ask about it.
+- **Content rating notes:** a business and building game with no real money and no gambling. The auction house uses in-game money only. Online players choose a name that others can see. The older New York game inside the app has a random market event where a plane crashes into a tower (shown as smoke and a news headline); reviewers may ask about it.
 - **Screenshots:** phones need 6.7" iPhone (1290 × 2796) and Android phone shots. Take them from the game in a browser's phone view, or from the simulator.
