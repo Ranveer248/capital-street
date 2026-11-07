@@ -4,7 +4,7 @@
 name: Capital Street app
 on:
   push:
-    paths: ['index.html', '*.html', 'sw.js', 'manifest.webmanifest', 'js/**', 'lib/**', 'data/**', 'fonts/**', 'icons/**', 'capital-street-app/**', '.github/workflows/capital-street-app.yml']
+    paths: ['index.html', '*.html', 'sw.js', 'version.json', 'manifest.webmanifest', 'island/**', 'js/**', 'lib/**', 'data/**', 'fonts/**', 'icons/**', 'capital-street-app/**', '.github/workflows/capital-street-app.yml']
   workflow_dispatch:
 env:
   VERSION_NAME: '1.0'
