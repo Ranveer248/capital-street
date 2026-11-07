@@ -3,6 +3,48 @@
 (function () {
   'use strict';
   const G = window.IslandGeo; if (!G.EXPANDED) return;
+  // the 38 plot sites exactly as plots() found them (the island server knows these ids, so they must never move). plots() uses this table instead of searching
+  // again; open the game with ?plotcalc to search afresh (then World.plotSites, minus n, v0 and v1, is the new table)
+  const BAKED_PLOTS = [
+    {"id":"pl0","kind":"town","area":"Millford","x":58,"z":-879.1,"y":3.01,"rx":57.99067729524833,"rz":-879.110977598052,"w":20,"d":22,"rot":0,"old":false},
+    {"id":"pl1","kind":"town","area":"Millford","x":-97.6,"z":-778.6,"y":2.97,"rx":-97.58688290025428,"rz":-778.5821393079041,"w":20,"d":22,"rot":0,"old":false},
+    {"id":"pl2","kind":"town","area":"Millford","x":-106.3,"z":-826.9,"y":2.98,"rx":-106.28691983236322,"rz":-826.9198462725244,"w":20,"d":22,"rot":0,"old":false},
+    {"id":"pl3","kind":"town","area":"Northhaven","x":-184.9,"z":-924.5,"y":3.44,"rx":-184.90540158697655,"rz":-924.4783088213197,"w":20,"d":22,"rot":0,"old":true},
+    {"id":"pl4","kind":"town","area":"Northhaven","x":53.7,"z":-911.1,"y":2.95,"rx":53.7011610268155,"rz":-911.0758684347737,"w":20,"d":22,"rot":0,"old":true},
+    {"id":"pl5","kind":"town","area":"Northhaven","x":-178.3,"z":-965.1,"y":3.48,"rx":-178.28804815573992,"rz":-965.108884994457,"w":20,"d":22,"rot":0,"old":true},
+    {"id":"pl6","kind":"town","area":"Eastgate","x":630,"z":-656.5,"y":8.94,"rx":629.9975817883376,"rz":-656.5143067280363,"w":20,"d":22,"rot":0,"old":false},
+    {"id":"pl7","kind":"town","area":"Eastgate","x":638.7,"z":-457.8,"y":9.05,"rx":638.6694686387989,"rz":-457.7924701654317,"w":20,"d":22,"rot":0,"old":true},
+    {"id":"pl8","kind":"town","area":"Eastgate","x":751.2,"z":-445.5,"y":3.03,"rx":751.230622078865,"rz":-445.5477764110769,"w":20,"d":22,"rot":0,"old":true},
+    {"id":"pl9","kind":"town","area":"Eastgate","x":730.2,"z":-670.2,"y":2.99,"rx":730.2048090706602,"rz":-670.2191595315091,"w":20,"d":22,"rot":0,"old":false},
+    {"id":"pl10","kind":"town","area":"Eastgate","x":917.7,"z":-540.9,"y":4.88,"rx":917.7255849622775,"rz":-540.874831201916,"w":20,"d":22,"rot":0,"old":false},
+    {"id":"pl11","kind":"farm","area":"Greenfields plain","x":351.4,"z":-885.7,"y":9.09,"rx":351.4073052589815,"rz":-885.6713896690269,"w":44,"d":32,"rot":0,"old":false},
+    {"id":"pl12","kind":"farm","area":"Greenfields plain","x":219.9,"z":-802.3,"y":2.96,"rx":219.93986612183036,"rz":-802.2829542086846,"w":44,"d":32,"rot":0,"old":false},
+    {"id":"pl13","kind":"farm","area":"Greenfields plain","x":292.4,"z":-866.7,"y":3.37,"rx":292.42050185446647,"rz":-866.7271920930256,"w":44,"d":32,"rot":0,"old":false},
+    {"id":"pl14","kind":"stone","area":"Redstone Quarry","x":1088.5,"z":-652.3,"y":28.33,"rx":1088.4689803693764,"rz":-652.3208091651652,"w":34,"d":34,"rot":0,"old":false,"res":"stone"},
+    {"id":"pl15","kind":"stone","area":"Redstone Quarry","x":1028.4,"z":-641.3,"y":23.06,"rx":1028.360727074724,"rz":-641.3104573177689,"w":34,"d":34,"rot":0,"old":false,"res":"stone"},
+    {"id":"pl16","kind":"stone","area":"Redstone Quarry","x":1034.4,"z":-759.5,"y":26,"rx":1034.4079876758196,"rz":-759.5491778010266,"w":34,"d":34,"rot":0,"old":true,"res":"stone"},
+    {"id":"pl17","kind":"coal","area":"Deepwell Mine","x":1141.7,"z":-626.8,"y":33.18,"rx":1141.69428304848,"rz":-626.8206701645723,"w":34,"d":34,"rot":0,"old":true,"res":"coal"},
+    {"id":"pl18","kind":"coal","area":"Deepwell Mine","x":1085.6,"z":-729.5,"y":26,"rx":1085.6388784039946,"rz":-729.4755533847379,"w":34,"d":34,"rot":0,"old":false,"res":"coal"},
+    {"id":"pl19","kind":"coal","area":"Deepwell Mine","x":1134.6,"z":-736.9,"y":33.4,"rx":1134.5608178593968,"rz":-736.9451975994489,"w":34,"d":34,"rot":0,"old":false,"res":"coal"},
+    {"id":"pl20","kind":"oil","area":"Southern oil field","x":803.1,"z":83.7,"y":3.62,"rx":803.1122379019448,"rz":83.69120899294093,"w":34,"d":34,"rot":0,"old":false,"res":"oil"},
+    {"id":"pl21","kind":"oil","area":"Southern oil field","x":913,"z":-18.1,"y":3.08,"rx":913.0007606060248,"rz":-18.10824727085803,"w":34,"d":34,"rot":0,"old":false,"res":"oil"},
+    {"id":"pl22","kind":"oil","area":"Southern oil field","x":828.1,"z":7,"y":3.05,"rx":828.0748490840544,"rz":6.994277852119076,"w":34,"d":34,"rot":0,"old":false,"res":"oil"},
+    {"id":"pl23","kind":"villa","area":"Luxury coast","x":-562,"z":-279.1,"y":14.27,"rx":-561.9850836051559,"rz":-279.1251898180345,"w":28,"d":30,"rot":0,"old":false},
+    {"id":"pl24","kind":"villa","area":"Coral Coast","x":-740.5,"z":-525.5,"y":4.14,"rx":-740.4513609597699,"rz":-525.5413889910753,"w":28,"d":30,"rot":0,"old":true},
+    {"id":"pl25","kind":"industrial","area":"Works Estate","x":1033.1,"z":-279.8,"y":2.95,"rx":1033.1491599851984,"rz":-279.7923782699706,"w":38,"d":38,"rot":0,"old":false},
+    {"id":"pl26","kind":"industrial","area":"Works Estate","x":1001.1,"z":-154.6,"y":3.05,"rx":1001.0639835526533,"rz":-154.611306481348,"w":38,"d":38,"rot":0,"old":false},
+    {"id":"pl27","kind":"industrial","area":"Works Estate","x":1004.9,"z":-207.5,"y":3.01,"rx":1004.8801911458746,"rz":-207.4770897801393,"w":38,"d":38,"rot":0,"old":false},
+    {"id":"pl28","kind":"industrial","area":"Works Estate","x":939.1,"z":-157.6,"y":3.08,"rx":939.107452667834,"rz":-157.57061015235755,"w":38,"d":38,"rot":0,"old":false},
+    {"id":"pl29","kind":"industrial","area":"Works Estate","x":980.3,"z":-255.6,"y":2.99,"rx":980.3156917264292,"rz":-255.61326671653114,"w":38,"d":38,"rot":0,"old":false},
+    {"id":"pl30","kind":"tower","area":"Capital","x":91.8,"z":-48.2,"y":3,"rx":91.77042848978675,"rz":-48.238014363794605,"w":30,"d":30,"rot":0,"old":false},
+    {"id":"pl31","kind":"tower","area":"Capital","x":146,"z":109.1,"y":2.97,"rx":145.9872348634467,"rz":109.14491822437611,"w":30,"d":30,"rot":0,"old":false},
+    {"id":"pl32","kind":"tower","area":"Capital","x":-256.5,"z":-82.9,"y":5.42,"rx":-256.54872875499944,"rz":-82.9190064887139,"w":30,"d":30,"rot":0,"old":false},
+    {"id":"pl33","kind":"tower","area":"Capital","x":4.2,"z":-239,"y":3,"rx":4.229496337580258,"rz":-239.00918159587735,"w":30,"d":30,"rot":0,"old":false},
+    {"id":"pl34","kind":"tower","area":"Capital","x":-123.8,"z":-209.6,"y":2.96,"rx":-123.82703111685208,"rz":-209.63536811509886,"w":30,"d":30,"rot":0,"old":false},
+    {"id":"pl35","kind":"harbour","area":"Eastgate docks","x":664.2,"z":-415.9,"y":9.11,"rx":664.1931268126672,"rz":-415.8692907243358,"w":28,"d":24,"rot":0,"old":false},
+    {"id":"pl36","kind":"harbour","area":"Works quay","x":731.1,"z":-45.8,"y":8.86,"rx":731.1240133136157,"rz":-45.80549204061066,"w":28,"d":24,"rot":0,"old":true},
+    {"id":"pl37","kind":"harbour","area":"South quay","x":957.5,"z":197.3,"y":3.08,"rx":957.4733411508954,"rz":197.3252370475443,"w":28,"d":24,"rot":0,"old":true}
+  ];
   // new shop and place signs join the picture atlas (they must be added before the game starts)
   const NEWSIGNS = [['BUTCHER', '#b03a2e'], ['HARDWARE', '#3d5a80'], ['TEA ROOMS', '#8a5a44'], ['BOOKS', '#5b3f8c'], ['FISH MARKET', '#1f78a8'], ['CHANDLER', '#2c5f7c'], ['FISH & CHIPS', '#c47f17'], ['ICE HOUSE', '#4a90a4'], ['POTTERY', '#b5651d'], ['WINE', '#7b1e3a'], ['OLIVE OIL', '#6b7d1e'], ['POST OFFICE', '#c0392b'], ['DIVE SHOP', '#0e7c86'], ['SURF HIRE', '#e8742c'], ['SEAFOOD GRILL', '#c0392b'], ['GELATO', '#e66b9a'], ['SOUVENIRS', '#7d5ba6'],
     ['HOTEL CORAL', '#e0607e'], ['SUNSET HOTEL', '#e07b39'], ['PEARL RESORT', '#2a8fa6'], ['LAGOON HOTEL', '#1f9d8a'], ['MARINA CLUB', '#1f4f86'], ['RESTAURANT', '#8a2f2f'], ['TERMINAL', '#1f4f86'], ['AIRPORT', '#27496d'], ['ARRIVALS', '#2f8f5b'], ['DEPARTURES', '#c0392b'], ['FREIGHT', '#d97a1c'], ['RECYCLING', '#2f8f3a'], ['STEEL', '#5a6270'], ['TIMBER YARD', '#7a4e2d'], ['FACTORY', '#34495e'], ['CUSTOMS', '#8e44ad'], ['PORT OFFICE', '#1f6f9a'],
@@ -593,6 +635,10 @@
 
     // ---------- plots: empty ground to buy, then build on, farm or mine (the game draws and sells them: plots.js and app.js) ----------
     function plots() {
+      if (BAKED_PLOTS && !/[?&]plotcalc\b/.test(location.search)) { // the plot sites are fixed by the island server, so they are stored, not searched for on every load (the search was half the time spent building the new regions); ?plotcalc searches again
+        const out = BAKED_PLOTS.map(p => Object.assign({}, p)); for (const p of out) reserve({ x: p.rx, z: p.rz, w: p.w + 4, d: p.d + 4, rot: 0 });
+        World.plotSites = out; const by = {}; for (const p of out) by[p.kind] = (by[p.kind] || 0) + 1; WORKS.plots = { n: out.length, by, baked: true }; lap('plots'); return;
+      }
       const LOGP = [], out = [], R = rng(31337), CAT = [
         // [kind, area, boxes [x0,x1,z0,z1], w, d, how many, extra, how near a road at most]
         ['town', 'Millford', [[-130, 150, -910, -690]], 20, 22, 6, null, 60], ['town', 'Northhaven', [[-190, 70, -980, -810]], 20, 22, 4, null, 60], ['town', 'Eastgate', [[620, 920, -680, -440]], 20, 22, 5, null, 60], ['town', 'Hillcrest', [[-440, -300, -730, -630]], 18, 20, 2, null, 50],
@@ -609,7 +655,7 @@
           if (!fitsAt(x, z, w + 6, d + 6, 0, { slope: res ? 9 : kind === 'farm' || kind === 'villa' ? 5.5 : 3.4, road: 3, coast: port ? 0.5 : kind === 'harbour' ? 10 : 18, river: 8 })) continue; if (nearRoad(x, z)[0] > near || (kind === 'harbour' && land(x, z) > (port ? 60 : 75))) { far++; continue; }
           if (!res && !['industrial', 'harbour'].includes(kind) && NOFIELD.some(r => x > r[0] && x < r[1] && z > r[2] && z < r[3]) || K.FARMRECTS.some(f => inR(x, z, { x: f.x, z: f.z, w: f.w + w + 10, d: f.d + d + 10, rot: f.rot || 0 }))) continue;
           if (out.some(p => Math.abs(p.x - x) < (p.w + w) / 2 + 8 && Math.abs(p.z - z) < (p.d + d) / 2 + 8)) continue;
-          reserve({ x, z, w: w + 4, d: d + 4, rot: 0 }); out.push(Object.assign({ id: 'pl' + out.length, kind, area, x: Math.round(x * 10) / 10, z: Math.round(z * 10) / 10, y: Math.round(groundY(x, z) * 100) / 100, w, d, rot: 0, old: R() < (kind === 'town' || kind === 'villa' ? 0.5 : 0.15) }, extra || {})); made++;
+          reserve({ x, z, w: w + 4, d: d + 4, rot: 0 }); out.push(Object.assign({ id: 'pl' + out.length, kind, area, x: Math.round(x * 10) / 10, z: Math.round(z * 10) / 10, y: Math.round(groundY(x, z) * 100) / 100, rx: x, rz: z, w, d, rot: 0, old: R() < (kind === 'town' || kind === 'villa' ? 0.5 : 0.15) }, extra || {})); made++;
         }
         const df = {}; for (const k in WHY) if (WHY[k] !== (w0[k] || 0)) df[k] = WHY[k] - (w0[k] || 0); LOGP.push([kind, area, made, far, df]);
       }

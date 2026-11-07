@@ -697,3 +697,14 @@ The island is about four times larger (2.1 km² against 0.55 km²). `island/samp
 - Skyline: `skyline()` in expand.js (after plots) places six city-owned towers (not for sale, so no server lots needed).
 - Cars: `detail()` in `vehicleGeo` adds plates, seams, arches and pillars; a new `sports` type.
 - Not done: the island is about 4× the first one, not 10×; no new roundabouts on the new land (its main roads are cut into short pieces); load time on a real phone not measured.
+
+## Goal 41: the island loads fast (the goals restarted from the build time)
+
+- **Finding:** a phone-class processor (Chrome DevTools CPU throttle 4×) took 64 s to build the island with the page frozen (46 s on Low), 12 s on a fast PC. The original island took 16 s throttled. Nothing else matters if players cannot get in, so the restart began here.
+- **Measure it:** headless Edge over the DevTools protocol with `Emulation.setCPUThrottlingRate` 4 and a phone-size window; read `window.buildMs`, `World.times` and a CPU profile (`Profiler.start` / `Profiler.stop`). On 2026-11-07: PC 13.4 s to the first frame → about 6 s; throttled 64 s → about 28 s.
+- **What changed** (none of it changes how the island looks; checked by comparing every ground vertex, 90 000 `land()` points and all 367 building positions against the live copy):
+  - `world.js`: buildings are looked up in a grid (`inside`, `clearOf`) instead of being tested one by one for every tree (4.5 s → 0.8 s); numeric cell keys instead of strings in the walk and road grids; the 128 m ground squares are drawn after the start, 6 ms a frame, nearest home first, with the coarse far ground standing in (`PADLIM` in `geo.js` keeps their heights exactly as before); shaders are handed to the driver together (`renderer.compile`) while the progress bar is still showing; `init` is async and reports progress, and the page paints between steps.
+  - `geo.js`: each coastline cell lists its segments nearest first and the search stops once the rest cannot beat the best (same answer, less work); `Math.hypot` and string keys are out of the hottest functions.
+  - `expand.js`: the 38 plot sites are stored (`BAKED_PLOTS`) instead of being searched for on every load (half the time of the new regions). Open the game with `?plotcalc` to search again; the result without `n`, `v0` and `v1` is the new table. The ids are fixed by the server, so they must never move.
+  - `app.js`: Auto graphics gives phones Medium (iPhones do not report their memory); the update check waits while the island builds.
+- **Still slow:** shader compile (27 programs, about 2 s), footpaths from every door (`entrances` / `route2d`), trees, and the towns. A bigger island needs these built in the background (streamed) before it can be added: that is the next step of the restart.

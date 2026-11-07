@@ -20,10 +20,13 @@ window.World = (function () {
   let renderer, scene, camera, controls, sun, hemi, clock = 0, camDist = 400, Q = 'high';
   const tick = [], fadeMats = [], buildings = [], LABELS = [];
   const { x0: X0, x1: X1, z0: Z0, z1: Z1 } = G.WORLD;
-  function init(canvas, q) {
+  // the page gets a turn to draw between the build steps, so the loading bar moves and the phone never looks frozen
+  const paintNow = () => new Promise(r => { let done = false; const go = () => { if (!done) { done = true; r(); } }; requestAnimationFrame(() => setTimeout(go, 0)); setTimeout(go, 80); }); // (a hidden tab draws nothing: the timer lets it carry on)
+  async function init(canvas, q, progress) { // progress(label, 0..1) is told which step is next
     Q = q || 'high';
     renderer = new THREE.WebGLRenderer({ canvas, antialias: Q !== 'low', powerPreference: 'high-performance' });
     renderer.setPixelRatio(Math.min(devicePixelRatio, Q === 'low' ? 1 : Q === 'medium' ? 1.5 : 2));
+    renderer.debug.checkShaderErrors = /[?&]debug\b/.test(location.search); // three.js asks the driver about every shader the moment it links it, which makes the driver compile them one at a time and stalls the first frame for seconds; unasked, it compiles them together
     renderer.outputEncoding = THREE.sRGBEncoding;
     // colour: the last build lit every surface at about 2.5x its own colour and then squeezed that through ACES, which
     // flattens and greys anything bright. Here the sun and sky add up to about 1x, and a linear curve keeps colours true:
@@ -41,8 +44,14 @@ window.World = (function () {
     sun.castShadow = Q !== 'low'; sun.shadow.mapSize.setScalar(Q === 'high' ? 2048 : 1024); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.5; sun.shadow.radius = 3;
     scene.add(sun, sun.target);
     World.times = {};
-    for (const [k, f] of [['terrain', buildTerrain], ['ocean', buildOcean], ['rivers', buildRiverWater], ['roads', buildRoads], ['town', buildTown], ['nature', buildNature], ['traffic', buildTraffic], ['weather', buildWeather]]) { const t0 = performance.now(); f(); World.times[k] = Math.round(performance.now() - t0); }
+    // the steps, with what the player is told and roughly how much of the wait each one is (measured: shaping the land and building the towns are the long ones)
+    const STEPS = [['terrain', buildTerrain, 'Shaping the land', 0.22], ['ocean', buildOcean, 'Filling the sea', 0.02], ['rivers', buildRiverWater, 'Running the rivers', 0.01], ['roads', buildRoads, 'Laying the roads', 0.03], ['town', buildTown, 'Building the towns', 0.34], ['nature', buildNature, 'Planting the trees', 0.1], ['traffic', buildTraffic, 'Starting the traffic', 0.02], ['weather', buildWeather, 'Checking the weather', 0.01]];
+    let done = 0; const total = STEPS.reduce((a, s) => a + s[3], 0.25);
+    for (const [k, f, label, w] of STEPS) { if (progress) { progress(label, done / total); await paintNow(); } const t0 = performance.now(); f(); World.times[k] = Math.round(performance.now() - t0); done += w; }
     resize(); addEventListener('resize', resize);
+    if (progress) { progress('Getting the graphics ready', done / total); await paintNow(); }
+    { const t0 = performance.now(); try { renderer.compile(scene, camera); } catch (e) { /* the first frame compiles whatever is missing */ } World.times.compile = Math.round(performance.now() - t0); } // every shader is handed to the driver now, together, rather than one by one during the first frames
+    if (progress) progress('Ready', 1);
   }
   function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
   // a weak graphics card draws fewer pixels instead of dropping frames: slow for a few seconds -> a little lower, comfortable for a while -> a little higher
@@ -99,16 +108,28 @@ window.World = (function () {
   }
   function buildTerrain() {
     const t0 = performance.now(); groundMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }); /* pushed back a little, so yards and paving laid on it never flicker where the ground rises through them */
-    const i0 = Math.floor(X0 / CH), i1 = Math.ceil(X1 / CH), j0 = Math.floor(Z0 / CH), j1 = Math.ceil(Z1 / CH);
+    const i0 = Math.floor(X0 / CH), i1 = Math.ceil(X1 / CH), j0 = Math.floor(Z0 / CH), j1 = Math.ceil(Z1 / CH), work = [];
     for (let cj = j0; cj < j1; cj++) for (let ci = i0; ci < i1; ci++) {
       const x0 = ci * CH, z0 = cj * CH; let sea = true; for (let a = 0; a <= 4 && sea; a++) for (let b = 0; b <= 4; b++) if (land(x0 + a * CH / 4, z0 + b * CH / 4) > -10) { sea = false; break; } if (sea) continue; // nothing but open sea
-      const S = G.detailAt(x0, z0, CH) ? 4 : 8, r = groundGrid(x0, z0, CH / S, CH / S, S, true, 0); if (!r.wet) continue;
-      const m = new THREE.Mesh(r.g, groundMat); m.receiveShadow = true; m.matrixAutoUpdate = false; m.name = 'ground'; scene.add(m); groundMeshes.push(m); GR.chunks++; GR.verts += r.g.attributes.position.count; GR.tris += r.tris;
+      work.push([x0, z0]);
     }
+    const padN = PADS.length; // a square's heights use the ground pads that exist now, whenever the square is drawn, so the ground is exactly what it always was
+    let farOn = false;
+    const make = ([x0, z0]) => {
+      const S = G.detailAt(x0, z0, CH) ? 4 : 8; G.setPadLimit(padN); let r; try { r = groundGrid(x0, z0, CH / S, CH / S, S, true, 0); } finally { G.setPadLimit(-1); } if (!r.wet) return;
+      const m = new THREE.Mesh(r.g, groundMat); m.receiveShadow = true; m.matrixAutoUpdate = false; m.name = 'ground'; m.visible = !farOn; scene.add(m); groundMeshes.push(m); GR.chunks++; GR.verts += r.g.attributes.position.count; GR.tris += r.tris;
+    };
+    if (!EXPANDED) for (const w of work) make(w); // the first island: every square at once, as before
     if (EXPANDED) { // seen from far away the whole island is one coarse mesh (16 m), sunk a little so roads and buildings laid on the fine ground never hide under it
       const fx = Math.floor(X0 / 16) * 16, fz = Math.floor(Z0 / 16) * 16, r = groundGrid(fx, fz, Math.ceil((X1 - fx) / 16), Math.ceil((Z1 - fz) / 16), 16, false, 1.2);
-      farGround = new THREE.Mesh(r.g, groundMat); farGround.receiveShadow = true; farGround.matrixAutoUpdate = false; farGround.visible = false; farGround.name = 'ground-far'; scene.add(farGround); GR.farVerts = r.g.attributes.position.count; GR.farTris = r.tris;
-      tick.push(() => { const far = camDist > (farGround.visible ? 1150 : 1350); if (far !== farGround.visible) { farGround.visible = far; for (const m of groundMeshes) m.visible = !far; } });
+      farGround = new THREE.Mesh(r.g, groundMat); farGround.receiveShadow = true; farGround.matrixAutoUpdate = false; farGround.visible = true; farGround.name = 'ground-far'; scene.add(farGround); GR.farVerts = r.g.attributes.position.count; GR.farTris = r.tris;
+      // the detailed squares are drawn after the game starts, a few milliseconds a frame, nearest home first: the island is playable at once and the coarse ground stands in for any square not drawn yet
+      const HX = 27, HZ = -20; work.sort((a, b) => Math.hypot(a[0] + CH / 2 - HX, a[1] + CH / 2 - HZ) - Math.hypot(b[0] + CH / 2 - HX, b[1] + CH / 2 - HZ)); GR.pending = work.length;
+      tick.push(() => {
+        const far = camDist > (farOn ? 1150 : 1350); if (far !== farOn) { farOn = far; for (const m of groundMeshes) m.visible = !far; }
+        if (work.length) { const t1 = performance.now(); do { make(work.shift()); } while (work.length && performance.now() - t1 < 6); GR.pending = work.length; }
+        farGround.visible = farOn || work.length > 0;
+      });
     }
     GR.ms = Math.round(performance.now() - t0);
   }
@@ -576,7 +597,7 @@ window.World = (function () {
   // Every front door is joined to it (or, out of town, to the road edge), the people in town walk only on it, and the road
   // checks list any door it can't reach. Footpaths are routed round buildings and gardens, never through them.
   const WG = { v: [], links: [], grid: new Map() }, WCELL = 12, vmap = new Map();
-  const wkey = (x, z) => Math.floor(x / WCELL) + ',' + Math.floor(z / WCELL);
+  const wkey = (x, z) => Math.floor(x / WCELL) * 100003 + Math.floor(z / WCELL); // numeric cell keys: strings were slow
   function wvert(x, y, z) { // a vertex, shared with any other within half a metre
     const kx = Math.round(x * 2), kz = Math.round(z * 2);
     for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) { const v = vmap.get((kx + i) + ',' + (kz + j)); if (v && Math.hypot(v.x - x, v.z - z) < 0.55) return v; }
@@ -592,8 +613,8 @@ window.World = (function () {
   function wunlink(L) { WG.links.splice(WG.links.indexOf(L), 1); L.a.adj.splice(L.a.adj.indexOf(L), 1); L.b.adj.splice(L.b.adj.indexOf(L), 1); for (const s of WG.grid.values()) s.delete(L); }
   function wnear(x, z, r = 3, kind) { // the nearest point on the walking network within r metres
     let best = null, bd = r; const gx = Math.floor(x / WCELL), gz = Math.floor(z / WCELL), R = Math.ceil(r / WCELL);
-    for (let i = -R; i <= R; i++) for (let j = -R; j <= R; j++) for (const L of WG.grid.get((gx + i) + ',' + (gz + j)) || []) { if (kind && L.kind !== kind) continue; for (let k = 0; k < L.pts.length - 1; k++) {
-      const p = L.pts[k], q = L.pts[k + 1], ex = q[0] - p[0], ez = q[2] - p[2], t = clamp(((x - p[0]) * ex + (z - p[2]) * ez) / (ex * ex + ez * ez || 1), 0, 1), d = Math.hypot(p[0] + ex * t - x, p[2] + ez * t - z);
+    for (let i = -R; i <= R; i++) for (let j = -R; j <= R; j++) for (const L of WG.grid.get((gx + i) * 100003 + gz + j) || []) { if (kind && L.kind !== kind) continue; for (let k = 0; k < L.pts.length - 1; k++) {
+      const p = L.pts[k], q = L.pts[k + 1], ex = q[0] - p[0], ez = q[2] - p[2], t0 = ((x - p[0]) * ex + (z - p[2]) * ez) / (ex * ex + ez * ez || 1), t = t0 < 0 ? 0 : t0 > 1 ? 1 : t0, qx = p[0] + ex * t - x, qz = p[2] + ez * t - z, d = Math.sqrt(qx * qx + qz * qz);
       if (d < bd) { bd = d; best = { L, k, t, d, x: p[0] + ex * t, y: mix(p[1], q[1], t), z: p[2] + ez * t, s: L.cum[k] + (L.cum[k + 1] - L.cum[k]) * t }; } } }
     return best;
   }
@@ -1123,8 +1144,28 @@ window.World = (function () {
       m.frustumCulled = true; m.castShadow = true; m.receiveShadow = true; scene.add(m); // r128 instanced meshes skip culling unless told
     }
   }
-  const inside = (x, z, pad) => !buildings.every(b => { const c = Math.cos(b.rot), s = Math.sin(b.rot), lx = (x - b.x) * c - (z - b.z) * s, lz = (x - b.x) * s + (z - b.z) * c; return !(Math.abs(lx) < b.w / 2 + pad && Math.abs(lz) < b.d / 2 + pad); });
-  function clearOf(x, z, pad) { for (const b of buildings) { const c = Math.cos(b.rot), s = Math.sin(b.rot), lx = (x - b.x) * c - (z - b.z) * s, lz = (x - b.x) * s + (z - b.z) * c; if (Math.abs(lx) < b.w / 2 + pad + (b.clear || 0) && Math.abs(lz) < b.d / 2 + pad + (b.clear || 0)) return false; } return nearRoad(x, z)[0] > pad + 2.5; } // villas keep their gardens clear of the woods
+  // buildings in a grid of 16 m cells, so a tree or a path asks about the few buildings near it instead of all of them (this was
+  // most of the island's build time). Buildings are only ever added, so the grid just takes in the new ones; pads over 8 m ask all.
+  const BCELL = 16, BPADMAX = 8, BGRID = new Map(); let BGN = 0;
+  const bkey = (i, j) => i * 100003 + j;
+  function buildingGrid() {
+    if (BGN > buildings.length) { BGRID.clear(); BGN = 0; }
+    for (; BGN < buildings.length; BGN++) {
+      const b = buildings[BGN], k = b.clear || 0, r = Math.hypot(b.w / 2 + BPADMAX + k, b.d / 2 + BPADMAX + k), o = { b, c: Math.cos(b.rot), s: Math.sin(b.rot) };
+      for (let i = Math.floor((b.x - r) / BCELL), i1 = Math.floor((b.x + r) / BCELL); i <= i1; i++) for (let j = Math.floor((b.z - r) / BCELL), j1 = Math.floor((b.z + r) / BCELL); j <= j1; j++) { const key = bkey(i, j); let a = BGRID.get(key); if (!a) BGRID.set(key, a = []); a.push(o); }
+    }
+    return BGRID;
+  }
+  const inBox = (o, x, z, pad) => { const b = o.b, lx = (x - b.x) * o.c - (z - b.z) * o.s, lz = (x - b.x) * o.s + (z - b.z) * o.c; return Math.abs(lx) < b.w / 2 + pad && Math.abs(lz) < b.d / 2 + pad; };
+  const inside = (x, z, pad) => {
+    if (pad > BPADMAX) { for (const b of buildings) if (inBox({ b, c: Math.cos(b.rot), s: Math.sin(b.rot) }, x, z, pad)) return true; return false; }
+    const L = buildingGrid().get(bkey(Math.floor(x / BCELL), Math.floor(z / BCELL))); if (L) for (let i = 0; i < L.length; i++) if (inBox(L[i], x, z, pad)) return true; return false;
+  };
+  function clearOf(x, z, pad) { // villas keep their gardens clear of the woods
+    if (pad > BPADMAX) { for (const b of buildings) if (inBox({ b, c: Math.cos(b.rot), s: Math.sin(b.rot) }, x, z, pad + (b.clear || 0))) return false; }
+    else { const L = buildingGrid().get(bkey(Math.floor(x / BCELL), Math.floor(z / BCELL))); if (L) for (let i = 0; i < L.length; i++) if (inBox(L[i], x, z, pad + (L[i].b.clear || 0))) return false; }
+    return nearRoad(x, z)[0] > pad + 2.5;
+  }
   const LEFT_OUT = {}; // why trees were not planted, by rule (World.treeReport shows it)
   function settle(t, kind) { // a tree needs ground: off the carriageway and the footpaths, clear of walls, out of the water, at the height of the ground under it
     const x = t[0], z = t[2], small = kind === 'flower' || kind === 'bush', street = t[4] === 'street', g = heightAt(x, z), no = why => { LEFT_OUT[why] = (LEFT_OUT[why] || 0) + 1; return false; };
@@ -1569,6 +1610,6 @@ window.World = (function () {
 
   function simulate(seconds, dt = 1 / 60) { for (let t = 0; t < seconds; t += dt) { clock += dt; for (const f of tick) f(dt, clock); } return stats; } // the same traffic code without drawing, for tests
   function eventState(o) { if (EVENT.crowd) EVENT.crowd.visible = !!o.match; const f = MATS && MATS.flood; if (f) f.color.set(o.match ? 0xffffff : 0x8a8f96); EVENT.match = !!o.match; } // match day: the crowd in the stands and the floodlights on
-  return { signs: { SIGNS, SIGNC }, regions: REGION_BUILDERS, players, farm: farmState, event: eventState, access: ACCESS, works: WORKS, walk: WG, POI, simulate, dispatch, routeInfo, SPARE, init: (c, q) => { init(c, q); buildPeople(); }, step, frame, place, view, flyTo, current, overview, viewOf, homeView, pickAt, mark, photo, buildings, LABELS, nodes, edges, cars, SHIP, stats, roadReport, treeReport, routeTest, setClosed, colourReport, route, land, heightAt,
+  return { signs: { SIGNS, SIGNC }, regions: REGION_BUILDERS, players, farm: farmState, event: eventState, access: ACCESS, works: WORKS, walk: WG, POI, simulate, dispatch, routeInfo, SPARE, init: async (c, q, progress) => { await init(c, q, progress); buildPeople(); }, step, frame, place, view, flyTo, current, overview, viewOf, homeView, pickAt, mark, photo, buildings, LABELS, nodes, edges, cars, SHIP, stats, roadReport, treeReport, routeTest, setClosed, colourReport, route, land, heightAt,
     get ground() { return GR; }, get trees() { return TREES; }, get camera() { return camera; }, get renderer() { return renderer; }, get scene() { return scene; }, get controls() { return controls; }, get flying() { return !!fly; }, get dist() { return camDist; }, get pixelRatio() { return renderer.getPixelRatio(); }, get pixelRatioMax() { return pxMax; } };
 })();

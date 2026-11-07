@@ -61,11 +61,16 @@
       bx0 = Math.min(bx0, segs[o], segs[o + 4]); bx1 = Math.max(bx1, segs[o], segs[o + 4]); bz0 = Math.min(bz0, segs[o + 1], segs[o + 5]); bz1 = Math.max(bz1, segs[o + 1], segs[o + 5]);
     }
     bx0 -= RMAX; bx1 += RMAX; bz0 -= RMAX; bz1 += RMAX;
+    // each cell's segments nearest-first, with their distance from the cell centre: a point in the cell is never closer to a
+    // segment than (that distance - the cell's half diagonal), so the search stops as soon as the rest can't beat the best
+    // found (same answer as checking every segment, in a fraction of the work)
+    const dist = new Array(NX * NZ), HALF = CELL * 0.7072;
+    for (let c = 0; c < tmp.length; c++) { const L = tmp[c]; if (!L) continue; const cx = WX0 + (c % NX + 0.5) * CELL, cz = WZ0 + (Math.floor(c / NX) + 0.5) * CELL, dd = L.map(k => segD(k * 8, cx, cz)), ord = L.map((_, i) => i).sort((p, q) => dd[p] - dd[q]); tmp[c] = Int32Array.from(ord, i => L[i]); dist[c] = Float64Array.from(ord, i => dd[i]); }
     return (x, z) => {
       if (x < bx0 || x > bx1 || z < bz0 || z > bz1) { K.rock = 1; K.quay = 0; K.isle = isle; return -RMAX; } // far from this coast
-      const ci = Math.floor((x - WX0) / CELL), cj = Math.floor((z - WZ0) / CELL), list = ci >= 0 && cj >= 0 && ci < NX && cj < NZ ? tmp[cj * NX + ci] : null;
+      const ci = Math.floor((x - WX0) / CELL), cj = Math.floor((z - WZ0) / CELL), ce = cj * NX + ci, list = ci >= 0 && cj >= 0 && ci < NX && cj < NZ ? tmp[ce] : null;
       let d = RMAX, best = -1, bt = 0;
-      if (list) for (let a = 0; a < list.length; a++) { const o = list[a] * 8, x0 = segs[o], z0 = segs[o + 1], ex = segs[o + 4] - x0, ez = segs[o + 5] - z0; let t = ((x - x0) * ex + (z - z0) * ez) / (ex * ex + ez * ez || 1); t = t < 0 ? 0 : t > 1 ? 1 : t; const px = x0 + t * ex - x, pz = z0 + t * ez - z, dd = Math.sqrt(px * px + pz * pz); if (dd < d) { d = dd; best = o; bt = t; } }
+      if (list) { const dl = dist[ce]; for (let a = 0; a < list.length; a++) { if (dl[a] - HALF >= d) break; const o = list[a] * 8, x0 = segs[o], z0 = segs[o + 1], ex = segs[o + 4] - x0, ez = segs[o + 5] - z0; let t = ((x - x0) * ex + (z - z0) * ez) / (ex * ex + ez * ez || 1); t = t < 0 ? 0 : t > 1 ? 1 : t; const px = x0 + t * ex - x, pz = z0 + t * ez - z, dd = Math.sqrt(px * px + pz * pz); if (dd < d) { d = dd; best = o; bt = t; } } }
       let inside = false; const bl = band.get(Math.floor(z / 8)); if (bl) for (let a = 0; a < bl.length; a++) { const o = bl[a] * 8; if ((segs[o + 1] > z) !== (segs[o + 5] > z) && x < segs[o] + (z - segs[o + 1]) / (segs[o + 5] - segs[o + 1]) * (segs[o + 4] - segs[o])) inside = !inside; }
       K.rock = best >= 0 ? mix(segs[best + 2], segs[best + 6], bt) : 1; K.quay = best >= 0 ? mix(segs[best + 3], segs[best + 7], bt) : 0; K.isle = isle;
       return inside ? d : -d;
@@ -656,9 +661,9 @@
   // road segments in a grid, so the ground can settle under each road quickly
   const RSEG = [], RGRID = new Map();
   for (const e of edges) for (let i = 1; i < e.pts.length; i++) { const p = e.pts[i - 1], q = e.pts[i], s = { ax: p[0], ay: p[1], az: p[2], bx: q[0], by: q[1], bz: q[2], w: e.w, bridge: e.kind === 'bridge' || e.kind === 'tunnel', kind: e.kind, t0: e.cum[i - 1] / e.len, t1: e.cum[i] / e.len };
-    RSEG.push(s); for (let gx = Math.floor((Math.min(p[0], q[0]) - 30) / 20); gx <= Math.floor((Math.max(p[0], q[0]) + 30) / 20); gx++) for (let gz = Math.floor((Math.min(p[2], q[2]) - 30) / 20); gz <= Math.floor((Math.max(p[2], q[2]) + 30) / 20); gz++) { const k = gx + ',' + gz; if (!RGRID.has(k)) RGRID.set(k, []); RGRID.get(k).push(s); } }
+    RSEG.push(s); for (let gx = Math.floor((Math.min(p[0], q[0]) - 30) / 20); gx <= Math.floor((Math.max(p[0], q[0]) + 30) / 20); gx++) for (let gz = Math.floor((Math.min(p[2], q[2]) - 30) / 20); gz <= Math.floor((Math.max(p[2], q[2]) + 30) / 20); gz++) { const k = gx * 100003 + gz; if (!RGRID.has(k)) RGRID.set(k, []); RGRID.get(k).push(s); } } // numeric cell keys: building a string for every lookup was a large part of the build time
   function nearRoad(x, z) { // distance to the nearest road edge, and that road's height there
-    let best = 1e9, y = 0, bridge = false, tt = 0, kind = ''; for (const s of RGRID.get(Math.floor(x / 20) + ',' + Math.floor(z / 20)) || []) { const ex = s.bx - s.ax, ez = s.bz - s.az, t = clamp(((x - s.ax) * ex + (z - s.az) * ez) / (ex * ex + ez * ez || 1), 0, 1), d = Math.hypot(s.ax + t * ex - x, s.az + t * ez - z) - s.w / 2; if (d < best) { best = d; y = mix(s.ay, s.by, t); bridge = s.bridge; tt = mix(s.t0, s.t1, t); kind = s.kind; } }
+    let best = 1e9, y = 0, bridge = false, tt = 0, kind = ''; for (const s of RGRID.get(Math.floor(x / 20) * 100003 + Math.floor(z / 20)) || []) { const ex = s.bx - s.ax, ez = s.bz - s.az, t0 = ((x - s.ax) * ex + (z - s.az) * ez) / (ex * ex + ez * ez || 1), t = t0 < 0 ? 0 : t0 > 1 ? 1 : t0, px = s.ax + t * ex - x, pz = s.az + t * ez - z, d = Math.sqrt(px * px + pz * pz) - s.w / 2; if (d < best) { best = d; y = mix(s.ay, s.by, t); bridge = s.bridge; tt = mix(s.t0, s.t1, t); kind = s.kind; } }
     return [best, y, bridge, tt, kind];
   }
   const PADS = []; // flat ground under buildings off the town terrace: [x, z, r, y]
@@ -667,15 +672,16 @@
   // villa plots beside the villa lanes, each levelled to the lane's height (fixed, so the plots people own never move)
   const VILLAS = FROZEN_VILLAS.map(([x, z, rot, y]) => ({ x, z, rot, y }));
   for (const v of VILLAS) PADS.push([v.x, v.z, 12, v.y]);
+  let PADLIM = -1; // the ground squares are drawn later than they were once worked out: they use only the pads that existed then, so they come out exactly as before
   function heightAt(x, z) {
     let h = natural(x, z);
     const [rd, ry, br] = nearRoad(x, z); if (!br) h = mix(h, ry - 0.05, 1 - smooth(1.5, 14, rd));
-    for (const p of PADS) { const dd = Math.hypot(x - p[0], z - p[1]); if (dd < p[2] + 10) h = mix(h, p[3], 1 - smooth(p[2], p[2] + 10, dd)); }
+    for (let i = 0, n = PADLIM < 0 ? PADS.length : PADLIM; i < n; i++) { const p = PADS[i], R = p[2] + 10, ex = x - p[0], ez = z - p[1]; if (ex > R || ex < -R || ez > R || ez < -R) continue; const dd = Math.sqrt(ex * ex + ez * ez); if (dd < R) h = mix(h, p[3], 1 - smooth(p[2], R, dd)); }
     return h;
   }
 
   const bbox = (() => { let a = 1e9, b = -1e9, c = 1e9, d = -1e9; for (const P of COAST_LISTS) for (const p of P) { a = Math.min(a, p[0]); b = Math.max(b, p[0]); c = Math.min(c, p[1]); d = Math.max(d, p[1]); } return { x0: a, x1: b, z0: c, z1: d }; })();
   const WORLD = EXPANDED ? { x0: Math.floor((bbox.x0 - 90) / 16) * 16, x1: Math.ceil((bbox.x1 + 90) / 16) * 16, z0: Math.floor((bbox.z0 - 90) / 16) * 16, z1: Math.ceil((bbox.z1 + 90) / 16) * 16 } : { x0: -660, x1: 700, z0: -520, z1: 340 };
-  const api = { FALL, NEW_TRAILS, NEW_TOWNS, forestDensity, NOTREE, landFar, pnoise, detailAt, zoneMask, ZONES, DETAIL, EXPANDED, WORLD, COAST_LISTS, clamp, smooth, mix, TOWN_Y, MAIN_C, ISLE_C, curve, K, land, hash, vnoise, fbm, g2, FLATS, townMask, natural, naturalOld, ground0, protect, plainMask, relief, PEAKS, PLAINS, RIVERS, nearRiver, riverSamples, NODES, EDGES, nodes, edges, catmull, cumOf, offsetLine, cut, bend, trimAt, lanes, makePath, conns, connector, route, laneBetween, RSEG, RGRID, nearRoad, PADS, VILLAS, heightAt };
+  const api = { setPadLimit: n => { PADLIM = n; }, FALL, NEW_TRAILS, NEW_TOWNS, forestDensity, NOTREE, landFar, pnoise, detailAt, zoneMask, ZONES, DETAIL, EXPANDED, WORLD, COAST_LISTS, clamp, smooth, mix, TOWN_Y, MAIN_C, ISLE_C, curve, K, land, hash, vnoise, fbm, g2, FLATS, townMask, natural, naturalOld, ground0, protect, plainMask, relief, PEAKS, PLAINS, RIVERS, nearRiver, riverSamples, NODES, EDGES, nodes, edges, catmull, cumOf, offsetLine, cut, bend, trimAt, lanes, makePath, conns, connector, route, laneBetween, RSEG, RGRID, nearRoad, PADS, VILLAS, heightAt };
   if (typeof module === 'object' && module.exports) module.exports = api; else root.IslandGeo = api;
 })(typeof self !== 'undefined' ? self : this);

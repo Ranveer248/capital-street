@@ -29,6 +29,8 @@ svg.i { width: 22px; height: 22px; fill: currentColor; flex: none; }
 .btn.go { background: linear-gradient(#3fcf7a, var(--grn)); }
 .btn.ghost { background: #fff; color: var(--ink); border-color: var(--line); box-shadow: none; }
 .btn:disabled { background: #c9cbd6; color: #6b708c; box-shadow: none; cursor: default; transform: none; border-color: transparent; }
+/* while the island builds, PLAY becomes a progress bar: it fills left to right and says which step it is on */
+#play.building:disabled { background: linear-gradient(90deg, #ffd75a var(--p, 0%), #d9dbe6 var(--p, 0%)); color: #3a2b00; border-color: rgba(10,15,46,.25); transition: background .25s; }
 .btn .spin { width: 16px; height: 16px; border-radius: 50%; border: 2.5px solid currentColor; border-right-color: transparent; animation: rot .8s linear infinite; } @keyframes rot { to { transform: rotate(360deg); } }
 
 /* title screen: the game's name, the island, what you do, then your name */

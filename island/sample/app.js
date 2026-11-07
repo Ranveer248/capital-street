@@ -116,7 +116,9 @@
     } catch (e) { G.why = 'the graphics check failed (' + (e.message || e) + ')'; }
     return G;
   })();
-  const autoQ = () => GFX.soft || (navigator.deviceMemory && navigator.deviceMemory <= 1) ? 'low' : navigator.deviceMemory && navigator.deviceMemory <= 2 ? 'medium' : 'high';
+  // phones get Medium (an iPhone does not report its memory, so it used to be given High: big shadows, full-size trees, and a long build)
+  const phone = () => matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 820;
+  const autoQ = () => GFX.soft || (navigator.deviceMemory && navigator.deviceMemory <= 1) ? 'low' : (navigator.deviceMemory && navigator.deviceMemory <= 2) || phone() || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) ? 'medium' : 'high';
   const effQ = () => qpref === 'auto' ? autoQ() : qpref, cap = s => s[0].toUpperCase() + s.slice(1);
   const setQ = k => { qpref = k; try { localStorage.setItem('cs-sample3-q', k); } catch (e) { /* the choice holds for this visit */ } };
   const gfxMsg = (t, bad) => { const g = $('gfxmsg'); g.textContent = t; g.hidden = !t; g.classList.toggle('bad', !!bad); };
@@ -132,8 +134,9 @@
     $('glxR').onclick = () => location.reload(); })();
   // phones and tablets: the on-screen keyboard shrinks the visible area, so the cover follows it and PLAY stays above the keys
   if (window.visualViewport) { const vv = visualViewport, cv = $('cover'); const fit = () => { const shrunk = vv.height < innerHeight - 120; cv.style.top = shrunk ? vv.offsetTop + 'px' : ''; cv.style.height = shrunk ? vv.height + 'px' : ''; if (shrunk && document.activeElement === nm) { const r = $('play').getBoundingClientRect(), over = r.bottom - (vv.offsetTop + vv.height) + 8; if (over > 0) cv.scrollBy({ top: over, behavior: 'smooth' }); } }; vv.addEventListener('resize', fit); vv.addEventListener('scroll', fit); nm.addEventListener('focus', () => setTimeout(fit, 400)); }
-  const playBtn = (on, label) => { const b = $('play'); b.disabled = on; b.innerHTML = on ? `<span class="spin"></span>${label}` : label; };
-  let started = false, joining = false, offline = !NET.ok;
+  const playBtn = (on, label) => { const b = $('play'); b.disabled = on; b.classList.remove('building'); b.style.removeProperty('--p'); b.innerHTML = on ? `<span class="spin"></span>${label}` : label; };
+  const buildBar = (label, f) => { const b = $('play'), pct = Math.round(Math.max(0, Math.min(1, f)) * 100); b.classList.add('building'); b.style.setProperty('--p', pct + '%'); b.innerHTML = `<span class="spin"></span>${label} ${pct}%`; jmsg(pct < 100 ? 'Building the island: this takes a moment the first time.' : ''); };
+  let started = false, joining = false, building = false, offline = !NET.ok;
   async function join() {
     if (joining || started || !GFX.ok) return; // one join at a time, however often Play is pressed (and none on a device that can't draw)
     const name = nm.value.trim(), bad = nameProblem(name);
@@ -149,11 +152,11 @@
     jmsg(offline ? 'Playing offline: your progress stays on this device.' : 'Joined. Building the island…'); playBtn(true, 'LOADING…');
     setTimeout(startWorld, 50);
   }
-  function startWorld() {
+  async function startWorld() {
     started = true;
-    try { $('c').hidden = false; const t0 = performance.now(); World.init($('c'), effQ()); window.buildMs = Math.round(performance.now() - t0); }
+    try { $('c').hidden = false; building = true; const t0 = performance.now(); await World.init($('c'), effQ(), buildBar); window.buildMs = Math.round(performance.now() - t0); building = false; }
     catch (e) {
-      console.error(e); $('c').hidden = true; started = joining = false; const why = (e && e.message) || String(e);
+      building = false; console.error(e); $('c').hidden = true; started = joining = false; const why = (e && e.message) || String(e);
       if (/webgl|context/i.test(why)) { jmsg('This device couldn\'t start 3D graphics (' + why + '). Turn on hardware acceleration, update the browser or try another one. A lower graphics level can\'t fix this.', true); playBtn(false, 'TRY AGAIN'); return; }
       setQ('low'); jmsg('The island couldn\'t be built here (' + why + '). Graphics are now set to Low: reload and press Play. Your progress is safe.', true); const b = $('play'); b.disabled = false; b.textContent = 'RELOAD'; b.onclick = () => location.reload(); return;
     }
@@ -171,10 +174,10 @@
   // ---------- updates, like Traffic Rush: version.json (the site's root) names the newest release, APP_VERSION this copy.
   // Bump BOTH for every release. When they differ the game says so, fetches its files fresh (past the browser's cache) and
   // reloads: at once on the cover, or while playing the next time no panel is open (and you go straight back in).
-  const APP_VERSION = '2026-11-07.4';
+  const APP_VERSION = '2026-11-07.5';
   let updBusy = false;
   async function checkUpdate() {
-    if (updBusy || (joining && !started) || !/^https?:$/.test(location.protocol)) return; // not inside the desktop app
+    if (updBusy || building || (joining && !started) || !/^https?:$/.test(location.protocol)) return; // not inside the desktop app
     updBusy = true;
     try {
       const r = await fetch('../../version.json?t=' + Date.now(), { cache: 'no-store' });
