@@ -20,6 +20,8 @@ function open() {
   if (SMOKE) win.webContents.on('console-message', e => { if (e.level === 'error' || e.level === 3) errors.push(String(e.message).slice(0, 160)); });
   if (SMOKE) win.webContents.once('did-finish-load', async () => {
     for (let i = 0; i < 90; i++) {
+      // a new player is asked to pick graphics before the city is built: the check picks Low (the build machine has no graphics card)
+      await win.webContents.executeJavaScript("{ const b = document.querySelector('#lq [data-q=low]'); if (window.Boot && Boot.waiting() && b) b.click(); }").catch(() => {});
       const ok = await win.webContents.executeJavaScript("!!(window.CS && document.getElementById('load').hidden && window.Land && Land.plots.size)").catch(() => false);
       if (ok) { console.log('SMOKE OK: the city loaded'); app.exit(0); return; }
       await new Promise(r => setTimeout(r, 1000));
